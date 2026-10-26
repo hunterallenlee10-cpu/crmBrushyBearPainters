@@ -26,10 +26,10 @@ cp .env.example .env.local
 
 # Start local Supabase (Postgres, Auth, Storage, Studio). Applies migrations + seed.
 pnpm supabase start
-# Copy the printed "API URL" and "anon key" into .env.local:
-#   NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
-#   NEXT_PUBLIC_SUPABASE_ANON_KEY=...
-#   SUPABASE_SERVICE_ROLE_KEY=...   (server-only)
+# Copy the printed values into .env.local:
+#   NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321      ("Project URL")
+#   NEXT_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_...      ("Publishable" key)
+#   SUPABASE_SERVICE_ROLE_KEY=sb_secret_...               ("Secret" key — server-only)
 
 pnpm dev            # http://localhost:3000
 ```

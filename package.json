@@ -16,7 +16,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "playwright test --project=e2e",
+    "test:e2e": "playwright test --project=e2e-desktop --project=e2e-mobile",
     "screens": "playwright test --project=screens",
     "db:test": "bash scripts/test-db.sh",
     "db:types": "supabase gen types typescript --local --schema public > lib/db/types.ts && prettier --write lib/db/types.ts",
