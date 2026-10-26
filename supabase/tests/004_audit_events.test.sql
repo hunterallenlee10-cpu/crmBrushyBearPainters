@@ -50,15 +50,20 @@ select tests.assert_eq(
   (select n from before_count), 'an update that changes nothing writes no audit row');
 select tests.logout();
 
--- Inserts and deletes are audited too
+-- Inserts and deletes are audited too (only rows from here on count)
+create temp table marks as
+  select (select coalesce(max(id), 0) from public.audit_log) as audit_id,
+         (select coalesce(max(id), 0) from public.events) as event_id;
 insert into public.user_permission_overrides (org_id, user_id, permission, effect, reason)
 values (tests.org_id(), (select id from u where k = 'painter'), 'reports:read', 'grant', 'Audit test');
 delete from public.user_permission_overrides where user_id = (select id from u where k = 'painter');
 select tests.assert_eq(
-  (select string_agg(action, ',' order by id) from public.audit_log where table_name = 'public.user_permission_overrides'),
+  (select string_agg(action, ',' order by id) from public.audit_log where table_name = 'public.user_permission_overrides'
+     and id > (select audit_id from marks)),
   'insert,delete', 'insert and delete are audited');
 select tests.assert_eq(
-  (select string_agg(type, ',' order by id) from public.events where aggregate_type = 'user_permission'),
+  (select string_agg(type, ',' order by id) from public.events where aggregate_type = 'user_permission'
+     and id > (select event_id from marks)),
   'user_permission.created,user_permission.deleted', 'insert and delete emit events');
 
 -- Service-role writes carry the acting user from our server
@@ -100,5 +105,22 @@ select tests.assert_raises(
   format($q$insert into public.activity (org_id, subject_type, subject_id, type, summary) values (%L, 'user', 'x', 'x', 'x')$q$, tests.org_id()),
   'clients cannot write activity directly', '42501');
 select tests.logout();
+
+-- Every simulated send emits an event that names who triggered it (ids only, no message text)
+select tests.login_service((select id from u where k = 'owner'));
+insert into public.integration_outbox (org_id, domain, provider, operation, recipient, rendered_body)
+values (tests.org_id(), 'email', 'outbox', 'email.send', 'someone@test.brushybear.local', 'Hello');
+select tests.logout();
+select tests.assert_eq(
+  (select count(*) from public.events where type = 'outbox_message.created'
+     and actor_id = (select id from u where k = 'owner')), 1::bigint,
+  'a simulated send emits outbox_message.created');
+select tests.assert_eq(
+  (select actor_id from public.events where type = 'outbox_message.created' order by id desc limit 1),
+  (select id from u where k = 'owner'), 'the send event records who triggered it');
+select tests.assert(
+  (select payload::text not like '%someone@%' from public.events where type = 'outbox_message.created'
+     order by id desc limit 1),
+  'the send event does not copy the recipient');
 
 rollback;

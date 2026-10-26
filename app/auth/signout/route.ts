@@ -6,7 +6,8 @@ import { isSupabaseConfigured } from "@/lib/env";
 export async function POST(request: NextRequest) {
   if (isSupabaseConfigured()) {
     const supabase = await createSupabaseServerClient();
-    await supabase.auth.signOut();
+    // This device only; signing out must not end the user's sessions on other devices.
+    await supabase.auth.signOut({ scope: "local" });
   }
   return NextResponse.redirect(new URL("/login", request.nextUrl.origin), { status: 303 });
 }

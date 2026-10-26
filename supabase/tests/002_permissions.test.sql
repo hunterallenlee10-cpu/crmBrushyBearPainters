@@ -19,12 +19,12 @@ create function pg_temp.scope(p_user text, p_perm text) returns text language sq
 $$;
 
 -- Seeded catalog --------------------------------------------------------------
-select tests.assert_eq((select count(*) from public.role_templates where org_id = tests.org_id()), 8::bigint,
+select tests.assert_eq((select count(*) from public.role_templates where org_id = tests.org_id() and is_system), 8::bigint,
   '8 role templates are seeded');
 select tests.assert((select count(*) from public.permissions) >= 80, 'permission catalog is seeded');
 select tests.assert_eq(
   (select string_agg(key, ',' order by key) from public.role_templates
-   where org_id = tests.org_id() and requires_mfa),
+   where org_id = tests.org_id() and is_system and requires_mfa),
   'bookkeeper,owner', 'MFA is required for Owner and Bookkeeper only');
 
 -- Owner: everything -----------------------------------------------------------

@@ -48,7 +48,8 @@ select tests.assert_eq(
   (select count(*) from public.audit_log where table_name = 'app.impersonation_sessions'
      and after ->> 'event' = 'view_as_started' and actor_id = (select id from u where k = 'owner')),
   1::bigint, 'starting View as user is audit-logged');
-select tests.assert_eq((select count(*) from public.events where type = 'user.view_as_started'), 1::bigint,
+select tests.assert_eq((select count(*) from public.events where type = 'user.view_as_started'
+    and (select id from u where k = 'owner') in (actor_id, impersonated_by)), 1::bigint,
   'starting View as user emits an event');
 
 -- Stop
@@ -57,7 +58,8 @@ select public.stop_view_as();
 select tests.assert(not app.is_impersonating(), 'stop returns to the owner''s own view');
 select tests.assert(app.has_perm('financials:read'), 'owner permissions are back');
 select tests.logout();
-select tests.assert_eq((select count(*) from public.audit_log where after ->> 'event' = 'view_as_ended'), 1::bigint,
+select tests.assert_eq((select count(*) from public.audit_log where after ->> 'event' = 'view_as_ended'
+    and (select id from u where k = 'owner') in (actor_id, impersonated_by)), 1::bigint,
   'stopping is audit-logged');
 
 -- Sessions expire after an hour

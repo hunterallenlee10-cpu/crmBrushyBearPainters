@@ -9,6 +9,11 @@ insert into u values
 grant select on u to authenticated;
 
 -- At least one active owner ----------------------------------------------------------
+-- Turn off any owners that already exist (e.g. E2E users on a dev database); rolled back below.
+update public.profiles p set is_active = false
+from public.role_templates t
+where t.id = p.role_template_id and t.key = 'owner' and p.org_id = tests.org_id()
+  and p.is_active and p.id <> (select id from u where k = 'owner');
 update public.profiles set is_active = false where id = (select id from u where k = 'owner');
 select tests.assert_raises($$set constraints all immediate$$, 'the last active owner cannot be deactivated', '23514');
 rollback;
