@@ -49,19 +49,20 @@ Useful pages while developing:
 
 ## Commands
 
-| Command                             | What it does                                                                     |
-| ----------------------------------- | -------------------------------------------------------------------------------- |
-| `pnpm dev`                          | Dev server                                                                       |
-| `pnpm build` / `pnpm start`         | Production build / serve it                                                      |
-| `pnpm lint`                         | ESLint                                                                           |
-| `pnpm format` / `pnpm format:check` | Prettier                                                                         |
-| `pnpm typecheck`                    | `tsc --noEmit`                                                                   |
-| `pnpm test`                         | Unit tests (Vitest)                                                              |
-| `pnpm test:e2e`                     | E2E + accessibility tests (Playwright, desktop + mobile)                         |
-| `pnpm screens`                      | Screenshots → `docs/screens/phase-N/` (`PHASE=N pnpm screens`)                   |
-| `pnpm db:test`                      | SQL / RLS tests (see below)                                                      |
-| `pnpm db:types`                     | Regenerate `lib/db/types.ts` from the local database                             |
-| `pnpm supabase <cmd>`               | Supabase CLI (pinned version), e.g. `start`, `stop`, `db reset`, `migration new` |
+| Command                             | What it does                                                                      |
+| ----------------------------------- | --------------------------------------------------------------------------------- |
+| `pnpm dev`                          | Dev server                                                                        |
+| `pnpm build` / `pnpm start`         | Production build / serve it                                                       |
+| `pnpm lint`                         | ESLint                                                                            |
+| `pnpm format` / `pnpm format:check` | Prettier                                                                          |
+| `pnpm typecheck`                    | `tsc --noEmit`                                                                    |
+| `pnpm test`                         | Unit tests (Vitest)                                                               |
+| `pnpm test:e2e`                     | E2E + accessibility tests (Playwright, desktop + mobile)                          |
+| `pnpm screens`                      | Screenshots → `docs/screens/phase-N/` (`PHASE=N pnpm screens`)                    |
+| `pnpm db:test`                      | SQL / RLS tests (see below)                                                       |
+| `pnpm db:types`                     | Regenerate `lib/db/types.ts` from the local database                              |
+| `pnpm bench:leads`                  | Lead List benchmark with 50k fake leads (local DB only; `--cleanup` removes them) |
+| `pnpm supabase <cmd>`               | Supabase CLI (pinned version), e.g. `start`, `stop`, `db reset`, `migration new`  |
 
 ### Database tests
 
