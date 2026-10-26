@@ -1,6 +1,8 @@
 "use client";
 
+import * as React from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Bell, LogOut, Phone, Plug, Settings, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -15,6 +17,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import { formatRelative } from "@/lib/format/dates";
+import { markNotificationsRead } from "@/components/shell/shell-actions";
 
 /** "0 of 11 connected" — click goes to Admin → Integrations (SPEC §8.1). */
 export function IntegrationsPill({ connected, total }: { connected: number; total: number }) {
@@ -78,9 +82,38 @@ export function SoftphoneButton() {
   );
 }
 
-export function NotificationsMenu({ unread }: { unread: number }) {
+export type NotificationItem = {
+  id: string;
+  title: string;
+  body: string | null;
+  link: string | null;
+  createdAt: string;
+  read: boolean;
+};
+
+export function NotificationsMenu({
+  unread,
+  items,
+}: {
+  unread: number;
+  items: readonly NotificationItem[];
+}) {
+  const router = useRouter();
+  const [open, setOpen] = React.useState(false);
+
+  async function markAll() {
+    const r = await markNotificationsRead({});
+    if (r.ok) router.refresh();
+  }
+
+  async function openItem(n: NotificationItem) {
+    setOpen(false);
+    if (!n.read) void markNotificationsRead({ ids: [n.id] }).then(() => router.refresh());
+    if (n.link) router.push(n.link);
+  }
+
   return (
-    <Popover>
+    <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
           variant="ghost"
@@ -91,22 +124,60 @@ export function NotificationsMenu({ unread }: { unread: number }) {
           <Bell />
           {unread > 0 && (
             <span className="absolute top-1 right-1 grid min-w-4 place-items-center rounded-full bg-danger px-1 text-[10px] font-semibold text-white">
-              {unread}
+              {unread > 99 ? "99+" : unread}
             </span>
           )}
         </Button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-80 p-0">
-        <div className="border-b px-4 py-3">
+        <div className="flex items-center justify-between border-b px-4 py-3">
           <p className="text-sm font-semibold">Notifications</p>
+          {unread > 0 && (
+            <Button variant="link" size="xs" className="h-auto p-0" onClick={markAll}>
+              Mark all read
+            </Button>
+          )}
         </div>
-        <div className="flex flex-col items-center gap-2 px-4 py-8 text-center">
-          <Sun className="size-6 text-bb-honey" aria-hidden />
-          <p className="text-sm font-medium">You&apos;re all caught up.</p>
-          <p className="text-xs text-muted-foreground">
-            Mentions, approvals and assignments will show up here.
-          </p>
-        </div>
+        {items.length === 0 ? (
+          <div className="flex flex-col items-center gap-2 px-4 py-8 text-center">
+            <Sun className="size-6 text-bb-honey" aria-hidden />
+            <p className="text-sm font-medium">You&apos;re all caught up.</p>
+            <p className="text-xs text-muted-foreground">
+              Mentions, approvals and assignments will show up here.
+            </p>
+          </div>
+        ) : (
+          <ul className="max-h-96 divide-y overflow-y-auto" aria-label="Notifications">
+            {items.map((n) => (
+              <li key={n.id}>
+                <button
+                  type="button"
+                  onClick={() => openItem(n)}
+                  className={cn(
+                    "flex w-full flex-col items-start gap-0.5 px-4 py-3 text-left hover:bg-muted",
+                    !n.read && "bg-bb-cream/60",
+                  )}
+                >
+                  <span className="flex w-full items-center gap-2 text-sm font-medium">
+                    {!n.read && (
+                      <span
+                        className="size-2 shrink-0 rounded-full bg-danger"
+                        aria-label="Unread"
+                      />
+                    )}
+                    <span className="truncate">{n.title}</span>
+                  </span>
+                  {n.body && (
+                    <span className="line-clamp-2 text-xs text-muted-foreground">{n.body}</span>
+                  )}
+                  <span className="text-[11px] text-muted-foreground">
+                    {formatRelative(n.createdAt)}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
       </PopoverContent>
     </Popover>
   );

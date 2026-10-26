@@ -99,9 +99,12 @@ export function ColumnsDialog({
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
+  // Reset the draft each time the dialog opens (not on every render).
+  const initialRef = React.useRef(initial);
+  initialRef.current = initial;
   React.useEffect(() => {
-    if (open) setItems(initial());
-  }, [open, initial]);
+    if (open) setItems(initialRef.current());
+  }, [open]);
 
   function onDragEnd(e: DragEndEvent) {
     if (!e.over || e.active.id === e.over.id) return;

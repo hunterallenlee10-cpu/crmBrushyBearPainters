@@ -58,7 +58,7 @@ export function GradeBadge({
       aria-label={`Grade ${grade}, score ${score} out of 100`}
     >
       {grade}
-      <span aria-hidden className="font-normal opacity-90">
+      <span aria-hidden className="font-normal">
         · {score}
       </span>
     </span>

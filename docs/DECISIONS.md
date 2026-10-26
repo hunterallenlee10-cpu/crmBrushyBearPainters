@@ -202,3 +202,78 @@ Every non-obvious decision, newest at the bottom. Format: date · decision · re
 
 - **Decision:** One shared test user per role, signed in once by `auth.setup.ts`. Specs that change session state sign in fresh with `loginAs`. Only one sign-in per email runs at a time, across all workers, because a new magic link cancels the previous one. Specs that change or deactivate users use throwaway users and delete what they create with the service role.
 - **Reason:** Parallel runs were cancelling each other's sign-ins. The shared users must stay in a known state for the other specs.
+
+---
+
+## Phase 2 — Leads & Customers
+
+### 2026-10-26 · "Team" scope means the same territory **[Deviation]**
+
+- **Decision:** For permissions with `team` scope, a record is in scope when the person owns or created it, or when it is in their home territory (`profiles.default_territory_id`). Accounts take their territory from their primary property.
+- **Reason:** SPEC §4.2 lists own/team/all scopes but the app has no teams. For a small Eastside company, "my city" is the natural team. It can be redefined later without changing any policy, since every policy goes through `app.scope_match()`.
+
+### 2026-10-26 · Picklist values are stored as keys, checked by a trigger
+
+- **Decision:** Lead source, sub-source, disposition, property type, siding type and lost reason are stored as picklist value **keys** (e.g. `google_ads`), and a database trigger refuses keys that aren't in the org's picklist. They aren't foreign keys to `picklist_values.id`.
+- **Reason:** Keys are immutable and readable in filters, URLs, imports and the website intake. The trigger still gives the data quality SPEC §3.4 asks for: no "MD/Maryland/Md" drift. Turning a value off hides it from new choices without breaking old rows.
+
+### 2026-10-26 · Gate and lockbox codes: app-level encryption, separate table
+
+- **Decision:** Codes live in `property_secrets` as AES-256-GCM ciphertext (`v1:iv:tag:data`), encrypted by the app with `FIELD_ENCRYPTION_KEY`. A new permission, `properties:view_access_codes`, controls reading them (Owner and Office Manager for now). The ciphertext never enters the audit log. Phase 6 narrows reading to the assigned crew on scheduled days.
+- **Reason:** SPEC §5.1/§13.1 asks for encrypted codes visible only to the right people. pgsodium is being phased out on Supabase; app-level encryption keeps the key out of the database entirely.
+
+### 2026-10-26 · Convert to Job and real appointments wait for their phases
+
+- **Decision:** Book Walkthrough stores the tentative date/time and owner on the lead and moves it to Walkthrough Scheduled. Convert to Job (and auto-convert on booking) arrives with jobs in Phase 3; calendar appointments and suggested time slots arrive with scheduling in Phase 6. The buttons show which phase brings them.
+- **Reason:** Jobs and calendars don't exist yet. The lead fields are what the Phase 3 conversion will read.
+
+### 2026-10-26 · Address lookup waits for the maps integration
+
+- **Decision:** The New Lead wizard takes a typed address. Address autocomplete and the map preview turn on when the Address & Maps integration is connected. "Open in Maps" is a plain link to Google Maps search, not an API call.
+- **Reason:** SPEC §18 rule 3: nothing connects to a real service in this build.
+
+### 2026-10-26 · Website intake details
+
+- **Decision:**
+  - **Signature:** `X-BB-Signature: t=<unix>,v1=<HMAC-SHA256("<t>.<raw body>")>`. Signatures older than 5 minutes are refused.
+  - **Rate limits:** the website passes the visitor's IP as `client_ip` _inside the signed body_ (5 submissions per visitor per 10 minutes). A looser limit applies per sending server (120 per minute). Limits use a small Postgres fixed-window table, so no extra service is needed.
+  - **Safe resubmits:** `Idempotency-Key` is claimed before the lead is created, so a retried request never creates two leads.
+  - **Honeypot:** a filled `company` field returns `200 { ok: true }` and stores nothing, so bots learn nothing.
+  - **Duplicates:** the same phone or email within 180 days adds the new submission to the existing lead as an inbound "portal" message, fills in contact details that lead was missing (never overwrites) and notifies its owner.
+  - **Photos:** uploaded first to a private bucket with a signed upload URL. Only files that really exist under the company's folder are attached.
+- **Reason:** SPEC §14. Because the website signs requests on its own server, every request comes from that server's address. Rate limiting by connection address alone would throttle all leads together.
+
+### 2026-10-26 · The "we got your request" text waits for workflows
+
+- **Decision:** No automatic acknowledgement text is sent on new website leads in Phase 2. It arrives with the Phase 8 workflow engine, through the outbox, with wording marked "Draft – owner to approve".
+- **Reason:** It's an automation with customer-facing wording the owners must approve. The speed-to-lead clock already starts, and only a human touch counts as first contact (SPEC §6.1).
+
+### 2026-10-26 · Lead score computed in TypeScript, stored with its reasons
+
+- **Decision:** `lib/domain/leads/scoring.ts` computes the score from the lead and the editable `lead_scoring_rules`. The result is stored on the lead with the list of factors and the time it was scored. Scores are recomputed when a lead is created or edited, a photo is added, or a message is logged; Admin → Lead Scoring can recalculate open leads after the weights change.
+- **Reason:** CLAUDE.md: business logic lives in pure, tested functions. Storing the result keeps list sorting and filtering by score fast and explainable ("why this score").
+
+### 2026-10-26 · Speed to lead: business hours, first human contact, write-once
+
+- **Decision:** The first call, text or email a _person_ logs sets `first_contacted_at` and `speed_to_lead_seconds` (business hours only, Pacific, from Company Settings; DST-safe). The database refuses to change either afterwards.
+- **Reason:** SPEC §1.3 promises a text "within a few minutes during business hours". A lead that arrives at 9 pm and gets a call at 8:05 am scores 5 minutes. Write-once keeps the KPI honest.
+
+### 2026-10-26 · Shared list framework
+
+- **Decision:**
+  - **URL state:** everything (tab, chips, search, Advanced rules, sort, page, saved view) lives in the URL, so a filtered list is a shareable link and Back works.
+  - **Advanced filter:** rules are validated against each module's field whitelist and turned into quoted PostgREST filters. Unknown fields, operators or columns never reach the database. Date rules use Pacific calendar days.
+  - **Quick selects** (Source, City) edit an "equals" rule in the Advanced filter. Lead-source chips are either/or.
+  - **Columns:** per-user choices are saved in the profile's preferences. Saved views store their own columns.
+  - **Table:** a plain semantic table rendered on the server. TanStack Table isn't needed because sorting, paging and filtering all happen in the database.
+- **Reason:** SPEC §8 "Lists". One framework for Leads, Accounts and Contacts now, and Jobs next.
+
+### 2026-10-26 · Universal search and recent records
+
+- **Decision:** `search_records()` runs with the user's own permissions, so results include only records they may open. It matches name, email, address, and phone digits (4+ digits). "Recent records" in the search box are remembered in the browser (localStorage, last 8) and never sent anywhere.
+- **Reason:** SPEC §8.1. Server-side recent-record history would need another table for little gain at this size.
+
+### 2026-10-26 · Notifications and messages are append-only for people
+
+- **Decision:** Notifications are written by database triggers and trusted server code (mentions, repeat website submissions). People can only mark their own as read (a column-level grant). Messages are append-only; texts and emails must reference their outbox row. Message text stays out of the audit log.
+- **Reason:** SPEC §5.7, §13.1 and §18 rule 3. A message log that can be edited isn't a record.

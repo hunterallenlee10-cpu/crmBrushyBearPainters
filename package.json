@@ -21,7 +21,8 @@
     "db:test": "bash scripts/test-db.sh",
     "db:types": "supabase gen types typescript --local --schema public > lib/db/types.ts && prettier --write lib/db/types.ts",
     "supabase": "supabase",
-    "seed:owners": "node --env-file-if-exists=.env.local scripts/seed-owners.mts"
+    "seed:owners": "node --env-file-if-exists=.env.local scripts/seed-owners.mts",
+    "bench:leads": "bash scripts/bench-leads.sh"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "1.3.0",

@@ -12,21 +12,29 @@ export function useListNavigation(state: ListState, defaults: ListDefaults) {
   const router = useRouter();
   const pathname = usePathname();
   const [pending, startTransition] = React.useTransition();
+  // Quick successive clicks build on the newest requested state, not the one
+  // still on screen (otherwise a second click would undo the first).
+  const latest = React.useRef<ListState>(state);
+  React.useEffect(() => {
+    latest.current = state;
+  }, [state]);
 
   const go = React.useCallback(
     (patch: Partial<ListState>, opts: { keepView?: boolean } = {}) => {
+      const base = latest.current;
       const resetsPage = Object.keys(patch).some((k) => k !== "page" && k !== "size");
       const next: ListState = {
-        ...state,
+        ...base,
         ...patch,
-        page: patch.page ?? (resetsPage ? 1 : state.page),
-        view: opts.keepView || "view" in patch ? (patch.view ?? state.view) : state.view,
+        page: patch.page ?? (resetsPage ? 1 : base.page),
+        view: opts.keepView || "view" in patch ? (patch.view ?? base.view) : base.view,
       };
+      latest.current = next;
       startTransition(() => {
         router.push(`${pathname}${listStateToQuery(next, defaults)}`, { scroll: false });
       });
     },
-    [state, defaults, router, pathname],
+    [defaults, router, pathname],
   );
 
   const goToQuery = React.useCallback(

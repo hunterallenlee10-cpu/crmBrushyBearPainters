@@ -82,6 +82,9 @@ export function ListShell(props: ListShellProps) {
   const [selected, setSelected] = React.useState<Set<string>>(new Set());
   const [previewId, setPreviewId] = React.useState<string | null>(null);
   const headerCheckbox = React.useRef<HTMLInputElement>(null);
+  // Set once the list is interactive (hydrated); tests wait for it before clicking.
+  const [ready, setReady] = React.useState(false);
+  React.useEffect(() => setReady(true), []);
 
   // Keep the box in sync when navigating (Back button, views).
   React.useEffect(() => setQuery(state.q), [state.q]);
@@ -135,7 +138,7 @@ export function ListShell(props: ListShellProps) {
   const hasFilters = state.q !== "" || state.chips.length > 0 || state.filter.rules.length > 0;
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-3" data-list-ready={ready ? "true" : undefined}>
       {/* Status tabs with live counts */}
       <nav aria-label={`${props.noun} status`} className="-mx-1 overflow-x-auto">
         <ul className="flex min-w-max gap-1 border-b px-1">
@@ -274,7 +277,12 @@ export function ListShell(props: ListShellProps) {
       {props.rows.length === 0 ? (
         props.emptyState
       ) : (
-        <div className={cn("overflow-x-auto rounded-xl border bg-card", pending && "opacity-70")}>
+        <div
+          className={cn(
+            "relative overflow-x-auto rounded-xl border bg-card",
+            pending && "opacity-70",
+          )}
+        >
           <table className="w-full min-w-[720px] text-sm">
             <caption className="sr-only">
               {props.noun}s, page {state.page}

@@ -12,7 +12,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { isGroupActive, type NavGroup } from "@/lib/nav";
+import { isGroupActive, type NavGroup, type RecentKind } from "@/lib/nav";
+
+export type RecentItem = { href: string; label: string; sub: string | null };
+export type RecentItems = Partial<Record<RecentKind, readonly RecentItem[]>>;
 import { cn } from "@/lib/utils";
 
 const itemBase =
@@ -30,9 +33,11 @@ function itemClass(active: boolean) {
 export function TopNav({
   groups,
   attentionCount,
+  recent = {},
 }: {
   groups: readonly NavGroup[];
   attentionCount: number;
+  recent?: RecentItems;
 }) {
   const pathname = usePathname();
 
@@ -54,14 +59,27 @@ export function TopNav({
             )}
           </Link>
         ) : (
-          <NavDropdown key={group.id} group={group} active={isGroupActive(group, pathname)} />
+          <NavDropdown
+            key={group.id}
+            group={group}
+            active={isGroupActive(group, pathname)}
+            recentItems={group.recent ? (recent[group.recent.kind] ?? []) : []}
+          />
         ),
       )}
     </nav>
   );
 }
 
-function NavDropdown({ group, active }: { group: NavGroup; active: boolean }) {
+function NavDropdown({
+  group,
+  active,
+  recentItems,
+}: {
+  group: NavGroup;
+  active: boolean;
+  recentItems: readonly RecentItem[];
+}) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger className={itemClass(active)}>
@@ -85,10 +103,23 @@ function NavDropdown({ group, active }: { group: NavGroup; active: boolean }) {
             <DropdownMenuLabel className="text-xs text-muted-foreground">
               {group.recent.label}
             </DropdownMenuLabel>
-            <div className="flex items-center gap-2 px-2 pb-2 text-xs text-muted-foreground">
-              <Clock className="size-3.5" aria-hidden />
-              {group.recent.empty}
-            </div>
+            {recentItems.length === 0 ? (
+              <div className="flex items-center gap-2 px-2 pb-2 text-xs text-muted-foreground">
+                <Clock className="size-3.5" aria-hidden />
+                {group.recent.empty}
+              </div>
+            ) : (
+              recentItems.map((r) => (
+                <DropdownMenuItem key={r.href} asChild>
+                  <Link href={r.href} className="flex items-baseline justify-between gap-2">
+                    <span className="truncate">{r.label}</span>
+                    {r.sub && (
+                      <span className="shrink-0 text-xs text-muted-foreground">{r.sub}</span>
+                    )}
+                  </Link>
+                </DropdownMenuItem>
+              ))
+            )}
           </>
         )}
       </DropdownMenuContent>

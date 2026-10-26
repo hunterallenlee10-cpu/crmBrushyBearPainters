@@ -209,12 +209,15 @@ export function AdvancedFilter({
   const [draft, setDraft] = React.useState<FilterSpec>(filter);
   const [showErrors, setShowErrors] = React.useState(false);
 
+  // Start from the applied filter each time the dialog opens.
+  const appliedRef = React.useRef({ filter, fields });
+  appliedRef.current = { filter, fields };
   React.useEffect(() => {
-    if (open) {
-      setDraft(filter.rules.length ? filter : { match: "all", rules: [defaultRule(fields)] });
-      setShowErrors(false);
-    }
-  }, [open, filter, fields]);
+    if (!open) return;
+    const { filter: f, fields: fs } = appliedRef.current;
+    setDraft(f.rules.length ? f : { match: "all", rules: [defaultRule(fs)] });
+    setShowErrors(false);
+  }, [open]);
 
   const errors = validateRules(draft, fields);
   const errorFor = (i: number) => errors.find((e) => e.index === i)?.message;
