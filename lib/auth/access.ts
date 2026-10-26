@@ -109,9 +109,16 @@ export const CREW_ROLE_KEYS: readonly RoleTemplateKey[] = [
 ];
 
 /** Where a signed-in user should land, given their session state. */
-export function sessionGate(access: Access | null): "no_access" | "mfa" | "ok" {
+/**
+ * Where a signed-in session may go. Two-step sign-in is asked for when the role
+ * requires it, and also whenever the user has set up an authenticator on their own.
+ */
+export function sessionGate(
+  access: Access | null,
+  opts: { hasVerifiedFactor?: boolean } = {},
+): "no_access" | "mfa" | "ok" {
   if (!access || !access.user.isActive) return "no_access";
-  if (access.mfa.required && access.mfa.aal !== "aal2") return "mfa";
+  if ((access.mfa.required || opts.hasVerifiedFactor) && access.mfa.aal !== "aal2") return "mfa";
   if (!access.sessionOk) return "no_access";
   return "ok";
 }

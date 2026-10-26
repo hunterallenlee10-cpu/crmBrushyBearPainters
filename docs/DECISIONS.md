@@ -167,3 +167,38 @@ Every non-obvious decision, newest at the bottom. Format: date · decision · re
 
 - **Decision:** Company Settings ship with `[PHONE]`, `[EMAIL]`, `[HOURS]`, `[LNI_NUMBER]` and `[UBI_NUMBER]`. The settings page flags each one as a placeholder. Later phases will refuse to send customer-facing documents while a placeholder is still in use.
 - **Reason:** SPEC §18 rule 2 ("Don't invent business facts"). The owners haven't given these values yet.
+
+### 2026-10-26 · Invites, deactivation and sign-out
+
+- **Decision:** Inviting creates the Supabase Auth user and the profile on the server (service role, after the permission check). If the profile can't be created, the Auth user is removed again. The invitation email is written to the outbox as simulated; the person signs in with a magic link from `/login`. Deactivating turns the profile off (through the normal user client, so database guards apply) and then bans the Auth user so existing sessions stop working; reactivating reverses both. Deactivation will be blocked while the person still owns open work, until a reassign step exists (Phase 2+; today `open_work_counts()` is always empty). Sign out ends only the current device. Settings → Security has "Sign out of all devices".
+- **Reason:** SPEC §4.1 (invite-only users, deactivate instead of delete) and SPEC §18 rule 3 (no real messages). Banning makes deactivation take effect right away instead of when the session token expires.
+
+### 2026-10-26 · Only owners can change an owner's account
+
+- **Decision:** Migration `20261026000500` adds one rule to the profiles guard: only an owner can change another owner's role, active status or email. Before, someone with `users:manage` could demote or deactivate an owner even though they couldn't make anyone an owner.
+- **Reason:** Found in review. Owners hold every permission, so their accounts need the same protection as the Owner template itself.
+
+### 2026-10-26 · Optional two-step sign-in
+
+- **Decision:** Anyone can turn on two-step sign-in from Settings → Security. Once a person has a verified authenticator, the app asks for a code at every sign-in, even if their role doesn't require it. For roles that do require it (Owner, Bookkeeper), Postgres also refuses data access without it.
+- **Reason:** Someone who chose to protect their account expects to be asked for the code. The database check stays tied to the role setting so it can't be bypassed for the roles that see money.
+
+### 2026-10-26 · Simulated sends emit events; the outbox isn't audit-logged
+
+- **Decision:** Each outbox row emits `outbox_message.created` with ids only (migration `20261026000400`). Outbox rows don't get `audit_log` rows: the outbox is itself the permanent record of what would have been sent, and copying message text and recipients into the audit log would spread personal data.
+- **Reason:** SPEC §18 rule 9 (events for every mutation) and SPEC §13 (keep personal data to a minimum).
+
+### 2026-10-26 · Admin screen details
+
+- **Decision:**
+  - **Audit Log:** filters are a plain GET form, so a filtered view is a shareable link and works without JavaScript. The table filter uses a fixed list of audited tables (`AUDIT_TABLES` in `lib/admin/audit-format.ts`), to be extended as later phases add tables. The person filter matches the actor and the owner viewing as them. Paging uses ids, 50 rows per page.
+  - **Outbox:** emails and phone numbers are partly hidden in the list and the detail view.
+  - **Picklists:** label edits save on Enter or when you leave the field and are not optimistic, so a clash keeps your text next to the message. Switches, selects and colors update at once. Reordering sends the full order and only the last move counts.
+  - **Roles:** creating a template or pack takes two writes. If the second fails, the first is soft-deleted. A single database function would make this one step (known gap).
+  - **Packs:** a warning appears when a pack grants managing users, editing permissions or View as, because whoever holds it can widen their own access.
+- **Reason:** These follow SPEC §8.19 and §14 (plain-language, accessible admin screens) while keeping the logic in tested helpers.
+
+### 2026-10-26 · E2E test isolation
+
+- **Decision:** One shared test user per role, signed in once by `auth.setup.ts`. Specs that change session state sign in fresh with `loginAs`. Only one sign-in per email runs at a time, across all workers, because a new magic link cancels the previous one. Specs that change or deactivate users use throwaway users and delete what they create with the service role.
+- **Reason:** Parallel runs were cancelling each other's sign-ins. The shared users must stay in a known state for the other specs.

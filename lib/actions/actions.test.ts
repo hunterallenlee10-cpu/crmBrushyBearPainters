@@ -167,6 +167,22 @@ describe("parseAccess / sessionGate", () => {
     const base = { user, effective_user: user, session_ok: false, permissions: {} };
     expect(sessionGate(parseAccess({ ...base, mfa: { required: true, aal: "aal1" } }))).toBe("mfa");
     expect(sessionGate(parseAccess({ user: null }))).toBe("no_access");
+    // Optional two-step sign-in: asked for once the user has set up an authenticator.
+    const optional = parseAccess({
+      ...base,
+      session_ok: true,
+      mfa: { required: false, aal: "aal1" },
+    });
+    expect(sessionGate(optional)).toBe("ok");
+    expect(sessionGate(optional, { hasVerifiedFactor: true })).toBe("mfa");
+    expect(
+      sessionGate(
+        parseAccess({ ...base, session_ok: true, mfa: { required: false, aal: "aal2" } }),
+        {
+          hasVerifiedFactor: true,
+        },
+      ),
+    ).toBe("ok");
     expect(
       sessionGate(
         parseAccess({

@@ -12,12 +12,21 @@ All notable changes, by build phase. See `docs/PLAN.md` for what each phase cove
 - **Audit log** on every change (who, what, before/after, when, IP, device) and a domain event for every change, both written by the database.
 - **Soft delete + Deleted Records** with restore.
 - **Admin → Setup** hub with quick find; **Company Settings** (contact, licensing, business hours, SLA timers, on-time guarantee, season, deposit, estimate expiry, review link, referral reward) with placeholders flagged.
-- **Admin screens:** Users, Roles & Permissions, Field Picklists, Territories, Integrations (11 cards, all "Not connected", plus the simulated outbox), Audit Log, Deleted Records; personal Settings.
+- **Admin screens:**
+  - **Users:** invite (the email is simulated), edit, change role, labor cost, per-user permissions, deactivate and reactivate.
+  - **Roles & Permissions:** packs × templates matrix, template editor with a preview of what changes, custom packs.
+  - **Field Picklists:** rename, reorder, colors, disposition categories, sub-source parents.
+  - **Territories:** ZIP lists with conflict checks and a ZIP lookup.
+  - **Integrations:** 11 cards, all "Not connected", with setup steps, simulated test sends and the outbox.
+  - **Audit Log:** filters and before/after diffs.
+  - **Deleted Records:** restore.
+- **Personal Settings:** profile, two-step sign-in, sign out of all devices, preferences.
 - **Integration adapters:** one interface per domain with an outbox provider (records "Simulated – not sent") and disabled real-provider stubs behind three locks.
 - Shell now shows only what each role can use; crew roles get the mobile tab bar.
 - Real brand assets (logo, mascot, icons) from the Brushy Bear website.
 - `pnpm seed:owners` creates owner accounts from `SEED_OWNER_EMAILS`.
-- Tests: SQL/RLS tests for every role (187 assertions), unit tests for permissions, territories, settings, adapters and auth helpers, Playwright E2E + axe for sign-in, every role, View as and each admin screen. CI runs E2E against a local Supabase stack.
+- Database guards: only owners can assign, demote, deactivate or change the email of an owner; the last active owner can't be turned off; the Owner template and system packs are locked.
+- Tests: SQL/RLS tests for every role (193 assertions), unit tests for permissions, territories, settings, adapters and auth helpers, Playwright E2E + axe for sign-in, every role, View as and each admin screen. CI runs E2E against a local Supabase stack.
 
 ## Phase 0 — Foundation
 

@@ -49,6 +49,18 @@ async function signIn(page: Page, role: TestRole, next: string) {
 
 const rand = () => Math.random().toString(36).slice(2, 8);
 
+/** Throwaway users created here are deactivated afterwards so the Active list stays readable. */
+const created: string[] = [];
+async function throwaway(template: string, label: string) {
+  const u = await createThrowawayUser(template, label);
+  created.push(u.id);
+  return u;
+}
+test.afterAll(async () => {
+  if (created.length)
+    await adminClient().from("profiles").update({ is_active: false }).in("id", created);
+});
+
 async function expectNoHorizontalScroll(page: Page) {
   const overflow = await page.evaluate(
     () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
@@ -137,7 +149,7 @@ test.describe("Admin → Users", () => {
   });
 
   test("owner deactivates and reactivates a throwaway user", async ({ page }) => {
-    const u = await createThrowawayUser("painter", "deact");
+    const u = await throwaway("painter", "deact");
     const admin = adminClient();
     await signIn(page, "owner", `/admin/users/${u.id}`);
     await expect(page.getByRole("heading", { level: 1, name: u.fullName })).toBeVisible();
@@ -181,7 +193,7 @@ test.describe("Admin → Users", () => {
   });
 
   test("office manager can view users but cannot invite or deactivate", async ({ page }) => {
-    const u = await createThrowawayUser("painter", "om");
+    const u = await throwaway("painter", "om");
     await signIn(page, "office_manager", "/admin/users");
     await expect(page.getByRole("heading", { level: 1, name: "Users" })).toBeVisible();
     await expect(page.getByRole("table")).toBeVisible();
@@ -201,7 +213,7 @@ test.describe("Admin → Users", () => {
   });
 
   test("owner adds and removes a per-user permission override", async ({ page }) => {
-    const u = await createThrowawayUser("painter", "ovr");
+    const u = await throwaway("painter", "ovr");
     const admin = adminClient();
     await signIn(page, "owner", `/admin/users/${u.id}`);
     const card = page.getByRole("region", { name: "Permission overrides" });
@@ -261,7 +273,7 @@ test.describe("Admin → Users", () => {
 
 test.describe("/settings", () => {
   test("a painter saves their own profile and preferences (audit-logged)", async ({ page }) => {
-    const u = await createThrowawayUser("painter", "settings");
+    const u = await throwaway("painter", "settings");
     const admin = adminClient();
     await signInWithMagicLink(page, u.email, "/settings");
     await expect(page.getByRole("heading", { level: 1, name: "Settings" })).toBeVisible();
@@ -337,7 +349,7 @@ test.describe("layout, accessibility and screenshots", () => {
   test("users list, user detail and settings: no sideways scroll at 390px, no axe violations", async ({
     page,
   }) => {
-    const u = await createThrowawayUser("painter", "layout");
+    const u = await throwaway("painter", "layout");
     await signIn(page, "owner", "/admin/users");
     for (const path of ["/admin/users", `/admin/users/${u.id}`, "/settings"]) {
       await page.setViewportSize({ width: 390, height: 844 });
@@ -356,7 +368,7 @@ test.describe("layout, accessibility and screenshots", () => {
 
   test("screenshots for the phase report", async ({ page }) => {
     mkdirSync(OUT, { recursive: true });
-    const u = await createThrowawayUser("painter", "shot");
+    const u = await throwaway("painter", "shot");
     const admin = adminClient();
     await admin
       .from("profiles")

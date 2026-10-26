@@ -39,7 +39,8 @@ export default defineConfig({
     { name: "setup", testMatch: /auth\.setup\.ts/ },
     {
       name: "e2e-desktop",
-      testIgnore: /(screens\.spec|auth\.setup)\.ts/,
+      testMatch: /\.spec\.ts$/,
+      testIgnore: /screens\.spec\.ts$/,
       dependencies: ["setup"],
       use: {
         ...devices["Desktop Chrome"],
@@ -49,7 +50,8 @@ export default defineConfig({
     },
     {
       name: "e2e-mobile",
-      testIgnore: /(screens\.spec|auth\.setup)\.ts/,
+      testMatch: /\.spec\.ts$/,
+      testIgnore: /screens\.spec\.ts$/,
       dependencies: ["setup"],
       use: { ...devices["Pixel 7"], storageState: OWNER_STATE },
     },

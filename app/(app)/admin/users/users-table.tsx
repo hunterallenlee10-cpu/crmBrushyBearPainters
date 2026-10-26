@@ -85,9 +85,8 @@ export function UsersTable({ rows, canManage }: { rows: UserRow[]; canManage: bo
                     <TableHeader>
                       <TableRow>
                         <TableHead>Name</TableHead>
-                        <TableHead>Email</TableHead>
                         <TableHead>Role</TableHead>
-                        <TableHead>Title / department</TableHead>
+                        <TableHead className="whitespace-normal">Title / department</TableHead>
                         <TableHead>Status</TableHead>
                         <TableHead>Invited</TableHead>
                       </TableRow>
@@ -105,10 +104,12 @@ export function UsersTable({ rows, canManage }: { rows: UserRow[]; canManage: bo
                             {u.isYou && (
                               <span className="ml-1.5 text-xs text-muted-foreground">(you)</span>
                             )}
+                            <span className="block text-xs font-normal text-muted-foreground">
+                              {u.email}
+                            </span>
                           </TableCell>
-                          <TableCell className="text-muted-foreground">{u.email}</TableCell>
                           <TableCell>{u.roleName}</TableCell>
-                          <TableCell className="text-muted-foreground">
+                          <TableCell className="max-w-64 whitespace-normal text-muted-foreground">
                             {[u.title, u.department].filter(Boolean).join(" · ") || "—"}
                           </TableCell>
                           <TableCell>

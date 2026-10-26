@@ -84,7 +84,8 @@ export const getViewerState = cache(async (): Promise<ViewerState> => {
     return { status: "no_access", email: userData.user.email ?? null };
   }
   const access = parseAccess(data);
-  const gate = sessionGate(access);
+  const hasVerifiedFactor = (userData.user.factors ?? []).some((f) => f.status === "verified");
+  const gate = sessionGate(access, { hasVerifiedFactor });
   if (gate === "no_access" || !access)
     return { status: "no_access", email: userData.user.email ?? null };
   if (gate === "mfa") return { status: "mfa", access };

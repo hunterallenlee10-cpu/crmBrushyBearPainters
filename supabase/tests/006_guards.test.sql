@@ -55,6 +55,16 @@ select tests.assert_raises(
 select tests.assert_eq(
   tests.rows_affected(format($q$update public.profiles set title = 'Crew Lead' where id = %L$q$, (select id from u where k = 'painter'))),
   1::bigint, 'users:manage can edit another user''s profile');
+select tests.assert_raises(
+  format($q$update public.profiles set role_template_id = (select id from public.role_templates where org_id = %L and key = 'office_manager') where id = %L$q$,
+         tests.org_id(), (select id from u where k = 'owner2')),
+  'a non-owner cannot demote an owner', '42501');
+select tests.assert_raises(
+  format($q$update public.profiles set is_active = false where id = %L$q$, (select id from u where k = 'owner2')),
+  'a non-owner cannot deactivate an owner', '42501');
+select tests.assert_raises(
+  format($q$update public.profiles set email = 'taken@test.bb' where id = %L$q$, (select id from u where k = 'owner2')),
+  'a non-owner cannot change an owner''s email', '42501');
 select tests.logout();
 
 -- Role templates and packs -------------------------------------------------------------
