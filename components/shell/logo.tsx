@@ -1,39 +1,34 @@
+import Image from "next/image";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 
 /**
- * Placeholder logo: wordmark in Lilita One plus a monogram tile. Swap in the
- * real logo/mascot files from public/brand/ when the owners provide them
- * (SPEC §16: don't generate new mascot art).
+ * Brushy Bear logo: the bear-head mark from the website plus the wordmark in
+ * Lilita One (crisp at small sizes). Full wordmark image lives in public/brand/.
  */
 export function Logo({
   className,
   size = "md",
   href = "/",
-  tone = "forest",
 }: {
   className?: string;
   size?: "sm" | "md" | "lg";
   href?: string | null;
-  tone?: "forest" | "light";
 }) {
+  const px = size === "sm" ? 28 : size === "md" ? 32 : 56;
   const content = (
     <span className={cn("inline-flex items-center gap-2", className)}>
-      <span
-        aria-hidden
-        className={cn(
-          "grid place-items-center rounded-lg border-[1.5px] border-bb-ink bg-bb-honey font-display leading-none text-bb-ink",
-          size === "sm" && "size-7 text-sm",
-          size === "md" && "size-8 text-base",
-          size === "lg" && "size-14 text-2xl",
-        )}
-      >
-        BB
-      </span>
+      <Image
+        src="/brand/logo-mark.png"
+        alt=""
+        width={px}
+        height={px}
+        priority
+        className="rounded-lg"
+      />
       <span
         className={cn(
-          "font-display leading-none tracking-wide",
-          tone === "forest" ? "text-bb-forest" : "text-white",
+          "font-display leading-none tracking-wide text-bb-forest",
           size === "sm" && "text-base",
           size === "md" && "text-lg",
           size === "lg" && "text-3xl",

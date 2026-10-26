@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { HOME, NAV, OTHER_LINKS, allPages, findPage, isGroupActive } from "@/lib/nav";
+import { HOME, NAV, OTHER_LINKS, allPages, findPage, isGroupActive, visibleNav } from "@/lib/nav";
+import { PERMISSIONS, type Permission } from "@/lib/permissions";
 
 describe("navigation (SPEC §3.1)", () => {
   it("top-level order matches the spec", () => {
@@ -55,8 +56,43 @@ describe("navigation (SPEC §3.1)", () => {
     expect(NAV.find((g) => g.id === "jobs")?.recent?.limit).toBe(10);
   });
 
-  it("Admin is permission-gated", () => {
-    expect(NAV.find((g) => g.id === "admin")?.adminOnly).toBe(true);
+  it("every Admin page is permission-gated", () => {
+    for (const item of NAV.find((g) => g.id === "admin")?.items ?? []) {
+      expect(item.requiresAny?.length, item.href).toBeGreaterThan(0);
+    }
+  });
+
+  it("filters the nav per role", () => {
+    const can = (held: Permission[]) => (p: Permission) => held.includes(p);
+    const owner = visibleNav(() => true);
+    expect(owner.map((g) => g.label)).toEqual(NAV.map((g) => g.label));
+
+    const painter = visibleNav(
+      can(["schedule:read", "work_orders:read", "photos:upload", "daily_logs:create"]),
+    );
+    expect(painter.map((g) => g.label)).toEqual(["Home", "Schedule", "More"]);
+    expect(painter.find((g) => g.id === "schedule")?.items?.map((i) => i.label)).toEqual([
+      "Production Center",
+      "Master Schedule",
+      "My Projects",
+    ]);
+    expect(painter.find((g) => g.id === "more")?.items?.map((i) => i.label)).toEqual(["Help"]);
+
+    const office = visibleNav(
+      can(["users:read", "integrations:read", "records:restore", "leads:read"]),
+    );
+    expect(office.find((g) => g.id === "admin")?.items?.map((i) => i.label)).toEqual([
+      "Setup",
+      "Users",
+      "Integrations",
+      "Deleted Records",
+    ]);
+  });
+
+  it("every requiresAny entry is a real permission", () => {
+    const keys = new Set<string>(PERMISSIONS.map((p) => p.key));
+    for (const p of [HOME, ...allPages()])
+      for (const r of p.requiresAny ?? []) expect(keys.has(r), r).toBe(true);
   });
 
   it("every page has a unique, absolute, lowercase href and a valid phase", () => {

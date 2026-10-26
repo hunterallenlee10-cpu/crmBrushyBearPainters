@@ -14,19 +14,18 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { Logo } from "@/components/shell/logo";
-import { NAV } from "@/lib/nav";
+import { type NavGroup } from "@/lib/nav";
 import { cn } from "@/lib/utils";
 
 export function MobileMenu({
-  showAdmin,
+  groups,
   attentionCount,
 }: {
-  showAdmin: boolean;
+  groups: readonly NavGroup[];
   attentionCount: number;
 }) {
   const [open, setOpen] = React.useState(false);
   const pathname = usePathname();
-  const groups = NAV.filter((g) => showAdmin || !g.adminOnly);
 
   // Close after navigating.
   React.useEffect(() => setOpen(false), [pathname]);

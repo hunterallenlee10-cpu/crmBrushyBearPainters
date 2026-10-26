@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+  <body
+    style="
+      margin: 0;
+      padding: 24px;
+      background: #f4ede1;
+      font-family: Manrope, Arial, sans-serif;
+      color: #2b2b2b;
+    "
+  >
+    <table
+      role="presentation"
+      width="100%"
+      cellspacing="0"
+      cellpadding="0"
+      style="
+        max-width: 480px;
+        margin: 0 auto;
+        background: #ffffff;
+        border: 1px solid #e6dac6;
+        border-radius: 16px;
+      "
+    >
+      <tr>
+        <td style="padding: 28px">
+          <p style="margin: 0 0 4px; font-size: 20px; font-weight: 800; color: #1f4d3a">
+            Brushy Bear CRM
+          </p>
+          <p style="margin: 0 0 20px; font-size: 15px">
+            Here's your sign-in link. It works once and expires in an hour.
+          </p>
+          <p style="margin: 0 0 24px">
+            <a
+              href="{{ .RedirectTo }}&token_hash={{ .TokenHash }}&type=email"
+              style="
+                display: inline-block;
+                background: #e9a93b;
+                color: #2b2b2b;
+                font-weight: 700;
+                text-decoration: none;
+                padding: 12px 20px;
+                border-radius: 999px;
+                border: 1.5px solid #2b2b2b;
+              "
+            >
+              Sign in to Brushy Bear CRM
+            </a>
+          </p>
+          <p style="margin: 0; font-size: 13px; color: #5b6470">
+            Didn't ask for this? You can ignore this email.
+          </p>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

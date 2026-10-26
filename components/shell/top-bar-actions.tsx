@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Bell, Eye, LogOut, Phone, Plug, Settings, Sun } from "lucide-react";
+import { Bell, LogOut, Phone, Plug, Settings, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -78,17 +78,6 @@ export function SoftphoneButton() {
   );
 }
 
-export function ViewAsUserButton() {
-  return (
-    <DisabledAction
-      label="View as user"
-      reason="Owners can preview another user's view once sign-in is on (Phase 1)."
-    >
-      <Eye />
-    </DisabledAction>
-  );
-}
-
 export function NotificationsMenu({ unread }: { unread: number }) {
   return (
     <Popover>
@@ -127,12 +116,12 @@ export function UserMenu({
   name,
   initials,
   roleLabel,
-  isPreview,
+  email,
 }: {
   name: string;
   initials: string;
   roleLabel: string;
-  isPreview: boolean;
+  email: string;
 }) {
   return (
     <DropdownMenu>
@@ -148,6 +137,7 @@ export function UserMenu({
       <DropdownMenuContent align="end" className="w-56">
         <DropdownMenuLabel>
           <p className="font-semibold">{name}</p>
+          <p className="truncate text-xs font-normal text-muted-foreground">{email}</p>
           <p className="text-xs font-normal text-muted-foreground">{roleLabel}</p>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
@@ -162,9 +152,13 @@ export function UserMenu({
           </Link>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem disabled={isPreview}>
-          <LogOut aria-hidden /> Sign out
-        </DropdownMenuItem>
+        <form action="/auth/signout" method="post">
+          <DropdownMenuItem asChild>
+            <button type="submit" className="w-full">
+              <LogOut aria-hidden /> Sign out
+            </button>
+          </DropdownMenuItem>
+        </form>
       </DropdownMenuContent>
     </DropdownMenu>
   );

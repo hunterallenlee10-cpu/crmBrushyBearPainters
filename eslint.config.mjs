@@ -30,6 +30,11 @@ const config = [
     },
   },
   {
+    // CLI scripts report progress on stdout.
+    files: ["scripts/**"],
+    rules: { "no-console": "off" },
+  },
+  {
     // The service-role client may only be imported from server code.
     files: ["components/**", "app/**/*-client.tsx", "lib/**/*.client.ts"],
     rules: {

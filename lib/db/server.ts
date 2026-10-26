@@ -2,6 +2,7 @@ import "server-only";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { requireSupabaseEnv } from "@/lib/env";
+import { auditHeaders } from "@/lib/db/request-context";
 import type { Database } from "@/lib/db/types";
 
 /**
@@ -13,6 +14,7 @@ export async function createSupabaseServerClient() {
   const cookieStore = await cookies();
 
   return createServerClient<Database>(url, anonKey, {
+    global: { headers: await auditHeaders() },
     cookies: {
       getAll() {
         return cookieStore.getAll();
@@ -24,7 +26,7 @@ export async function createSupabaseServerClient() {
           }
         } catch {
           // Called from a Server Component, where cookies are read-only.
-          // Session refresh happens in middleware (Phase 1).
+          // Middleware refreshes the session on the next request.
         }
       },
     },

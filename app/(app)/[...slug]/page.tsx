@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { PlaceholderPage } from "@/components/layout/placeholder-page";
-import { allPages, findPage } from "@/lib/nav";
+import { allPages, canSeeLink, findPage } from "@/lib/nav";
+import { requireViewer } from "@/lib/auth/viewer";
 
 /**
  * Placeholder for every nav route that hasn't been built yet. Real pages added
@@ -27,5 +28,7 @@ export default async function NavPlaceholder({ params }: { params: Promise<Param
   const { slug } = await params;
   const page = findPage(`/${slug.join("/")}`);
   if (!page) notFound();
+  const viewer = await requireViewer();
+  if (!canSeeLink(page, (p) => viewer.can(p))) notFound();
   return <PlaceholderPage page={page} />;
 }

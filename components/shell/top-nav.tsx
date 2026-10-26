@@ -12,7 +12,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { NAV, isGroupActive, type NavGroup } from "@/lib/nav";
+import { isGroupActive, type NavGroup } from "@/lib/nav";
 import { cn } from "@/lib/utils";
 
 const itemBase =
@@ -28,14 +28,13 @@ function itemClass(active: boolean) {
 }
 
 export function TopNav({
+  groups,
   attentionCount,
-  showAdmin,
 }: {
+  groups: readonly NavGroup[];
   attentionCount: number;
-  showAdmin: boolean;
 }) {
   const pathname = usePathname();
-  const groups = NAV.filter((g) => showAdmin || !g.adminOnly);
 
   return (
     <nav aria-label="Main" className="hidden items-center gap-0.5 lg:flex">

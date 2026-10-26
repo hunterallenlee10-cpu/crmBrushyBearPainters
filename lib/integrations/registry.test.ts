@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   INTEGRATIONS,
   INTEGRATION_COUNT,
+  UNLOCK_STEP,
   connectedIntegrationCount,
 } from "@/lib/integrations/registry";
 
@@ -36,6 +37,25 @@ describe("integration registry (SPEC §2.1)", () => {
       expect(["outbox", "builtin", "disabled"]).toContain(i.defaultProvider);
       expect(i.realProviders as readonly string[]).not.toContain(i.defaultProvider);
       expect(i.realProviders.length).toBeGreaterThan(0);
+    }
+  });
+
+  it("every integration has a sync frequency and a setup checklist", () => {
+    for (const i of INTEGRATIONS) {
+      expect(i.syncFrequency.trim()).not.toBe("");
+      expect(i.setupSteps.length).toBeGreaterThanOrEqual(3);
+      for (const step of i.setupSteps) expect(step.trim()).not.toBe("");
+      expect(i.setupSteps.at(-1)).toBe(UNLOCK_STEP);
+    }
+  });
+
+  it("setup checklists mention each env flag and use placeholder domains only", () => {
+    for (const i of INTEGRATIONS) {
+      const text = i.setupSteps.join("\n");
+      expect(text).toContain(i.envVars[0]);
+      for (const url of text.match(/https:\/\/[^\s),]+/g) ?? []) {
+        expect(url).toMatch(/^https:\/\/<your-domain>\//);
+      }
     }
   });
 });
