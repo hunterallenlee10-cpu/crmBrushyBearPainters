@@ -8,12 +8,11 @@ import { CURRENT_PHASE } from "@/lib/admin-sections";
 /**
  * Placeholder for every nav route that hasn't been built yet. Real pages added
  * at a specific path (e.g. app/(app)/leads/page.tsx) take precedence over this
- * catch-all automatically. Unknown paths 404.
+ * catch-all automatically. Unknown paths 404 through notFound() below
+ * (not `dynamicParams = false`, which errors instead of 404ing in dev).
  */
 
 type Params = { slug: string[] };
-
-export const dynamicParams = false;
 
 /** Pages already built (phase ≤ current) have real routes; only the rest use this placeholder. */
 export function generateStaticParams(): Params[] {

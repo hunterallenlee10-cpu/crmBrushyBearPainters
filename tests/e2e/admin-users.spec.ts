@@ -68,14 +68,29 @@ async function expectNoHorizontalScroll(page: Page) {
   expect(overflow, "page should not scroll sideways").toBeLessThanOrEqual(0);
 }
 
+/** Users show as a table on desktop and as a stacked list on phones. */
+function usersView(page: Page) {
+  const mobile = (page.viewportSize()?.width ?? 1440) < 768;
+  const root = mobile ? page.getByRole("list", { name: "Users list" }) : page.getByRole("table");
+  return {
+    root,
+    entry: (re: RegExp) =>
+      mobile
+        ? root.getByRole("listitem").filter({ hasText: re })
+        : root.getByRole("row", { name: re }),
+    entries: () =>
+      mobile
+        ? root.getByRole("listitem")
+        : root.getByRole("row").filter({ hasNot: page.getByRole("columnheader") }),
+  };
+}
+
 test.describe("Admin → Users", () => {
   test("owner sees the users table and invites a user (simulated email)", async ({ page }) => {
     await signIn(page, "owner", "/admin/users");
     await expect(page.getByRole("heading", { level: 1, name: "Users" })).toBeVisible();
-    const table = page.getByRole("table");
-    await expect(
-      table.getByRole("row", { name: new RegExp(TEST_USERS.owner.email) }),
-    ).toBeVisible();
+    const users = usersView(page);
+    await expect(users.entry(new RegExp(TEST_USERS.owner.email))).toBeVisible();
     await expect(page.getByRole("tab", { name: /Active/ })).toHaveAttribute("data-state", "active");
 
     const suffix = rand();
@@ -99,7 +114,7 @@ test.describe("Admin → Users", () => {
     await expect(dialog).toBeHidden();
     await expect(page.getByText(/in the outbox as Simulated/)).toBeVisible();
 
-    const row = table.getByRole("row", { name: new RegExp(email) });
+    const row = users.entry(new RegExp(email));
     await expect(row).toBeVisible();
     await expect(row).toContainText(name);
     await expect(row).toContainText("Painter (Crew Member)");
@@ -142,7 +157,7 @@ test.describe("Admin → Users", () => {
 
     // Search filters the table.
     await page.getByLabel("Search users").fill(suffix);
-    await expect(table.getByRole("row")).toHaveCount(2); // header + the invite
+    await expect(users.entries()).toHaveCount(1); // just the invite
 
     // Clean up: deactivate the invited user so lists stay tidy.
     if (profile?.id) await admin.from("profiles").update({ is_active: false }).eq("id", profile.id);
@@ -196,7 +211,7 @@ test.describe("Admin → Users", () => {
     const u = await throwaway("painter", "om");
     await signIn(page, "office_manager", "/admin/users");
     await expect(page.getByRole("heading", { level: 1, name: "Users" })).toBeVisible();
-    await expect(page.getByRole("table")).toBeVisible();
+    await expect(usersView(page).root).toBeVisible();
     await expect(page.getByRole("button", { name: "Invite user" })).toHaveCount(0);
 
     await page.goto(`/admin/users/${u.id}`);
