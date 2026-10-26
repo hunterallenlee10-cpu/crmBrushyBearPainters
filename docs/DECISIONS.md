@@ -307,3 +307,21 @@ Every non-obvious decision, newest at the bottom. Format: date · decision · re
   - Unavailable footer buttons (Call / SMS / Email before saving, Save & Convert until Phase 3) use `aria-disabled` so their explanation tooltips stay reachable by keyboard.
   - The lead-safe note for homes built before 1978 is **Draft – owner to approve**.
 - **Reason:** SPEC §8.4 "New Lead"; CLAUDE.md rules on permissions and placeholders.
+
+### 2026-10-26 · Deleting a record also needs edit rights on it
+
+- **Decision:** New migration `20261026000800_scoped_soft_delete`. `soft_delete_record()` runs with elevated rights, so row security doesn't apply inside it, and it only checked the delete permission. It now also requires that the record is within the person's **edit** scope (leads and accounts by owner/creator/territory; contacts and properties through their account). Records outside scope answer "Record not found." so the function doesn't reveal they exist. Deleted leads, accounts, contacts and properties now show in Admin → Deleted Records for owners to restore.
+- **Reason:** Delete permissions aren't scoped. A custom grant of `leads:delete` to an estimator would otherwise have let them delete other estimators' leads. Covered by `supabase/tests/008_scoped_soft_delete.test.sql`.
+
+### 2026-10-26 · Accounts, contacts and gate codes
+
+- **Decision:**
+  - **Gate codes** are only revealed by a server action that reads the row as the person (row security) and decrypts on the server. The encrypted value never reaches the browser. Viewing, setting, replacing and removing a code each go on the account timeline.
+  - **Consent:** opting in needs a source; texts need a mobile and email needs an address. A new opt-in is time-stamped; turning it off, or Do Not Contact, clears the time and source. A contact who replied STOP can't be opted back in from the screen. _Owners to decide who may re-opt someone in, and with what proof._
+  - **New account** saves the account, primary contact and first property as separate steps. If a later step fails, the ones already saved are removed and the message says nothing was saved. A single database transaction (an RPC) is a later hardening item.
+  - **Account search** also matches property addresses (a second query, capped at 200 matching accounts).
+  - **Contacts → Mine** means "the account's owner is me".
+  - The first property on an account is primary; marking another one primary unsets the old one.
+  - The account timeline shows entries the app writes (account created, gate-code events). Database activity triggers for accounts and contacts come later, so a contact's timeline is empty for now.
+  - Account and contact KPI strips count on the server but aren't in the metrics registry yet; they move there with account/contact stats RPCs. **[Deviation from "every KPI from the registry", temporary]**
+- **Reason:** SPEC §8.5, §8.6, §13.1; gate codes per the 2026-10-26 entry above.
