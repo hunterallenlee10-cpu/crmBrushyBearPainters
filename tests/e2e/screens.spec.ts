@@ -5,7 +5,7 @@ import { adminClient, loginAs, signInWithMagicLink, TEST_USERS } from "./support
 
 /**
  * Screenshots for the phase report (SPEC §17). Saved to docs/screens/phase-N/.
- * Run with `pnpm screens` (PHASE defaults to 1). Signed in as the Owner unless
+ * Run with `pnpm screens` (`PHASE=2 pnpm screens`; PHASE defaults to 1). Signed in as the Owner unless
  * a test signs in fresh.
  */
 const PHASE = process.env.PHASE ?? "1";
@@ -29,6 +29,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 test.describe("owner", () => {
+  test.skip(PHASE !== "1", "Phase 1 screens");
   test("desktop: home shell", async ({ page }) => {
     await page.setViewportSize(DESKTOP);
     await page.goto("/");
@@ -82,6 +83,7 @@ test.describe("owner", () => {
 });
 
 test.describe("sign-in and access", () => {
+  test.skip(PHASE !== "1", "Phase 1 screens");
   test.use({ storageState: SIGNED_OUT });
 
   test("desktop + mobile: login", async ({ page }) => {
@@ -144,5 +146,120 @@ test.describe("sign-in and access", () => {
     await shot(page, "desktop-view-as-banner");
     await banner.getByRole("button", { name: "Exit view as" }).click();
     await expect(banner).toHaveCount(0);
+  });
+});
+
+/**
+ * Phase 2: leads. Seeds a handful of obviously fake sample leads (example.com,
+ * 425-555 numbers) so the list isn't empty, and deletes them afterwards.
+ */
+test.describe("phase 2: leads", () => {
+  test.skip(PHASE !== "2", "Phase 2 screens");
+  const seeded: string[] = [];
+  const SAMPLES = [
+    ["Avery", "Kirkland", "98033", "website", "new", 88, "B", "hot", ["exterior"]],
+    ["Jordan", "Bellevue", "98004", "google_ads", "contacted", 74, "C", "warm", ["interior"]],
+    [
+      "Riley",
+      "Redmond",
+      "98052",
+      "nextdoor",
+      "walkthrough_scheduled",
+      81,
+      "B",
+      "warm",
+      ["exterior", "deck_fence"],
+    ],
+    ["Morgan", "Sammamish", "98074", "customer_referral", "new", 93, "A", "hot", ["exterior"]],
+    ["Casey", "Issaquah", "98027", "facebook_instagram", "nurture", 42, "F", "cold", ["cabinets"]],
+    ["Quinn", "Woodinville", "98072", "website", "new", 67, "C", "warm", ["interior"]],
+  ] as const;
+
+  test.beforeAll(async () => {
+    const db = adminClient();
+    const { data: org } = await db
+      .from("organizations")
+      .select("id")
+      .eq("slug", "brushy-bear")
+      .single();
+    for (const [
+      i,
+      [first, city, zip, source, status, score, grade, temperature, services],
+    ] of SAMPLES.entries()) {
+      const { data, error } = await db
+        .from("leads")
+        .insert({
+          org_id: org!.id,
+          first_name: first,
+          last_name: "Sample",
+          email: `${first.toLowerCase()}.sample@example.com`,
+          mobile: `+1425555${String(140 + i).padStart(4, "0")}`,
+          city,
+          state: "WA",
+          zip,
+          lead_source: source,
+          status,
+          score,
+          grade,
+          temperature,
+          services: [...services],
+          created_at: new Date(Date.now() - i * 26 * 3_600_000).toISOString(),
+        })
+        .select("id")
+        .single();
+      if (error) throw error;
+      seeded.push(data.id);
+    }
+  });
+
+  test.afterAll(async () => {
+    if (!seeded.length) return;
+    const db = adminClient();
+    await db.from("activity").delete().eq("subject_type", "lead").in("subject_id", seeded);
+    await db.from("leads").delete().in("id", seeded);
+  });
+
+  test("desktop: lead list", async ({ page }) => {
+    await page.setViewportSize(DESKTOP);
+    await page.goto("/leads/list?q=Sample");
+    await page.locator('[data-list-ready="true"]').waitFor();
+    await shot(page, "leads-list");
+    await page.getByRole("button", { name: `Preview Avery Sample` }).click();
+    await page.getByRole("dialog", { name: "Avery Sample" }).waitFor();
+    await shot(page, "leads-list-preview");
+  });
+
+  test("desktop: advanced filter", async ({ page }) => {
+    await page.setViewportSize(DESKTOP);
+    await page.goto("/leads/list?q=Sample");
+    await page.locator('[data-list-ready="true"]').waitFor();
+    await page.getByRole("button", { name: "Advanced" }).click();
+    const dialog = page.getByRole("dialog", { name: "Advanced filter" });
+    await dialog.getByRole("combobox", { name: "Rule 1 field" }).selectOption({ label: "Score" });
+    await shot(page, "leads-list-advanced-filter");
+  });
+
+  test("desktop: search and leads menu", async ({ page }) => {
+    await page.setViewportSize(DESKTOP);
+    await page.goto("/");
+    await page.keyboard.press("Control+k");
+    const dialog = page.getByRole("dialog");
+    await dialog.getByRole("combobox", { name: "Search" }).fill("Sample");
+    await dialog.getByRole("option", { name: /Avery Sample/ }).waitFor();
+    await shot(page, "desktop-search-records");
+    await page.keyboard.press("Escape");
+    await page
+      .getByRole("navigation", { name: "Main" })
+      .getByRole("button", { name: "Leads" })
+      .click();
+    await page.getByRole("menu").waitFor();
+    await shot(page, "desktop-leads-menu");
+  });
+
+  test("mobile: lead list", async ({ page }) => {
+    await page.setViewportSize(MOBILE);
+    await page.goto("/leads/list?q=Sample");
+    await page.locator('[data-list-ready="true"]').waitFor();
+    await shot(page, "mobile-leads-list");
   });
 });
