@@ -177,19 +177,24 @@ export async function completeMfa(page: Page, secret?: string): Promise<string> 
   let key = secret;
   if (await keyEl.isVisible()) key = (await keyEl.textContent())?.trim() ?? undefined;
   if (!key) throw new Error("No TOTP secret available for the MFA challenge");
+  const rejected = page.getByText(/that code didn't work/i);
   for (let attempt = 1; ; attempt++) {
     // Avoid the last two seconds of a 30-second window.
     if (Date.now() % 30000 > 28000) await page.waitForTimeout(2500);
     await codeInput.fill(totp(key));
     await page.getByRole("button", { name: /turn on two-step sign-in|verify/i }).click();
-    try {
-      await expect(page).not.toHaveURL(/\/mfa$/, { timeout: 8000 });
-      break;
-    } catch (error) {
-      // A code can only be used once: wait for the next window and try again.
-      if (attempt >= 2) throw error;
-      await page.waitForTimeout(30000 - (Date.now() % 30000) + 500);
-    }
+    // Either we leave /mfa (accepted; the next page may take a while to compile in dev)
+    // or the form says the code was rejected.
+    const outcome = await Promise.race([
+      page
+        .waitForURL((url) => !url.pathname.endsWith("/mfa"), { timeout: 60_000 })
+        .then(() => "accepted" as const),
+      rejected.waitFor({ state: "visible", timeout: 60_000 }).then(() => "rejected" as const),
+    ]);
+    if (outcome === "accepted") break;
+    // A code can only be used once: wait for the next window and try again.
+    if (attempt >= 2) throw new Error("The two-step code was rejected twice.");
+    await page.waitForTimeout(30000 - (Date.now() % 30000) + 500);
   }
   return key;
 }

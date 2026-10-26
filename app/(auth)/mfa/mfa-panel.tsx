@@ -87,8 +87,9 @@ export function MfaPanel() {
       setError("That code didn't work. Codes change every 30 seconds — try the current one.");
       return;
     }
+    // Navigate only: a refresh() right after replace() can cancel the navigation
+    // when the next page is slow, leaving the form stuck. "/" renders fresh anyway.
     router.replace("/");
-    router.refresh();
   }
 
   if (phase.kind === "loading") {

@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
 import { Eye, Loader2, LogOut } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -21,7 +20,6 @@ export type ViewAsUser = { id: string; name: string; role: string };
 
 /** Owners only: pick a user to see the app exactly as they do (read-only). */
 export function ViewAsButton({ users }: { users: readonly ViewAsUser[] }) {
-  const router = useRouter();
   const [open, setOpen] = React.useState(false);
   const [query, setQuery] = React.useState("");
   const [pending, setPending] = React.useState<string | null>(null);
@@ -38,8 +36,8 @@ export function ViewAsButton({ users }: { users: readonly ViewAsUser[] }) {
       return;
     }
     setOpen(false);
-    router.push("/");
-    router.refresh();
+    // Full load: every server-rendered part of the shell must redraw with the new permissions.
+    window.location.assign("/");
   }
 
   return (
@@ -109,7 +107,6 @@ export function ViewAsButton({ users }: { users: readonly ViewAsUser[] }) {
 
 /** Visible on every page while viewing as someone else. */
 export function ViewAsBanner({ name, role }: { name: string; role: string }) {
-  const router = useRouter();
   const [pending, startTransition] = React.useTransition();
   return (
     <div
@@ -128,8 +125,7 @@ export function ViewAsBanner({ name, role }: { name: string; role: string }) {
         onClick={() =>
           startTransition(async () => {
             await stopViewAs();
-            router.push("/");
-            router.refresh();
+            window.location.assign("/");
           })
         }
       >

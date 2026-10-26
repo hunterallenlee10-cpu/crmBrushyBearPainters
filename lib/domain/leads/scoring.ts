@@ -111,3 +111,35 @@ export function scoreSummary(score: number, temperature: Temperature): string {
   const t = temperature === "hot" ? "Hot" : temperature === "warm" ? "Warm" : "Cold";
   return `${score}/100 · ${t} Lead`;
 }
+
+/** The lead fields scoring looks at (a subset of the leads row). */
+export type ScorableLead = {
+  zip: string | null;
+  out_of_area: boolean;
+  territory_id: string | null;
+  mobile: string | null;
+  email: string | null;
+  street: string | null;
+  timeline: Timeline | null;
+  services: readonly Service[];
+  lead_source: string | null;
+};
+
+/** Builds the scoring input from a lead row plus activity counts. */
+export function scoreInputFromLead(
+  lead: ScorableLead,
+  activity: { photoCount: number; respondedToText: boolean; unansweredAttempts: number },
+): LeadScoreInput {
+  return {
+    inServiceArea: lead.zip ? !lead.out_of_area && lead.territory_id !== null : null,
+    hasMobile: Boolean(lead.mobile),
+    hasEmail: Boolean(lead.email),
+    hasFullAddress: Boolean(lead.street && lead.zip),
+    timeline: lead.timeline,
+    services: lead.services,
+    photoCount: activity.photoCount,
+    leadSource: lead.lead_source,
+    respondedToText: activity.respondedToText,
+    unansweredAttempts: activity.unansweredAttempts,
+  };
+}

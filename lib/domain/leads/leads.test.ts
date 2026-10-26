@@ -11,6 +11,7 @@ import {
   gradeFor,
   scoreLead,
   scoreSummary,
+  scoreInputFromLead,
   temperatureFor,
   type LeadScoreInput,
   type ScoringRule,
@@ -434,5 +435,47 @@ describe("website form mapping", () => {
     [{ referrer: "not a url" }, "direct"],
   ])("sub-source for %j is %s", (attribution, expected) => {
     expect(inferWebsiteSubSource(attribution)).toBe(expected);
+  });
+});
+
+describe("scoreInputFromLead", () => {
+  it("derives area, contact and address facts from the row", () => {
+    const input = scoreInputFromLead(
+      {
+        zip: "98033",
+        out_of_area: false,
+        territory_id: "t1",
+        mobile: "+14255550100",
+        email: null,
+        street: "1 Main St",
+        timeline: "asap",
+        services: ["interior"],
+        lead_source: "website",
+      },
+      { photoCount: 1, respondedToText: false, unansweredAttempts: 0 },
+    );
+    expect(input).toMatchObject({
+      inServiceArea: true,
+      hasMobile: true,
+      hasEmail: false,
+      hasFullAddress: true,
+      photoCount: 1,
+    });
+    expect(
+      scoreInputFromLead(
+        {
+          zip: null,
+          out_of_area: false,
+          territory_id: null,
+          mobile: null,
+          email: "a@b.co",
+          street: null,
+          timeline: null,
+          services: [],
+          lead_source: null,
+        },
+        { photoCount: 0, respondedToText: false, unansweredAttempts: 0 },
+      ).inServiceArea,
+    ).toBeNull();
   });
 });

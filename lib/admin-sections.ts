@@ -227,5 +227,5 @@ export function visibleAdminSections(can: (p: Permission) => boolean): AdminSect
   return ADMIN_SECTIONS.filter((s) => !s.requiresAny || s.requiresAny.some(can));
 }
 
-/** Phase in which Phase 1 is the current build; sections from later phases are shown as upcoming. */
-export const CURRENT_PHASE = 1;
+/** The phase being built; sections and nav pages from later phases are shown as upcoming. */
+export const CURRENT_PHASE = 2;
