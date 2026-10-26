@@ -46,7 +46,23 @@ Do this once per Supabase project (preview and production). Local dev reads all 
 | `SUPABASE_SERVICE_ROLE_KEY` | Vercel env                    | Rotate in Supabase (Settings → API) → update Vercel env → redeploy         |
 | `CRON_SECRET`               | Vercel env                    | Generate new value (`openssl rand -hex 32`) → update Vercel env → redeploy |
 | `LEAD_INTAKE_HMAC_SECRET`   | Vercel env + website repo env | Update both at the same time, then redeploy both                           |
+| `FIELD_ENCRYPTION_KEY`      | Vercel env                    | **Don't rotate casually** — see below                                      |
 | Provider keys (Phase 1+)    | Vercel env                    | Rotate at provider → update env → redeploy                                 |
+
+## Website lead intake _(Phase 2)_
+
+The website posts quote requests to `POST /api/public/leads` (contract in `docs/WEBSITE_INTEGRATION.md`).
+
+1. **Secret:** generate one value with `openssl rand -hex 32`. Set it as `LEAD_INTAKE_HMAC_SECRET` in the CRM's Vercel env **and** the website's env. Without it the endpoint answers `503`.
+2. **Organization:** `LEAD_INTAKE_ORG_SLUG` picks which organization receives website leads (default `brushy-bear`).
+3. **Check it works:** run the curl example in `docs/WEBSITE_INTEGRATION.md` against the preview URL. Expect `201` and a new lead under Leads → New.
+4. **Something wrong?** Every request is recorded in `intake_requests` (outcome, reason, time). `401` = bad or old signature (check both secrets match and the website's clock), `429` = rate limit, `409` = same idempotency key with a different body.
+
+## Gate and lockbox codes _(Phase 2)_
+
+- Codes are encrypted in the app (AES-256-GCM) with `FIELD_ENCRYPTION_KEY` (32 random bytes, base64: `openssl rand -base64 32`) before they reach the database.
+- **Losing or changing the key makes saved codes unreadable.** Keep a copy in the owners' password manager. To rotate: export the codes while the old key is set, change the key, re-enter them. A re-encryption script is a Phase 10 hardening item.
+- Without the key set, the app still works; saving a code shows "Gate codes can't be saved until FIELD_ENCRYPTION_KEY is set."
 
 ## Month close _(Phase 7)_
 

@@ -38,30 +38,31 @@ Scope only applies to permissions marked as scoped in the catalog (`lib/permissi
 
 #### Core Records
 
-**Core records — everyone's** (`core_records_all`, 20 permissions). Leads, accounts, contacts, tasks, notes and documents for the whole company.
+**Core records — everyone's** (`core_records_all`, 21 permissions). Leads, accounts, contacts, tasks, notes and documents for the whole company.
 
-| Permission                  | Key                | Scope      |
-| --------------------------- | ------------------ | ---------- |
-| View leads                  | `leads:read`       | Everyone's |
-| Create leads                | `leads:create`     | —          |
-| Edit leads                  | `leads:update`     | Everyone's |
-| Delete leads                | `leads:delete`     | —          |
-| Assign leads                | `leads:assign`     | —          |
-| View accounts               | `accounts:read`    | Everyone's |
-| Create accounts             | `accounts:create`  | —          |
-| Edit accounts               | `accounts:update`  | Everyone's |
-| Delete accounts             | `accounts:delete`  | —          |
-| View contacts               | `contacts:read`    | Everyone's |
-| Create contacts             | `contacts:create`  | —          |
-| Edit contacts               | `contacts:update`  | Everyone's |
-| Delete contacts             | `contacts:delete`  | —          |
-| View tasks                  | `tasks:read`       | Everyone's |
-| Create and edit tasks       | `tasks:manage`     | —          |
-| View notes and comments     | `notes:read`       | —          |
-| Write notes and comments    | `notes:write`      | —          |
-| View documents              | `documents:read`   | —          |
-| Upload and manage documents | `documents:manage` | —          |
-| View Attention items        | `attention:read`   | Everyone's |
+| Permission                  | Key                            | Scope      |
+| --------------------------- | ------------------------------ | ---------- |
+| View leads                  | `leads:read`                   | Everyone's |
+| Create leads                | `leads:create`                 | —          |
+| Edit leads                  | `leads:update`                 | Everyone's |
+| Delete leads                | `leads:delete`                 | —          |
+| Assign leads                | `leads:assign`                 | —          |
+| View accounts               | `accounts:read`                | Everyone's |
+| Create accounts             | `accounts:create`              | —          |
+| Edit accounts               | `accounts:update`              | Everyone's |
+| Delete accounts             | `accounts:delete`              | —          |
+| View contacts               | `contacts:read`                | Everyone's |
+| Create contacts             | `contacts:create`              | —          |
+| Edit contacts               | `contacts:update`              | Everyone's |
+| Delete contacts             | `contacts:delete`              | —          |
+| View tasks                  | `tasks:read`                   | Everyone's |
+| Create and edit tasks       | `tasks:manage`                 | —          |
+| View notes and comments     | `notes:read`                   | —          |
+| Write notes and comments    | `notes:write`                  | —          |
+| View documents              | `documents:read`               | —          |
+| Upload and manage documents | `documents:manage`             | —          |
+| View Attention items        | `attention:read`               | Everyone's |
+| See gate and lockbox codes  | `properties:view_access_codes` | —          |
 
 **Core records — own** (`core_records_own`, 15 permissions). Leads, accounts and contacts the user owns or is assigned to.
 
@@ -353,3 +354,9 @@ Scope only applies to permissions marked as scoped in the catalog (`lib/permissi
   - A template can't be deleted while anyone is on it, including deactivated users. Move them to another template first.
 - **Deleting is a soft delete with a reason.** Deleted templates and packs stop applying right away and can be restored from **Setup → Deleted Records**. A deleted pack grants nothing, even if a template still links to it.
 - **Enforcement is in Postgres** (RLS + guard triggers). Every change is audit-logged and emits a domain event through database triggers. The screens only hide what the database already denies.
+
+## Added in Phase 2
+
+- **`properties:view_access_codes`** (See gate and lockbox codes). Granted by default through _Core records — everyone's_ (Owner and Office Manager). Codes live encrypted in a separate table (`property_secrets`) that the database only lets holders of this permission read or change. Everyone else sees "Ask the office for the gate code."
+- **Lead, account and contact visibility** follows each record's scope: _Own records_ = the record's owner (the person it's assigned to) or its creator; _Team_ = own records plus anything in the user's territory (`profiles.default_territory_id`); _Everyone's_ = whole company. Notes, comments, tasks, messages and activity follow the record they belong to.
+- **Website intake** (`/api/public/leads`) runs as the system with a signed request, not as a user. Leads it creates are unassigned until someone with `leads:assign` assigns them.
