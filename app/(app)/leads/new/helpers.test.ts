@@ -10,8 +10,6 @@ import {
   photoContentType,
   resolveHomeBuilt,
   stepForField,
-  subSourceIssue,
-  subSourcesFor,
   wizardStep1Schema,
   wizardStep3Schema,
 } from "./helpers";
@@ -48,27 +46,7 @@ describe("step 1 schema", () => {
   });
 });
 
-describe("sub-source rule", () => {
-  it("lists only active sub-sources under the source", () => {
-    expect(subSourcesFor("website", SUBS).map((o) => o.value)).toEqual(["organic", "google_ads"]);
-    expect(subSourcesFor("yelp", SUBS)).toEqual([]);
-    expect(subSourcesFor(null, SUBS)).toEqual([]);
-  });
-
-  it("is required only when the source has sub-sources", () => {
-    expect(subSourceIssue("website", null, SUBS)).toBe("Pick a sub-source.");
-    expect(subSourceIssue("website", "organic", SUBS)).toBeNull();
-    expect(subSourceIssue("yelp", null, SUBS)).toBeNull();
-    expect(subSourceIssue(null, null, SUBS)).toBeNull();
-  });
-
-  it("refuses a sub-source from another source, allows unparented ones", () => {
-    expect(subSourceIssue("yelp", "organic", SUBS)).toBe(
-      "That sub-source doesn't go with this source.",
-    );
-    expect(subSourceIssue("yelp", "general", SUBS)).toBeNull();
-  });
-
+describe("step 3 sub-source rule", () => {
   it("step 3 schema adds the sub-source issue to the full lead check", () => {
     const base = { first_name: "Jane", last_name: "Smith", mobile: "425-555-0100" };
     const schema = wizardStep3Schema(SUBS);

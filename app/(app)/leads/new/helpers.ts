@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { HomeBuilt } from "@/lib/domain/leads/constants";
+import { subSourceIssue, type SubSourceOption } from "@/lib/domain/leads/sub-source";
 import {
   leadContactSchema,
   leadCreateSchema,
@@ -14,7 +15,7 @@ import {
 
 export type WizardStep = 1 | 2 | 3;
 
-export type SubSourceOption = { value: string; parent?: string | null; active?: boolean };
+export { subSourceIssue, subSourcesFor, type SubSourceOption } from "@/lib/domain/leads/sub-source";
 
 /** The wizard's step-1 rule (mirrors leadCreateSchema): one way to reach them. */
 export const CONTACT_METHOD_MESSAGE = "Add a mobile, phone or email so we can reach them.";
@@ -43,34 +44,6 @@ export function wizardStep3Schema(subSources: readonly SubSourceOption[]) {
     // Show the sub-source problem alongside any others on the step.
     { when: () => true },
   );
-}
-
-/** Sub-sources that belong under a source (active ones only, for the picker). */
-export function subSourcesFor<T extends SubSourceOption>(
-  source: string | null | undefined,
-  subSources: readonly T[],
-): T[] {
-  if (!source) return [];
-  return subSources.filter((o) => o.parent === source && o.active !== false);
-}
-
-/**
- * Sub-source is required only when the chosen source has sub-sources, and a
- * given sub-source must belong to that source. Returns the message or null.
- */
-export function subSourceIssue(
-  source: string | null | undefined,
-  subSource: string | null | undefined,
-  subSources: readonly SubSourceOption[],
-): string | null {
-  if (!source) return null;
-  if (subSource) {
-    const fits = subSources.some(
-      (o) => o.value === subSource && (o.parent === source || o.parent == null),
-    );
-    return fits ? null : "That sub-source doesn't go with this source.";
-  }
-  return subSourcesFor(source, subSources).length > 0 ? "Pick a sub-source." : null;
 }
 
 /** A typed year decides "home built" when nobody picked it (SPEC §5.1 pre-1978). */

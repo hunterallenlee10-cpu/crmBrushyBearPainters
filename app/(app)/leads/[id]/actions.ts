@@ -2,13 +2,14 @@
 
 import { revalidatePath } from "next/cache";
 import { defineAction, type ActionContext } from "@/lib/actions/define-action";
-import { ActionFailure, check } from "@/lib/actions/errors";
+import { ActionFailure, actionError, check } from "@/lib/actions/errors";
+import { subSourceIssue } from "@/lib/domain/leads/sub-source";
 import { serverEnv } from "@/lib/env";
 import { type IntegrationContext } from "@/lib/integrations/core";
 import { getEmailProvider } from "@/lib/integrations/email";
 import { createSupabaseOutboxSink } from "@/lib/integrations/outbox-sink";
 import { getSmsProvider } from "@/lib/integrations/sms_voice";
-import { rescoreLead, recordHumanContact } from "@/lib/leads/service";
+import { loadLeadOptions, rescoreLead, recordHumanContact } from "@/lib/leads/service";
 import { logLeadCall, sendLeadEmail, sendLeadSms, type MessagingLead } from "@/lib/leads/messaging";
 import { bookWalkthroughSchema, leadStatusSchema, leadUpdateSchema } from "@/lib/validation/leads";
 import {
@@ -93,6 +94,17 @@ export const updateLead = defineAction({
   permissions: ["leads:update"],
   schema: leadUpdateSchema,
   handler: async ({ id, owner_id, ...values }, { supabase, viewer }) => {
+    const options = await loadLeadOptions(supabase);
+    const subIssue = subSourceIssue(
+      values.lead_source,
+      values.lead_sub_source,
+      options.picklists.lead_sub_source,
+    );
+    if (subIssue) {
+      throw new ActionFailure(
+        actionError("validation", undefined, { lead_sub_source: [subIssue] }),
+      );
+    }
     const changes = viewer.can("leads:assign") ? { ...values, owner_id } : values;
     const rows = check(await supabase.from("leads").update(changes).eq("id", id).select("id"));
     if (!rows?.length) throw NOT_FOUND;
