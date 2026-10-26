@@ -46,7 +46,7 @@ import json, sys, statistics
 label, path, runs = sys.argv[1], sys.argv[2], int(sys.argv[3])
 times, cur, buf = {}, None, []
 def flush():
-    if cur and buf:
+    if cur and buf and not cur.startswith("_"):
         plan = json.loads("".join(buf))
         times.setdefault(cur, []).append(plan[0]["Execution Time"] + plan[0]["Planning Time"])
 for line in open(path):

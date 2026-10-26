@@ -5,6 +5,7 @@
 \pset format unaligned
 \pset tuples_only on
 begin;
+\echo '### _setup'
 select set_config('request.jwt.claims',
   json_build_object('sub', :'uid', 'role', 'authenticated', 'aal', 'aal2',
                     'session_id', '00000000-0000-0000-0000-00000000beef')::text, true);

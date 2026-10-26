@@ -341,3 +341,11 @@ Every non-obvious decision, newest at the bottom. Format: date · decision · re
 
 - **Decision:** Migration `20261026000900_messages_trusted_delete`. Messages stay append-only for people: no one signed in can edit or delete one. The service role may delete (never edit), so test cleanup and the Phase 10 demo-data purge can remove messages and the outbox rows they reference. Deletes are audit-logged.
 - **Reason:** Before this even the service role was refused, so test runs left orphan messages and outbox rows behind, and the demo purge would have hit the same wall.
+
+### 2026-10-26 · Lead List performance at 50k leads
+
+- **Decision:** Migration `20261026001000_lead_list_performance`:
+  - Indexes on leads that match the list's default sort (`created_at desc nulls last, id`), plus one led by status for the tabs that includes the columns row security reads (two older indexes that didn't match were replaced).
+  - Row-security policies for leads, accounts, contacts, properties and tasks spell out the scope rule (all / own / team) instead of calling `app.scope_match()`. Same rule; covered by the existing per-role SQL tests.
+  - `lead_status_counts()` reads the current user once; `lead_stats()` aggregates in a few passes. Results checked identical to the old functions on 50k leads (ties in the source and city top lists are now ordered by name).
+- **Reason:** SPEC Phase 2 "done when": < 300 ms at 50k leads. Before: tab counts 759 ms, dashboard 466 ms, page 1 147 ms. After: 18 ms, 141 ms, 4 ms. Full table in `docs/PERFORMANCE.md`. Postgres can't inline a SQL function whose arguments are sub-selects used more than once, so `scope_match()` ran as a real call on every row.

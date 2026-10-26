@@ -28,7 +28,10 @@ select
   (100 + g % 9900) || ' ' || (array['Main St','Oak Ave','Lake Dr','Pine Ln','Ridge Rd'])[1 + (g % 5)],
   z.city,
   z.zip,
-  (array[array['interior'], array['exterior'], array['cabinets'], array['interior','exterior'], array['deck_fence'], array['other']])[1 + (g % 6)],
+  case g % 6
+    when 0 then array['interior'] when 1 then array['exterior'] when 2 then array['cabinets']
+    when 3 then array['interior', 'exterior'] when 4 then array['deck_fence'] else array['other']
+  end,
   (array['asap','1_3_months','3_plus_months','just_planning'])[1 + (g % 4)],
   (array['before_1978','1978_or_later','not_sure'])[1 + (g % 3)],
   s.status,
