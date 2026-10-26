@@ -65,8 +65,8 @@ select tests.assert(
 
 -- Access: deny by default -----------------------------------------------------
 set local role anon;
-select tests.assert_eq((select count(*) from public.organizations), 0::bigint,
-  'anon cannot read organizations');
+select tests.assert_raises($$select count(*) from public.organizations$$,
+  'anon cannot read organizations', '42501');
 select tests.assert_raises(
   $$select app.next_number('00000000-0000-0000-0000-0000000000a1', 'job')$$,
   'anon cannot mint numbers', '42501');
@@ -74,7 +74,7 @@ reset role;
 
 set local role authenticated;
 select tests.assert_eq((select count(*) from public.organizations), 0::bigint,
-  'signed-in users see no organizations until Phase 1 policies exist');
+  'a signed-in user without a profile sees no organization');
 select tests.assert_raises(
   $$select app.next_number('00000000-0000-0000-0000-0000000000a1', 'job')$$,
   'signed-in users cannot mint numbers directly', '42501');
