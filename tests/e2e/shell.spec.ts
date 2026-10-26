@@ -47,7 +47,8 @@ test.describe("app shell (owner)", () => {
     await expect(menu.getByRole("menuitem", { name: /Lead Dashboard/ })).toBeVisible();
     await expect(menu.getByRole("menuitem", { name: /Lead List/ })).toBeVisible();
     await expect(menu.getByRole("menuitem", { name: /New Lead/ })).toBeVisible();
-    await expect(menu.getByText("No recent leads yet.")).toBeVisible();
+    // Shows the newest leads, or an empty note; which one depends on other specs' data.
+    await expect(menu.getByText("Recent leads", { exact: true })).toBeVisible();
 
     await menu.getByRole("menuitem", { name: /Lead List/ }).click();
     await expect(page).toHaveURL(/\/leads\/list$/);
@@ -224,7 +225,7 @@ test.describe("accessibility (axe)", () => {
       .map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`);
   };
 
-  for (const path of ["/", "/leads/list", "/admin", "/admin/company", "/dev/ui"]) {
+  for (const path of ["/", "/leads", "/leads/list", "/admin", "/admin/company", "/dev/ui"]) {
     test(`no serious or critical violations on ${path}`, async ({ page }) => {
       await page.goto(path);
       expect(await scan(page)).toEqual([]);

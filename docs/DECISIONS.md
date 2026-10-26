@@ -295,3 +295,15 @@ Every non-obvious decision, newest at the bottom. Format: date · decision · re
 
 - **Decision:** Admin → Lead Scoring saves only the rules that changed. "Recalculate open leads" needs `settings:manage` **and** `leads:update`, uses the person's own session, and rescores up to 2,000 of the newest open leads. Otherwise a score updates the next time its lead changes.
 - **Reason:** Recalculating edits leads. Without `leads:update`, row security would silently skip leads and the result would look complete when it isn't.
+
+### 2026-10-26 · New Lead wizard details
+
+- **Decision:**
+  - **Completion %** counts 17 useful fields. Company, unit and sub-source are left out, so an ordinary residential lead can reach 100%. _Owners to confirm the list._
+  - **Home built:** typing a year built fills in the "home built" choice (in the browser and again on the server). A choice the person picks wins over the year.
+  - **Duplicates** are a notice, not a block. The notice never includes the id of a lead the viewer can't open; it shows name, status and owner and says who to ask.
+  - **Photos** upload after the lead is saved, through one-time signed URLs into the private bucket. A failed upload never undoes the lead. Each file is confirmed in storage before it's attached, and the attachment is inserted with the person's own session, so row security checks they may edit the lead.
+  - A scoring failure after saving is logged, not shown as a save error (otherwise people save twice).
+  - Unavailable footer buttons (Call / SMS / Email before saving, Save & Convert until Phase 3) use `aria-disabled` so their explanation tooltips stay reachable by keyboard.
+  - The lead-safe note for homes built before 1978 is **Draft – owner to approve**.
+- **Reason:** SPEC §8.4 "New Lead"; CLAUDE.md rules on permissions and placeholders.
