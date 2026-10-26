@@ -26,6 +26,17 @@ export const serverEnvSchema = z.object({
 
   CRON_SECRET: z.string().min(16).optional(),
   LEAD_INTAKE_HMAC_SECRET: z.string().min(32).optional(),
+  LEAD_INTAKE_ORG_SLUG: z
+    .string()
+    .regex(/^[a-z0-9-]+$/)
+    .default("brushy-bear"),
+  /** 32 random bytes, base64. Encrypts gate/lockbox codes (app-level AES-256-GCM). */
+  FIELD_ENCRYPTION_KEY: z
+    .string()
+    .refine((v) => Buffer.from(v, "base64").length === 32, {
+      message: "Must be 32 bytes, base64-encoded.",
+    })
+    .optional(),
   SEED_OWNER_EMAILS: z.string().optional(),
   DEMO_DATA: boolString,
 

@@ -549,7 +549,7 @@ export type Database = {
         Row: {
           created_at: string;
           idempotency_key: string;
-          lead_id: string;
+          lead_id: string | null;
           org_id: string;
           outcome: string;
           request_hash: string;
@@ -558,7 +558,7 @@ export type Database = {
         Insert: {
           created_at?: string;
           idempotency_key: string;
-          lead_id: string;
+          lead_id?: string | null;
           org_id: string;
           outcome: string;
           request_hash: string;
@@ -566,7 +566,7 @@ export type Database = {
         Update: {
           created_at?: string;
           idempotency_key?: string;
-          lead_id?: string;
+          lead_id?: string | null;
           org_id?: string;
           outcome?: string;
           request_hash?: string;
@@ -2332,6 +2332,10 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      consume_rate_limit: {
+        Args: { p_bucket: string; p_limit: number; p_window_seconds: number };
+        Returns: boolean;
+      };
       integration_summary: { Args: Record<PropertyKey, never>; Returns: Json };
       lead_stats: { Args: { p_now?: string }; Returns: Json };
       lead_status_counts: { Args: Record<PropertyKey, never>; Returns: Json };
