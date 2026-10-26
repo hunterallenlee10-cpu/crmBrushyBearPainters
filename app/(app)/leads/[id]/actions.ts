@@ -94,12 +94,26 @@ export const updateLead = defineAction({
   permissions: ["leads:update"],
   schema: leadUpdateSchema,
   handler: async ({ id, owner_id, ...values }, { supabase, viewer }) => {
-    const options = await loadLeadOptions(supabase);
-    const subIssue = subSourceIssue(
-      values.lead_source,
-      values.lead_sub_source,
-      options.picklists.lead_sub_source,
+    // Only check the sub-source rule when source or sub-source changes, so an
+    // older lead without a sub-source can still have its email fixed.
+    const current = check(
+      await supabase
+        .from("leads")
+        .select("lead_source, lead_sub_source")
+        .eq("id", id)
+        .maybeSingle(),
     );
+    if (!current) throw NOT_FOUND;
+    const sourceChanged =
+      (values.lead_source ?? null) !== current.lead_source ||
+      (values.lead_sub_source ?? null) !== current.lead_sub_source;
+    const subIssue = sourceChanged
+      ? subSourceIssue(
+          values.lead_source,
+          values.lead_sub_source,
+          (await loadLeadOptions(supabase)).picklists.lead_sub_source,
+        )
+      : null;
     if (subIssue) {
       throw new ActionFailure(
         actionError("validation", undefined, { lead_sub_source: [subIssue] }),

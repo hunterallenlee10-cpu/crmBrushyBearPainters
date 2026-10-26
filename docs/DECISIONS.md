@@ -349,3 +349,8 @@ Every non-obvious decision, newest at the bottom. Format: date · decision · re
   - Row-security policies for leads, accounts, contacts, properties and tasks spell out the scope rule (all / own / team) instead of calling `app.scope_match()`. Same rule; covered by the existing per-role SQL tests.
   - `lead_status_counts()` reads the current user once; `lead_stats()` aggregates in a few passes. Results checked identical to the old functions on 50k leads (ties in the source and city top lists are now ordered by name).
 - **Reason:** SPEC Phase 2 "done when": < 300 ms at 50k leads. Before: tab counts 759 ms, dashboard 466 ms, page 1 147 ms. After: 18 ms, 141 ms, 4 ms. Full table in `docs/PERFORMANCE.md`. Postgres can't inline a SQL function whose arguments are sub-selects used more than once, so `scope_match()` ran as a real call on every row.
+
+### 2026-10-26 · Sub-source rule on edits
+
+- **Decision:** The sub-source rule (required when the source has sub-sources; must belong to the source) lives in `lib/domain/leads/sub-source.ts`. New leads always follow it. Edit lead checks it only when the source or sub-source changes, so a lead saved before the rule, or a website lead without one, can still have its email or address fixed.
+- **Reason:** Blocking an unrelated edit over a field the person didn't touch would be confusing.
