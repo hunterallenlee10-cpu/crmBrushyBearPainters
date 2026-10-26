@@ -9,3 +9,4 @@ values ('Brushy Bear Painters', 'brushy-bear', 'America/Los_Angeles')
 on conflict (slug) do nothing;
 
 select app.seed_org_defaults(id) from public.organizations;
+select app.seed_leads_defaults(id) from public.organizations;

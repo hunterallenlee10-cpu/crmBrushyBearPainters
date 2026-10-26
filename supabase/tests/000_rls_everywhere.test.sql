@@ -17,14 +17,14 @@ select tests.assert_eq(
   'every table in public/app has row level security enabled'
 );
 
--- Log/outbox tables and the global permission catalog are exempt from row auditing.
+-- Log/outbox tables, rate-limit counters and the global permission catalog are exempt from row auditing.
 select tests.assert_eq(
   (
     select coalesce(string_agg(c.relname, ', ' order by c.relname), '')
     from pg_class c
     join pg_namespace n on n.oid = c.relnamespace
     where c.relkind = 'r' and n.nspname = 'public'
-      and c.relname not in ('audit_log', 'activity', 'events', 'integration_outbox', 'permissions')
+      and c.relname not in ('audit_log', 'activity', 'events', 'integration_outbox', 'permissions', 'rate_limits')
       and not exists (
         select 1 from pg_trigger t
         join pg_proc p on p.oid = t.tgfoid

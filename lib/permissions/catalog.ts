@@ -29,6 +29,12 @@ export const PERMISSIONS = [
   { key: "contacts:create", label: "Create contacts", category: "core_records", scoped: false },
   { key: "contacts:update", label: "Edit contacts", category: "core_records", scoped: true },
   { key: "contacts:delete", label: "Delete contacts", category: "core_records", scoped: false },
+  {
+    key: "properties:view_access_codes",
+    label: "See gate and lockbox codes",
+    category: "core_records",
+    scoped: false,
+  },
   { key: "tasks:read", label: "View tasks", category: "core_records", scoped: true },
   { key: "tasks:manage", label: "Create and edit tasks", category: "core_records", scoped: false },
   { key: "notes:read", label: "View notes and comments", category: "core_records", scoped: false },

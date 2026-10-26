@@ -3,6 +3,102 @@ export type Json = string | number | boolean | null | { [key: string]: Json | un
 export type Database = {
   public: {
     Tables: {
+      accounts: {
+        Row: {
+          account_type: string;
+          created_at: string;
+          created_by: string | null;
+          delete_reason: string | null;
+          deleted_at: string | null;
+          deleted_by: string | null;
+          display_name: string;
+          id: string;
+          is_referral_champion: boolean;
+          notes: string | null;
+          org_id: string;
+          owner_id: string | null;
+          primary_contact_id: string | null;
+          search_text: string | null;
+          status: string;
+          tags: string[];
+          territory_id: string | null;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        ComputedFields: never;
+        Insert: {
+          account_type?: string;
+          created_at?: string;
+          created_by?: string | null;
+          delete_reason?: string | null;
+          deleted_at?: string | null;
+          deleted_by?: string | null;
+          display_name: string;
+          id?: string;
+          is_referral_champion?: boolean;
+          notes?: string | null;
+          org_id: string;
+          owner_id?: string | null;
+          primary_contact_id?: string | null;
+          search_text?: never;
+          status?: string;
+          tags?: string[];
+          territory_id?: string | null;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          account_type?: string;
+          created_at?: string;
+          created_by?: string | null;
+          delete_reason?: string | null;
+          deleted_at?: string | null;
+          deleted_by?: string | null;
+          display_name?: string;
+          id?: string;
+          is_referral_champion?: boolean;
+          notes?: string | null;
+          org_id?: string;
+          owner_id?: string | null;
+          primary_contact_id?: string | null;
+          search_text?: never;
+          status?: string;
+          tags?: string[];
+          territory_id?: string | null;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "accounts_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "accounts_owner_id_fkey";
+            columns: ["owner_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "accounts_primary_contact_fk";
+            columns: ["primary_contact_id"];
+            isOneToOne: false;
+            referencedRelation: "contacts";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "accounts_territory_id_fkey";
+            columns: ["territory_id"];
+            isOneToOne: false;
+            referencedRelation: "territories";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       activity: {
         Row: {
           actor_id: string | null;
@@ -102,6 +198,63 @@ export type Database = {
           user_agent?: string | null;
         };
         Relationships: [];
+      };
+      comments: {
+        Row: {
+          body: string;
+          category: string;
+          created_at: string;
+          created_by: string | null;
+          deleted_at: string | null;
+          edited_at: string | null;
+          id: string;
+          mentions: string[];
+          org_id: string;
+          subject_id: string;
+          subject_type: string;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        ComputedFields: never;
+        Insert: {
+          body: string;
+          category?: string;
+          created_at?: string;
+          created_by?: string | null;
+          deleted_at?: string | null;
+          edited_at?: string | null;
+          id?: string;
+          mentions?: string[];
+          org_id: string;
+          subject_id: string;
+          subject_type: string;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          body?: string;
+          category?: string;
+          created_at?: string;
+          created_by?: string | null;
+          deleted_at?: string | null;
+          edited_at?: string | null;
+          id?: string;
+          mentions?: string[];
+          org_id?: string;
+          subject_id?: string;
+          subject_type?: string;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "comments_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       company_settings: {
         Row: {
@@ -214,6 +367,118 @@ export type Database = {
           },
         ];
       };
+      contacts: {
+        Row: {
+          account_id: string;
+          created_at: string;
+          created_by: string | null;
+          delete_reason: string | null;
+          deleted_at: string | null;
+          deleted_by: string | null;
+          do_not_contact: boolean;
+          email: string | null;
+          email_opt_in: boolean;
+          email_opt_in_at: string | null;
+          email_opt_in_source: string | null;
+          first_name: string;
+          id: string;
+          language: string;
+          last_name: string | null;
+          mobile: string | null;
+          notes: string | null;
+          opted_out_at: string | null;
+          org_id: string;
+          phone: string | null;
+          phone_digits: string | null;
+          preferred_channel: string | null;
+          role: string;
+          search_text: string | null;
+          sms_opt_in: boolean;
+          sms_opt_in_at: string | null;
+          sms_opt_in_source: string | null;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        ComputedFields: never;
+        Insert: {
+          account_id: string;
+          created_at?: string;
+          created_by?: string | null;
+          delete_reason?: string | null;
+          deleted_at?: string | null;
+          deleted_by?: string | null;
+          do_not_contact?: boolean;
+          email?: string | null;
+          email_opt_in?: boolean;
+          email_opt_in_at?: string | null;
+          email_opt_in_source?: string | null;
+          first_name: string;
+          id?: string;
+          language?: string;
+          last_name?: string | null;
+          mobile?: string | null;
+          notes?: string | null;
+          opted_out_at?: string | null;
+          org_id: string;
+          phone?: string | null;
+          phone_digits?: never;
+          preferred_channel?: string | null;
+          role?: string;
+          search_text?: never;
+          sms_opt_in?: boolean;
+          sms_opt_in_at?: string | null;
+          sms_opt_in_source?: string | null;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          account_id?: string;
+          created_at?: string;
+          created_by?: string | null;
+          delete_reason?: string | null;
+          deleted_at?: string | null;
+          deleted_by?: string | null;
+          do_not_contact?: boolean;
+          email?: string | null;
+          email_opt_in?: boolean;
+          email_opt_in_at?: string | null;
+          email_opt_in_source?: string | null;
+          first_name?: string;
+          id?: string;
+          language?: string;
+          last_name?: string | null;
+          mobile?: string | null;
+          notes?: string | null;
+          opted_out_at?: string | null;
+          org_id?: string;
+          phone?: string | null;
+          phone_digits?: never;
+          preferred_channel?: string | null;
+          role?: string;
+          search_text?: never;
+          sms_opt_in?: boolean;
+          sms_opt_in_at?: string | null;
+          sms_opt_in_source?: string | null;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "contacts_account_id_fkey";
+            columns: ["account_id"];
+            isOneToOne: false;
+            referencedRelation: "accounts";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "contacts_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       events: {
         Row: {
           actor_id: string | null;
@@ -273,6 +538,49 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "events_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      intake_requests: {
+        Row: {
+          created_at: string;
+          idempotency_key: string;
+          lead_id: string;
+          org_id: string;
+          outcome: string;
+          request_hash: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          created_at?: string;
+          idempotency_key: string;
+          lead_id: string;
+          org_id: string;
+          outcome: string;
+          request_hash: string;
+        };
+        Update: {
+          created_at?: string;
+          idempotency_key?: string;
+          lead_id?: string;
+          org_id?: string;
+          outcome?: string;
+          request_hash?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "intake_requests_lead_id_fkey";
+            columns: ["lead_id"];
+            isOneToOne: false;
+            referencedRelation: "leads";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "intake_requests_org_id_fkey";
             columns: ["org_id"];
             isOneToOne: false;
             referencedRelation: "organizations";
@@ -402,6 +710,576 @@ export type Database = {
             columns: ["org_id"];
             isOneToOne: false;
             referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      lead_attachments: {
+        Row: {
+          content_type: string;
+          created_at: string;
+          created_by: string | null;
+          file_name: string;
+          id: string;
+          lead_id: string;
+          org_id: string;
+          size_bytes: number;
+          source: string;
+          storage_path: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          content_type: string;
+          created_at?: string;
+          created_by?: string | null;
+          file_name: string;
+          id?: string;
+          lead_id: string;
+          org_id: string;
+          size_bytes: number;
+          source?: string;
+          storage_path: string;
+        };
+        Update: {
+          content_type?: string;
+          created_at?: string;
+          created_by?: string | null;
+          file_name?: string;
+          id?: string;
+          lead_id?: string;
+          org_id?: string;
+          size_bytes?: number;
+          source?: string;
+          storage_path?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "lead_attachments_lead_id_fkey";
+            columns: ["lead_id"];
+            isOneToOne: false;
+            referencedRelation: "leads";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "lead_attachments_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      lead_scoring_rules: {
+        Row: {
+          active: boolean;
+          created_at: string;
+          created_by: string | null;
+          factor: string;
+          id: string;
+          label: string;
+          org_id: string;
+          points: number;
+          sort_order: number;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        ComputedFields: never;
+        Insert: {
+          active?: boolean;
+          created_at?: string;
+          created_by?: string | null;
+          factor: string;
+          id?: string;
+          label: string;
+          org_id: string;
+          points: number;
+          sort_order?: number;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          active?: boolean;
+          created_at?: string;
+          created_by?: string | null;
+          factor?: string;
+          id?: string;
+          label?: string;
+          org_id?: string;
+          points?: number;
+          sort_order?: number;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "lead_scoring_rules_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      leads: {
+        Row: {
+          account_id: string | null;
+          city: string | null;
+          company: string | null;
+          contact_id: string | null;
+          converted_at: string | null;
+          converted_job_id: string | null;
+          created_at: string;
+          created_by: string | null;
+          customer_notes: string | null;
+          delete_reason: string | null;
+          deleted_at: string | null;
+          deleted_by: string | null;
+          disposition: string | null;
+          email: string | null;
+          first_contacted_at: string | null;
+          first_name: string;
+          grade: string | null;
+          has_hoa: boolean | null;
+          home_built: string | null;
+          id: string;
+          intake_channel: string;
+          landing_page: string | null;
+          last_activity_at: string;
+          last_name: string | null;
+          lead_set_by: string | null;
+          lead_source: string;
+          lead_sub_source: string | null;
+          lost_reason: string | null;
+          mobile: string | null;
+          nurture_until: string | null;
+          org_id: string;
+          out_of_area: boolean;
+          owner_id: string | null;
+          page_path: string | null;
+          phone: string | null;
+          phone_digits: string | null;
+          point_of_contact_id: string | null;
+          property_id: string | null;
+          property_type: string | null;
+          referral_code: string | null;
+          referrer: string | null;
+          score: number | null;
+          score_factors: NonNullable<Json>;
+          scored_at: string | null;
+          search_text: string | null;
+          services: string[];
+          siding_type: string | null;
+          speed_to_lead_seconds: number | null;
+          state: string;
+          status: string;
+          stories: number | null;
+          street: string | null;
+          temperature: string | null;
+          territory_id: string | null;
+          timeline: string | null;
+          unit: string | null;
+          updated_at: string;
+          updated_by: string | null;
+          utm_campaign: string | null;
+          utm_content: string | null;
+          utm_medium: string | null;
+          utm_source: string | null;
+          utm_term: string | null;
+          walkthrough_at: string | null;
+          year_built: number | null;
+          zip: string | null;
+        };
+        ComputedFields: never;
+        Insert: {
+          account_id?: string | null;
+          city?: string | null;
+          company?: string | null;
+          contact_id?: string | null;
+          converted_at?: string | null;
+          converted_job_id?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          customer_notes?: string | null;
+          delete_reason?: string | null;
+          deleted_at?: string | null;
+          deleted_by?: string | null;
+          disposition?: string | null;
+          email?: string | null;
+          first_contacted_at?: string | null;
+          first_name: string;
+          grade?: string | null;
+          has_hoa?: boolean | null;
+          home_built?: string | null;
+          id?: string;
+          intake_channel?: string;
+          landing_page?: string | null;
+          last_activity_at?: string;
+          last_name?: string | null;
+          lead_set_by?: string | null;
+          lead_source: string;
+          lead_sub_source?: string | null;
+          lost_reason?: string | null;
+          mobile?: string | null;
+          nurture_until?: string | null;
+          org_id: string;
+          out_of_area?: boolean;
+          owner_id?: string | null;
+          page_path?: string | null;
+          phone?: string | null;
+          phone_digits?: never;
+          point_of_contact_id?: string | null;
+          property_id?: string | null;
+          property_type?: string | null;
+          referral_code?: string | null;
+          referrer?: string | null;
+          score?: number | null;
+          score_factors?: NonNullable<Json>;
+          scored_at?: string | null;
+          search_text?: never;
+          services?: string[];
+          siding_type?: string | null;
+          speed_to_lead_seconds?: number | null;
+          state?: string;
+          status?: string;
+          stories?: number | null;
+          street?: string | null;
+          temperature?: string | null;
+          territory_id?: string | null;
+          timeline?: string | null;
+          unit?: string | null;
+          updated_at?: string;
+          updated_by?: string | null;
+          utm_campaign?: string | null;
+          utm_content?: string | null;
+          utm_medium?: string | null;
+          utm_source?: string | null;
+          utm_term?: string | null;
+          walkthrough_at?: string | null;
+          year_built?: number | null;
+          zip?: string | null;
+        };
+        Update: {
+          account_id?: string | null;
+          city?: string | null;
+          company?: string | null;
+          contact_id?: string | null;
+          converted_at?: string | null;
+          converted_job_id?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          customer_notes?: string | null;
+          delete_reason?: string | null;
+          deleted_at?: string | null;
+          deleted_by?: string | null;
+          disposition?: string | null;
+          email?: string | null;
+          first_contacted_at?: string | null;
+          first_name?: string;
+          grade?: string | null;
+          has_hoa?: boolean | null;
+          home_built?: string | null;
+          id?: string;
+          intake_channel?: string;
+          landing_page?: string | null;
+          last_activity_at?: string;
+          last_name?: string | null;
+          lead_set_by?: string | null;
+          lead_source?: string;
+          lead_sub_source?: string | null;
+          lost_reason?: string | null;
+          mobile?: string | null;
+          nurture_until?: string | null;
+          org_id?: string;
+          out_of_area?: boolean;
+          owner_id?: string | null;
+          page_path?: string | null;
+          phone?: string | null;
+          phone_digits?: never;
+          point_of_contact_id?: string | null;
+          property_id?: string | null;
+          property_type?: string | null;
+          referral_code?: string | null;
+          referrer?: string | null;
+          score?: number | null;
+          score_factors?: NonNullable<Json>;
+          scored_at?: string | null;
+          search_text?: never;
+          services?: string[];
+          siding_type?: string | null;
+          speed_to_lead_seconds?: number | null;
+          state?: string;
+          status?: string;
+          stories?: number | null;
+          street?: string | null;
+          temperature?: string | null;
+          territory_id?: string | null;
+          timeline?: string | null;
+          unit?: string | null;
+          updated_at?: string;
+          updated_by?: string | null;
+          utm_campaign?: string | null;
+          utm_content?: string | null;
+          utm_medium?: string | null;
+          utm_source?: string | null;
+          utm_term?: string | null;
+          walkthrough_at?: string | null;
+          year_built?: number | null;
+          zip?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "leads_account_id_fkey";
+            columns: ["account_id"];
+            isOneToOne: false;
+            referencedRelation: "accounts";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "leads_contact_id_fkey";
+            columns: ["contact_id"];
+            isOneToOne: false;
+            referencedRelation: "contacts";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "leads_lead_set_by_fkey";
+            columns: ["lead_set_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "leads_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "leads_owner_id_fkey";
+            columns: ["owner_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "leads_point_of_contact_id_fkey";
+            columns: ["point_of_contact_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "leads_property_id_fkey";
+            columns: ["property_id"];
+            isOneToOne: false;
+            referencedRelation: "properties";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "leads_territory_id_fkey";
+            columns: ["territory_id"];
+            isOneToOne: false;
+            referencedRelation: "territories";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      messages: {
+        Row: {
+          body: string | null;
+          call_duration_seconds: number | null;
+          call_outcome: string | null;
+          channel: string;
+          contact_id: string | null;
+          created_at: string;
+          direction: string;
+          email_subject: string | null;
+          from_address: string | null;
+          id: string;
+          org_id: string;
+          outbox_id: string | null;
+          sent_by: string | null;
+          simulated: boolean;
+          status: string;
+          subject_id: string;
+          subject_type: string;
+          to_address: string | null;
+        };
+        ComputedFields: never;
+        Insert: {
+          body?: string | null;
+          call_duration_seconds?: number | null;
+          call_outcome?: string | null;
+          channel: string;
+          contact_id?: string | null;
+          created_at?: string;
+          direction: string;
+          email_subject?: string | null;
+          from_address?: string | null;
+          id?: string;
+          org_id: string;
+          outbox_id?: string | null;
+          sent_by?: string | null;
+          simulated?: boolean;
+          status: string;
+          subject_id: string;
+          subject_type: string;
+          to_address?: string | null;
+        };
+        Update: {
+          body?: string | null;
+          call_duration_seconds?: number | null;
+          call_outcome?: string | null;
+          channel?: string;
+          contact_id?: string | null;
+          created_at?: string;
+          direction?: string;
+          email_subject?: string | null;
+          from_address?: string | null;
+          id?: string;
+          org_id?: string;
+          outbox_id?: string | null;
+          sent_by?: string | null;
+          simulated?: boolean;
+          status?: string;
+          subject_id?: string;
+          subject_type?: string;
+          to_address?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "messages_contact_id_fkey";
+            columns: ["contact_id"];
+            isOneToOne: false;
+            referencedRelation: "contacts";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "messages_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "messages_outbox_id_fkey";
+            columns: ["outbox_id"];
+            isOneToOne: false;
+            referencedRelation: "integration_outbox";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "messages_sent_by_fkey";
+            columns: ["sent_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      notes: {
+        Row: {
+          body: string;
+          created_at: string;
+          created_by: string | null;
+          deleted_at: string | null;
+          id: string;
+          org_id: string;
+          pinned: boolean;
+          priority: string;
+          subject_id: string;
+          subject_type: string;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        ComputedFields: never;
+        Insert: {
+          body: string;
+          created_at?: string;
+          created_by?: string | null;
+          deleted_at?: string | null;
+          id?: string;
+          org_id: string;
+          pinned?: boolean;
+          priority?: string;
+          subject_id: string;
+          subject_type: string;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          body?: string;
+          created_at?: string;
+          created_by?: string | null;
+          deleted_at?: string | null;
+          id?: string;
+          org_id?: string;
+          pinned?: boolean;
+          priority?: string;
+          subject_id?: string;
+          subject_type?: string;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "notes_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      notifications: {
+        Row: {
+          body: string | null;
+          created_at: string;
+          id: string;
+          link: string | null;
+          org_id: string;
+          read_at: string | null;
+          title: string;
+          type: string;
+          user_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          body?: string | null;
+          created_at?: string;
+          id?: string;
+          link?: string | null;
+          org_id: string;
+          read_at?: string | null;
+          title: string;
+          type: string;
+          user_id: string;
+        };
+        Update: {
+          body?: string | null;
+          created_at?: string;
+          id?: string;
+          link?: string | null;
+          org_id?: string;
+          read_at?: string | null;
+          title?: string;
+          type?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "notifications_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "notifications_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
             referencedColumns: ["id"];
           },
         ];
@@ -866,6 +1744,217 @@ export type Database = {
           },
         ];
       };
+      properties: {
+        Row: {
+          access_notes: string | null;
+          account_id: string;
+          alarm: string | null;
+          approx_sqft: number | null;
+          city: string | null;
+          created_at: string;
+          created_by: string | null;
+          delete_reason: string | null;
+          deleted_at: string | null;
+          deleted_by: string | null;
+          has_hoa: boolean;
+          hoa_color_approval_required: boolean;
+          hoa_contact: string | null;
+          hoa_name: string | null;
+          home_built: string | null;
+          id: string;
+          is_primary: boolean;
+          lat: number | null;
+          lead_safe_required: boolean | null;
+          lng: number | null;
+          occupancy: string | null;
+          org_id: string;
+          out_of_area: boolean;
+          parking: string | null;
+          pets: string | null;
+          property_type: string | null;
+          search_text: string | null;
+          siding_type: string | null;
+          state: string;
+          stories: number | null;
+          street: string | null;
+          territory_id: string | null;
+          unit: string | null;
+          updated_at: string;
+          updated_by: string | null;
+          water_power_access: string | null;
+          year_built: number | null;
+          zip: string | null;
+        };
+        ComputedFields: never;
+        Insert: {
+          access_notes?: string | null;
+          account_id: string;
+          alarm?: string | null;
+          approx_sqft?: number | null;
+          city?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          delete_reason?: string | null;
+          deleted_at?: string | null;
+          deleted_by?: string | null;
+          has_hoa?: boolean;
+          hoa_color_approval_required?: boolean;
+          hoa_contact?: string | null;
+          hoa_name?: string | null;
+          home_built?: string | null;
+          id?: string;
+          is_primary?: boolean;
+          lat?: number | null;
+          lead_safe_required?: never;
+          lng?: number | null;
+          occupancy?: string | null;
+          org_id: string;
+          out_of_area?: boolean;
+          parking?: string | null;
+          pets?: string | null;
+          property_type?: string | null;
+          search_text?: never;
+          siding_type?: string | null;
+          state?: string;
+          stories?: number | null;
+          street?: string | null;
+          territory_id?: string | null;
+          unit?: string | null;
+          updated_at?: string;
+          updated_by?: string | null;
+          water_power_access?: string | null;
+          year_built?: number | null;
+          zip?: string | null;
+        };
+        Update: {
+          access_notes?: string | null;
+          account_id?: string;
+          alarm?: string | null;
+          approx_sqft?: number | null;
+          city?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          delete_reason?: string | null;
+          deleted_at?: string | null;
+          deleted_by?: string | null;
+          has_hoa?: boolean;
+          hoa_color_approval_required?: boolean;
+          hoa_contact?: string | null;
+          hoa_name?: string | null;
+          home_built?: string | null;
+          id?: string;
+          is_primary?: boolean;
+          lat?: number | null;
+          lead_safe_required?: never;
+          lng?: number | null;
+          occupancy?: string | null;
+          org_id?: string;
+          out_of_area?: boolean;
+          parking?: string | null;
+          pets?: string | null;
+          property_type?: string | null;
+          search_text?: never;
+          siding_type?: string | null;
+          state?: string;
+          stories?: number | null;
+          street?: string | null;
+          territory_id?: string | null;
+          unit?: string | null;
+          updated_at?: string;
+          updated_by?: string | null;
+          water_power_access?: string | null;
+          year_built?: number | null;
+          zip?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "properties_account_id_fkey";
+            columns: ["account_id"];
+            isOneToOne: false;
+            referencedRelation: "accounts";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "properties_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "properties_territory_id_fkey";
+            columns: ["territory_id"];
+            isOneToOne: false;
+            referencedRelation: "territories";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      property_secrets: {
+        Row: {
+          access_code_ciphertext: string;
+          created_at: string;
+          created_by: string | null;
+          org_id: string;
+          property_id: string;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        ComputedFields: never;
+        Insert: {
+          access_code_ciphertext: string;
+          created_at?: string;
+          created_by?: string | null;
+          org_id: string;
+          property_id: string;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          access_code_ciphertext?: string;
+          created_at?: string;
+          created_by?: string | null;
+          org_id?: string;
+          property_id?: string;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "property_secrets_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "property_secrets_property_id_fkey";
+            columns: ["property_id"];
+            isOneToOne: true;
+            referencedRelation: "properties";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      rate_limits: {
+        Row: {
+          bucket: string;
+          hits: number;
+          window_start: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          bucket: string;
+          hits?: number;
+          window_start: string;
+        };
+        Update: {
+          bucket?: string;
+          hits?: number;
+          window_start?: string;
+        };
+        Relationships: [];
+      };
       role_templates: {
         Row: {
           created_at: string;
@@ -928,6 +2017,143 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "role_templates_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      saved_views: {
+        Row: {
+          config: NonNullable<Json>;
+          created_at: string;
+          created_by: string | null;
+          id: string;
+          module: string;
+          name: string;
+          org_id: string;
+          shared: boolean;
+          updated_at: string;
+          updated_by: string | null;
+          user_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          config?: NonNullable<Json>;
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          module: string;
+          name: string;
+          org_id: string;
+          shared?: boolean;
+          updated_at?: string;
+          updated_by?: string | null;
+          user_id: string;
+        };
+        Update: {
+          config?: NonNullable<Json>;
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          module?: string;
+          name?: string;
+          org_id?: string;
+          shared?: boolean;
+          updated_at?: string;
+          updated_by?: string | null;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "saved_views_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "saved_views_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      tasks: {
+        Row: {
+          assignee_id: string;
+          completed_at: string | null;
+          completed_by: string | null;
+          created_at: string;
+          created_by: string | null;
+          created_by_workflow: string | null;
+          deleted_at: string | null;
+          description: string | null;
+          due_at: string | null;
+          id: string;
+          org_id: string;
+          priority: string;
+          status: string;
+          subject_id: string | null;
+          subject_type: string | null;
+          title: string;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        ComputedFields: never;
+        Insert: {
+          assignee_id: string;
+          completed_at?: string | null;
+          completed_by?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          created_by_workflow?: string | null;
+          deleted_at?: string | null;
+          description?: string | null;
+          due_at?: string | null;
+          id?: string;
+          org_id: string;
+          priority?: string;
+          status?: string;
+          subject_id?: string | null;
+          subject_type?: string | null;
+          title: string;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          assignee_id?: string;
+          completed_at?: string | null;
+          completed_by?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          created_by_workflow?: string | null;
+          deleted_at?: string | null;
+          description?: string | null;
+          due_at?: string | null;
+          id?: string;
+          org_id?: string;
+          priority?: string;
+          status?: string;
+          subject_id?: string | null;
+          subject_type?: string | null;
+          title?: string;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "tasks_assignee_id_fkey";
+            columns: ["assignee_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "tasks_org_id_fkey";
             columns: ["org_id"];
             isOneToOne: false;
             referencedRelation: "organizations";
@@ -1107,6 +2333,8 @@ export type Database = {
     };
     Functions: {
       integration_summary: { Args: Record<PropertyKey, never>; Returns: Json };
+      lead_stats: { Args: { p_now?: string }; Returns: Json };
+      lead_status_counts: { Args: Record<PropertyKey, never>; Returns: Json };
       list_deleted_records: {
         Args: Record<PropertyKey, never>;
         Returns: {
@@ -1126,6 +2354,17 @@ export type Database = {
         Returns: undefined;
       };
       restore_record: { Args: { p_id: string; p_table: string }; Returns: undefined };
+      search_records: {
+        Args: { p_limit?: number; p_query: string; p_scope?: string };
+        Returns: {
+          href: string;
+          id: string;
+          kind: string;
+          rank: number;
+          subtitle: string;
+          title: string;
+        }[];
+      };
       soft_delete_record: {
         Args: { p_id: string; p_reason: string; p_table: string };
         Returns: undefined;
