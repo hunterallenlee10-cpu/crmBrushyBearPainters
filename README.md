@@ -31,13 +31,19 @@ pnpm supabase start
 #   NEXT_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_...      ("Publishable" key)
 #   SUPABASE_SERVICE_ROLE_KEY=sb_secret_...               ("Secret" key — server-only)
 
+# Optional: create your owner accounts (emails are never committed)
+SEED_OWNER_EMAILS="you@example.com" pnpm seed:owners
+
 pnpm dev            # http://localhost:3000
 ```
+
+Signing in locally: enter your email on `/login`, then open the link from Mailpit at http://127.0.0.1:54324 (local Supabase catches every email). Owners set up two-step sign-in on first login with any authenticator app.
 
 Useful pages while developing:
 
 - `/` — the app shell
-- `/login` — brand sign-in screen (sign-in is wired up in Phase 1)
+- `/login` — sign-in (magic link; Google once it's configured)
+- `/admin` — Setup: company settings, users, roles & permissions, picklists, territories, integrations, audit log, deleted records
 - `/dev/ui` — design system: tokens, contrast ratios, stage colors, components (hidden in production)
 - Supabase Studio: http://127.0.0.1:54323
 
@@ -66,6 +72,10 @@ Useful pages while developing:
 
 CI always runs them against the real Supabase stack.
 
+### E2E tests
+
+`pnpm test:e2e` and `pnpm screens` need the local Supabase stack running and `.env.local` filled in. A setup step creates one test user per role (`e2e-*@test.brushybear.local`, nothing is emailed), signs each in through the real magic-link route and answers MFA with computed codes. It reuses a running `pnpm dev` server, or starts one.
+
 ### Migrations
 
 ```bash
@@ -82,7 +92,7 @@ See the folder map in [`CLAUDE.md`](CLAUDE.md#folder-map).
 
 ## CI
 
-`.github/workflows/ci.yml` runs on every push: lint → format check → typecheck → unit tests → build → client-bundle secret check; migrations + RLS tests on a real Supabase stack; Playwright E2E + axe on the production build.
+`.github/workflows/ci.yml` runs on every push: lint → format check → typecheck → unit tests → build → client-bundle secret check; migrations + RLS tests on a real Supabase stack; Playwright E2E + axe on the production build against a local Supabase stack.
 
 ## Deployment
 

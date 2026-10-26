@@ -9,7 +9,7 @@
 - [ ] Confirm **lien-related disclosures** required for residential work, and when they must be given.
 - [ ] Have an attorney review the proposal, contract, change-order, warranty and lead-safe acknowledgment templates.
 - [ ] Decide warranty terms (length, what's covered, exclusions) and approve the warranty template.
-- [ ] Confirm **sales-tax treatment** of residential painting labor and materials with an **accountant** (rates and rules by location). Tax is configurable in the CRM and starts unset.
+- [ ] Confirm **sales-tax treatment** of residential painting labor and materials with an **accountant** (rates and rules by location). Painting an existing home may be taxed as a retail sale in Washington. Tax is configurable in the CRM and starts unset.
 - [ ] Confirm deposit limits or rules, if any, for residential contracts.
 
 ## Lead-safe work in pre-1978 homes (SPEC §13.3)
@@ -27,9 +27,16 @@
 
 ## Subcontractors
 
+- [ ] **Check the registration type before using sub crews.** The owners' business plan notes that a Washington _specialty_ contractor registration may not allow hiring subcontractors, and that a _general_ contractor registration may be needed to do so. Confirm with **L&I** before any Subcontractor user is set up. The CRM has a Subcontractor role ready, but nothing requires using it.
 - [ ] Decide required documents for subcontract crews: L&I registration, certificate of insurance (COI), W-9, bond, RRP certification. The CRM tracks expiry dates and warns 30 days ahead (Phase 6).
 
 ## Data and privacy
 
 - [ ] Decide data retention for leads that never became customers.
 - [ ] Confirm who may export customer data (Export Controls, Phase 10).
+
+## Accounts and access (Phase 1)
+
+- [ ] Keep two-step sign-in (MFA) on for Owner and Bookkeeper. It's on by default.
+- [ ] Review Admin → Users each quarter and turn off anyone who has left. Turned-off users can't sign in, and their records stay.
+- [ ] Use View as user only to check what a teammate sees. Each use is in the audit log.

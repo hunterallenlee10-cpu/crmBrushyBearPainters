@@ -98,3 +98,72 @@ Every non-obvious decision, newest at the bottom. Format: date · decision · re
 
 - **Decision:** `supabase/config.toml` uses Postgres 17 (CLI default); the sandbox test harness uses the installed Postgres 16.
 - **Reason:** Both satisfy SPEC §2 (Postgres 15+). Migrations avoid version-specific features; CI on 17 is the authority.
+
+---
+
+## Phase 1 — Platform
+
+### 2026-10-26 · Full local Supabase in the build sandbox
+
+- **Decision:** The build sandbox can run Docker after all, so Phase 1 was developed and tested against the real `supabase start` stack (Auth, PostgREST, Postgres 17). The plain-Postgres fallback in `scripts/test-db.sh` stays, and both paths must pass. This supersedes the reason given in "Local DB tests without Docker".
+- **Reason:** The real stack exercises Auth, JWT claims, MFA levels and PostgREST grants, which the shim only approximates.
+
+### 2026-10-26 · Permissions resolved in Postgres
+
+- **Decision:** One function, `app.user_perm_scope(user, permission)`, resolves a user's scope (`own` / `team` / `all`) from template packs, then per-user grants and revokes. RLS policies, RPCs and the server (`my_access()`) all use it, so the UI and the database cannot disagree. Owner templates use `grants_all`. Policies wrap helpers in `(select …)` so Postgres evaluates them once per query.
+- **Reason:** SPEC §4.2 requires enforcement in Postgres, not just in the UI. A single resolver keeps one source of truth.
+
+### 2026-10-26 · Pages are gated by permissions, not a separate "pages" list **[Deviation]**
+
+- **Decision:** SPEC §4.2 says packs are "pages + resource actions". Instead of storing page grants, each nav link and admin section lists the permissions that make it useful (`requiresAny`). A page is visible when the user has at least one of them, and the route itself checks again on the server (`requirePermission` → 404).
+- **Reason:** Page grants that don't match the underlying permissions create screens a user can open but can't use (or the reverse). Deriving visibility from permissions keeps them consistent.
+
+### 2026-10-26 · Audit and events from database triggers
+
+- **Decision:** A generic `AFTER` trigger (`app.audit_row()`) writes `audit_log` rows for every insert, update and soft delete on audited tables: actor, real user when viewing as someone, before/after, changed fields, IP, user agent and request ID. Our server passes IP, user agent and request ID in `x-bb-*` request headers. The actor header is only trusted from the service role. The audit log is append-only (trigger + revoked grants). A second trigger, `app.emit_change_event()`, writes `<aggregate>.created|updated|deleted` rows to `events`. Clients can't write either table.
+- **Reason:** SPEC §18 rule 9 ("every mutation … audit-logged, emits a domain event") can't be forgotten in a Server Action if the database does it. It also covers changes made through any future path (scripts, RPCs).
+
+### 2026-10-26 · View as user = a database session, read-only
+
+- **Decision:** Starting View as stores a row in `app.impersonation_sessions` keyed by the owner's Supabase session ID (from the JWT), for up to one hour. `app.effective_user_id()` then returns the target user, so RLS shows exactly what they would see. `app.can_write()` is false while impersonating, so every write policy refuses, and the server action wrapper refuses before reaching the database. Start and stop are audit-logged.
+- **Reason:** SPEC §4.2 asks for read-only impersonation with a banner. Doing it in Postgres means the preview is exact (not a UI approximation) and can't be used to change data.
+
+### 2026-10-26 · Magic links use `token_hash` on our own route
+
+- **Decision:** The magic-link email template links to `/auth/confirm?token_hash=…&type=email`, which calls `verifyOtp` on our server. Google sign-in uses the PKCE callback at `/auth/callback`. Sign-up is disabled, so only invited users can sign in. The login form always gives the same answer, so it can't be used to find out which emails have accounts.
+- **Reason:** `token_hash` links work when the link is opened on a different device or browser than the one that requested it (common with phones). It is the flow Supabase recommends for server-side auth.
+
+### 2026-10-26 · Supabase Auth emails are infrastructure, not "messages"
+
+- **Decision:** Sign-in links are sent by Supabase Auth's own mailer (local: Mailpit; production: the SMTP set in the Supabase dashboard). They don't go through the integrations outbox. Customer and staff messages still always do.
+- **Reason:** Without sign-in emails nobody can log in. They contain no customer data, and the owners control the sender in Supabase. Invitation emails written by the CRM itself are still simulated through the outbox.
+
+### 2026-10-26 · MFA required for Owner and Bookkeeper
+
+- **Decision:** Role templates have `requires_mfa`. Owner and Bookkeeper ship with it on. `app.session_ok()` refuses data access unless the session is at assurance level 2 (TOTP) for those roles, and the app sends them to `/mfa` to set it up or answer it.
+- **Reason:** SPEC §13 calls for MFA for owners. The Bookkeeper sees all financials, so the same protection applies. Owners can switch it per template.
+
+### 2026-10-26 · Owner seed from `SEED_OWNER_EMAILS`
+
+- **Decision:** `pnpm seed:owners` creates or updates owner accounts from the comma-separated `SEED_OWNER_EMAILS` env var. The first email is Hunter Lee (Marketing & Customer Experience), the second Erik (Field Operations & Estimates). No email address is committed to the repo.
+- **Reason:** SPEC §16 ("Emails come from env `SEED_OWNER_EMAILS`, don't hard-code"). Erik's email is still needed.
+
+### 2026-10-26 · Real providers are locked three ways
+
+- **Decision:** A real integration only runs when all three hold: its `INTEGRATION_*_PROVIDER` env var names the real provider, its `integration_connections` row is `connected`, and `REAL_PROVIDERS_LOCKED` in `lib/integrations/core.ts` is `false`. In this build the constant is `true` and a database trigger refuses `connected`. Every send goes to `integration_outbox` with status `simulated`.
+- **Reason:** SPEC §18 rule 3 ("Never connect real integrations or send real messages"). One flipped env var can't send a real text by accident.
+
+### 2026-10-26 · AI provider uses the official Anthropic SDK
+
+- **Decision:** The disabled AI adapter is written against `@anthropic-ai/sdk` with an injected `fetch`, so tests never touch the network. It defaults to the `claude-opus-5-5` model and asks the API to fall back automatically when a request is refused. It stays behind the same three locks as every other provider.
+- **Reason:** Using the official SDK (instead of hand-written HTTP) keeps request shapes current when it's switched on. Nothing calls it in this build.
+
+### 2026-10-26 · Soft delete through one audited RPC
+
+- **Decision:** Records are soft-deleted and restored only through `soft_delete_record(table, id, reason)` and `restore_record(table, id)`. They check permissions, require a reason, and only accept tables on an allowlist (territories, role templates and permission packs in Phase 1; more are added as tables arrive). Admin → Deleted Records lists them via `list_deleted_records()`.
+- **Reason:** One path means one set of checks and one audit trail, instead of a `deleted_at` update in every Server Action.
+
+### 2026-10-26 · Placeholders block nothing but are flagged
+
+- **Decision:** Company Settings ship with `[PHONE]`, `[EMAIL]`, `[HOURS]`, `[LNI_NUMBER]` and `[UBI_NUMBER]`. The settings page flags each one as a placeholder. Later phases will refuse to send customer-facing documents while a placeholder is still in use.
+- **Reason:** SPEC §18 rule 2 ("Don't invent business facts"). The owners haven't given these values yet.

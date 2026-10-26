@@ -10,6 +10,23 @@ pnpm supabase db reset   # wipe local DB, re-apply migrations + seed
 pnpm supabase stop       # stop (add --no-backup to discard local data)
 ```
 
+## Sign-in setup (hosted Supabase) _(Phase 1)_
+
+Do this once per Supabase project (preview and production). Local dev reads all of it from `supabase/config.toml`.
+
+1. **Auth → URL Configuration:** set Site URL to the app URL. Add redirect URLs `https://<app>/auth/callback**` and `https://<app>/auth/confirm**`.
+2. **Auth → Providers → Email:** keep it on. Turn **off** "Allow new users to sign up" (invite-only).
+3. **Auth → Email Templates → Magic Link:** paste `supabase/templates/magic_link.html`. Its link must stay `{{ .RedirectTo }}&token_hash={{ .TokenHash }}&type=email`.
+4. **Auth → SMTP:** set a real sender so sign-in emails don't hit Supabase's low default limit. This only sends sign-in links.
+5. **Auth → Multi-Factor:** enable TOTP.
+6. **Google sign-in (optional):** create an OAuth client in Google Cloud (Web application, redirect URI `https://<project>.supabase.co/auth/v1/callback`), then paste its client ID and secret in **Auth → Providers → Google**. Until then, the Google button says Google sign-in isn't set up.
+7. **First owners:** set `SEED_OWNER_EMAILS` (comma-separated: Hunter first, then Erik) and run `pnpm seed:owners` with that project's URL and secret key. Each owner then signs in with a magic link and sets up two-step sign-in.
+
+## Locked out
+
+- **Lost authenticator (owner):** another owner can't reset it from the app. In Supabase → Authentication → Users, open the user and delete their MFA factor. They set it up again at next sign-in.
+- **Only owner turned off:** the database refuses to deactivate the last active owner, so this can't happen from the app.
+
 ## Backups
 
 - Use a Supabase plan with **Point-in-Time Recovery (PITR)** for production, plus the daily backups Supabase takes automatically.

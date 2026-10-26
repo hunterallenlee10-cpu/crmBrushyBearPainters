@@ -1,15 +1,24 @@
 import { defineConfig, devices } from "@playwright/test";
 
+// Local runs read Supabase settings from .env.local (CI sets them in the job).
+try {
+  process.loadEnvFile(".env.local");
+} catch {
+  // no .env.local — CI or a deliberately empty environment
+}
+
 const PORT = Number(process.env.PORT ?? 3000);
 const baseURL = process.env.E2E_BASE_URL ?? `http://localhost:${PORT}`;
+const OWNER_STATE = "tests/e2e/.auth/owner.json";
 
 /**
  * Projects:
- *  - e2e-desktop / e2e-mobile: behavior + accessibility checks (`pnpm test:e2e`)
+ *  - setup: creates one test user per role on the local Supabase stack and signs them in
+ *  - e2e-desktop / e2e-mobile: behavior + accessibility checks (`pnpm test:e2e`), as the owner by default
  *  - screens: screenshots saved to docs/screens/phase-N/ (`pnpm screens`)
  *
- * CI runs against `next start` after `next build`; locally the dev server is used
- * (or reuse a server you already started).
+ * Requires the local Supabase stack (`pnpm supabase start`). CI runs against
+ * `next start` after `next build`; locally the dev server is used (or reuse one).
  */
 export default defineConfig({
   testDir: "tests/e2e",
@@ -24,20 +33,28 @@ export default defineConfig({
     locale: "en-US",
   },
   projects: [
+    { name: "setup", testMatch: /auth\.setup\.ts/ },
     {
       name: "e2e-desktop",
-      testIgnore: /screens\.spec\.ts/,
-      use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } },
+      testIgnore: /(screens\.spec|auth\.setup)\.ts/,
+      dependencies: ["setup"],
+      use: {
+        ...devices["Desktop Chrome"],
+        viewport: { width: 1440, height: 900 },
+        storageState: OWNER_STATE,
+      },
     },
     {
       name: "e2e-mobile",
-      testIgnore: /screens\.spec\.ts/,
-      use: { ...devices["Pixel 7"] },
+      testIgnore: /(screens\.spec|auth\.setup)\.ts/,
+      dependencies: ["setup"],
+      use: { ...devices["Pixel 7"], storageState: OWNER_STATE },
     },
     {
       name: "screens",
       testMatch: /screens\.spec\.ts/,
-      use: { ...devices["Desktop Chrome"] },
+      dependencies: ["setup"],
+      use: { ...devices["Desktop Chrome"], storageState: OWNER_STATE },
     },
   ],
   webServer: process.env.E2E_BASE_URL

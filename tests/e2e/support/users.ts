@@ -141,3 +141,58 @@ export async function completeMfa(page: Page, secret?: string): Promise<string> 
   await expect(page).not.toHaveURL(/\/mfa$/, { timeout: 15000 });
   return key;
 }
+
+/**
+ * Fresh sign-in for one spec (its own session, so parallel specs never share a
+ * refresh token). Answers the MFA challenge with the secret saved by auth.setup.ts.
+ */
+export async function loginAs(page: Page, role: TestRole, next = "/"): Promise<void> {
+  await signInWithMagicLink(page, TEST_USERS[role].email, next);
+  if (/\/mfa$/.test(page.url())) {
+    const { readFileSync } = await import("node:fs");
+    const secrets = JSON.parse(readFileSync("tests/e2e/.auth/secrets.json", "utf8")) as Partial<
+      Record<TestRole, string>
+    >;
+    await completeMfa(page, secrets[role]);
+    if (next !== "/") await page.goto(next);
+  }
+}
+
+/**
+ * Creates a disposable user on the given template for tests that change or
+ * deactivate users. Never modify the shared TEST_USERS in specs.
+ */
+export async function createThrowawayUser(
+  template: string,
+  label = "temp",
+): Promise<{ id: string; email: string; fullName: string }> {
+  const admin = adminClient();
+  const suffix = Math.random().toString(36).slice(2, 8);
+  const email = `e2e-${label}-${suffix}@test.brushybear.local`;
+  const fullName = `Temp ${label} ${suffix}`;
+  const { data: org } = await admin
+    .from("organizations")
+    .select("id")
+    .eq("slug", "brushy-bear")
+    .single();
+  const { data: tpl } = await admin
+    .from("role_templates")
+    .select("id")
+    .eq("org_id", org?.id)
+    .eq("key", template)
+    .single();
+  const { data: created, error } = await admin.auth.admin.createUser({
+    email,
+    email_confirm: true,
+  });
+  if (error || !created.user) throw error ?? new Error("createUser failed");
+  const { error: pErr } = await admin.from("profiles").insert({
+    id: created.user.id,
+    org_id: org?.id,
+    email,
+    full_name: fullName,
+    role_template_id: tpl?.id,
+  });
+  if (pErr) throw pErr;
+  return { id: created.user.id, email, fullName };
+}
