@@ -37,6 +37,19 @@ export function keyFromName(name: string, taken: Iterable<string> = [], prefix =
   throw new Error("Could not find a free key.");
 }
 
+/**
+ * `key` plus a short random suffix (still a valid key). Used when numbered keys
+ * keep colliding with soft-deleted rows the user can't see.
+ */
+export function withRandomSuffix(key: string, random: () => string = randomToken): string {
+  const suffix = `_${random()}`;
+  return `${key.slice(0, KEY_MAX - suffix.length).replace(/_+$/g, "")}${suffix}`;
+}
+
+function randomToken(): string {
+  return crypto.randomUUID().replace(/-/g, "").slice(0, 6);
+}
+
 const PERMISSION_KEYS = PERMISSIONS.map((p) => p.key) as [Permission, ...Permission[]];
 const SCOPED = new Set<Permission>(PERMISSIONS.filter((p) => p.scoped).map((p) => p.key));
 

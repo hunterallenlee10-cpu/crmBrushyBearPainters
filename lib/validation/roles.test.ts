@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  withRandomSuffix,
   RECORD_KEY_PATTERN,
   createPackSchema,
   createTemplateSchema,
@@ -13,6 +14,16 @@ import {
 
 const UUID = "3f2504e0-4f89-41d3-9a0c-0305e82c3301";
 const UUID2 = "9b2d5e1a-7c4f-4e8b-a1d2-6f3e8c9b0a11";
+
+describe("withRandomSuffix", () => {
+  it("adds a suffix and keeps the key valid and short", () => {
+    expect(withRandomSuffix("field_crew_copy", () => "a1b2c3")).toBe("field_crew_copy_a1b2c3");
+    const long = withRandomSuffix("x".repeat(60), () => "a1b2c3");
+    expect(long.length).toBeLessThanOrEqual(48);
+    expect(long).toMatch(RECORD_KEY_PATTERN);
+    expect(withRandomSuffix("field_crew")).toMatch(/^field_crew_[0-9a-f]{6}$/);
+  });
+});
 
 describe("keyFromName", () => {
   it("slugs a display name", () => {

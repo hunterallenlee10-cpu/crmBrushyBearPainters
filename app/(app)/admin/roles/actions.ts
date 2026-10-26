@@ -11,6 +11,7 @@ import {
   diffPackPermissions,
   duplicatePackSchema,
   keyFromName,
+  withRandomSuffix,
   setTemplatePacksSchema,
   updatePackSchema,
   updateTemplateSchema,
@@ -52,7 +53,11 @@ async function insertWithKey(
 ): Promise<{ id: string }> {
   const used = [...taken];
   for (let attempt = 0; attempt < MAX_KEY_ATTEMPTS; attempt++) {
-    const key = keyFromName(name, used, prefix);
+    // Numbered keys first; then a random suffix, since deleted rows (hidden by RLS) can hold many numbers.
+    const key =
+      attempt < 2
+        ? keyFromName(name, used, prefix)
+        : withRandomSuffix(keyFromName(name, [], prefix));
     const { data, error } = await insert(key);
     if (!error && data) return data;
     if (error?.code !== "23505") throw new ActionFailure(mapDbError(error));
