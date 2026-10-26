@@ -45,12 +45,18 @@ export async function POST(req: NextRequest) {
 
     const sig = checkSignature(req, raw, secret);
     if (!sig.ok) {
-      return jsonError(401, sig.reason === "expired" ? "Signature has expired." : "Invalid signature.");
+      return jsonError(
+        401,
+        sig.reason === "expired" ? "Signature has expired." : "Invalid signature.",
+      );
     }
 
     const idempotencyKey = req.headers.get("idempotency-key");
     if (idempotencyKey !== null && !IDEMPOTENCY_KEY_RE.test(idempotencyKey)) {
-      return jsonError(400, "Idempotency-Key must be 8–200 letters, digits, dots, dashes, colons or underscores.");
+      return jsonError(
+        400,
+        "Idempotency-Key must be 8–200 letters, digits, dots, dashes, colons or underscores.",
+      );
     }
 
     let json: unknown;
@@ -69,7 +75,10 @@ export async function POST(req: NextRequest) {
       return jsonError(422, "Some fields need a fix.", { fieldErrors });
     }
 
-    if (parsed.data.client_ip && (await rateLimited(db, `intake:visitor:${parsed.data.client_ip}`, VISITOR_LIMIT))) {
+    if (
+      parsed.data.client_ip &&
+      (await rateLimited(db, `intake:visitor:${parsed.data.client_ip}`, VISITOR_LIMIT))
+    ) {
       return tooMany(VISITOR_LIMIT.windowSeconds);
     }
 
