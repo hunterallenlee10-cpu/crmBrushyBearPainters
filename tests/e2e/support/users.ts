@@ -1,3 +1,5 @@
+import { mkdirSync, readFileSync, rmSync, statSync } from "node:fs";
+import { join } from "node:path";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { type Page, expect } from "@playwright/test";
 import { totp } from "./totp";
@@ -115,14 +117,55 @@ export async function resetTestUsers(): Promise<Record<TestRole, string>> {
   return ids;
 }
 
+const LOCK_DIR = join(process.cwd(), "tests", "e2e", ".auth", "locks");
+
+/**
+ * Only one sign-in per email at a time, across all Playwright workers: a new
+ * magic link cancels the previous one, so parallel sign-ins as the same user
+ * would otherwise fail at random.
+ */
+async function withEmailLock<T>(email: string, fn: () => Promise<T>): Promise<T> {
+  mkdirSync(LOCK_DIR, { recursive: true });
+  const lock = join(LOCK_DIR, email.replace(/[^a-z0-9]/gi, "_"));
+  const deadline = Date.now() + 60_000;
+  for (;;) {
+    try {
+      mkdirSync(lock);
+      break;
+    } catch {
+      // Clear a lock left behind by a crashed worker.
+      try {
+        if (Date.now() - statSync(lock).mtimeMs > 30_000)
+          rmSync(lock, { recursive: true, force: true });
+      } catch {
+        // already released
+      }
+      if (Date.now() > deadline) throw new Error(`Timed out waiting to sign in as ${email}`);
+      await new Promise((r) => setTimeout(r, 100 + Math.random() * 150));
+    }
+  }
+  try {
+    return await fn();
+  } finally {
+    rmSync(lock, { recursive: true, force: true });
+  }
+}
+
+async function openMagicLink(page: Page, email: string, next: string): Promise<void> {
+  const admin = adminClient();
+  for (let attempt = 1; ; attempt++) {
+    const { data, error } = await admin.auth.admin.generateLink({ type: "magiclink", email });
+    if (error || !data.properties?.hashed_token) throw error ?? new Error("generateLink failed");
+    await page.goto(
+      `/auth/confirm?token_hash=${encodeURIComponent(data.properties.hashed_token)}&type=magiclink&next=${encodeURIComponent(next)}`,
+    );
+    if (!page.url().includes("error=link_expired") || attempt >= 3) return;
+  }
+}
+
 /** Signs in through the real magic-link route using a one-time token from the admin API. */
 export async function signInWithMagicLink(page: Page, email: string, next = "/"): Promise<void> {
-  const admin = adminClient();
-  const { data, error } = await admin.auth.admin.generateLink({ type: "magiclink", email });
-  if (error || !data.properties?.hashed_token) throw error ?? new Error("generateLink failed");
-  await page.goto(
-    `/auth/confirm?token_hash=${encodeURIComponent(data.properties.hashed_token)}&type=magiclink&next=${encodeURIComponent(next)}`,
-  );
+  await withEmailLock(email, () => openMagicLink(page, email, next));
 }
 
 /** Completes the MFA screen: enrolls on first sign-in (reading the setup key) or answers the challenge. */
@@ -134,11 +177,20 @@ export async function completeMfa(page: Page, secret?: string): Promise<string> 
   let key = secret;
   if (await keyEl.isVisible()) key = (await keyEl.textContent())?.trim() ?? undefined;
   if (!key) throw new Error("No TOTP secret available for the MFA challenge");
-  // Avoid the last two seconds of a 30-second window.
-  if (Date.now() % 30000 > 28000) await page.waitForTimeout(2500);
-  await codeInput.fill(totp(key));
-  await page.getByRole("button", { name: /turn on two-step sign-in|verify/i }).click();
-  await expect(page).not.toHaveURL(/\/mfa$/, { timeout: 15000 });
+  for (let attempt = 1; ; attempt++) {
+    // Avoid the last two seconds of a 30-second window.
+    if (Date.now() % 30000 > 28000) await page.waitForTimeout(2500);
+    await codeInput.fill(totp(key));
+    await page.getByRole("button", { name: /turn on two-step sign-in|verify/i }).click();
+    try {
+      await expect(page).not.toHaveURL(/\/mfa$/, { timeout: 8000 });
+      break;
+    } catch (error) {
+      // A code can only be used once: wait for the next window and try again.
+      if (attempt >= 2) throw error;
+      await page.waitForTimeout(30000 - (Date.now() % 30000) + 500);
+    }
+  }
   return key;
 }
 
@@ -147,15 +199,19 @@ export async function completeMfa(page: Page, secret?: string): Promise<string> 
  * refresh token). Answers the MFA challenge with the secret saved by auth.setup.ts.
  */
 export async function loginAs(page: Page, role: TestRole, next = "/"): Promise<void> {
-  await signInWithMagicLink(page, TEST_USERS[role].email, next);
-  if (/\/mfa$/.test(page.url())) {
-    const { readFileSync } = await import("node:fs");
-    const secrets = JSON.parse(readFileSync("tests/e2e/.auth/secrets.json", "utf8")) as Partial<
-      Record<TestRole, string>
-    >;
-    await completeMfa(page, secrets[role]);
-    if (next !== "/") await page.goto(next);
-  }
+  const email = TEST_USERS[role].email;
+  await withEmailLock(email, async () => {
+    await openMagicLink(page, email, next);
+    if (/\/mfa$/.test(page.url())) {
+      const secrets = JSON.parse(
+        readFileSync(join(process.cwd(), "tests", "e2e", ".auth", "secrets.json"), "utf8"),
+      ) as Partial<Record<TestRole, string>>;
+      await completeMfa(page, secrets[role]);
+      if (next !== "/") await page.goto(next);
+    }
+  });
+  // Wait for hydration so typed input reaches React state.
+  await page.waitForLoadState("networkidle");
 }
 
 /**

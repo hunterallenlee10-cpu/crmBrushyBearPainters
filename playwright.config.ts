@@ -25,6 +25,9 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 1 : 0,
+  // The dev server compiles pages on first visit, so local runs get more time.
+  timeout: process.env.CI ? 30_000 : 90_000,
+  expect: { timeout: process.env.CI ? 5_000 : 15_000 },
   reporter: process.env.CI ? [["github"], ["html", { open: "never" }]] : "list",
   use: {
     baseURL,
