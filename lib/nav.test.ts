@@ -1,0 +1,92 @@
+import { describe, expect, it } from "vitest";
+import { HOME, NAV, OTHER_LINKS, allPages, findPage, isGroupActive } from "@/lib/nav";
+
+describe("navigation (SPEC §3.1)", () => {
+  it("top-level order matches the spec", () => {
+    expect(NAV.map((g) => g.label)).toEqual([
+      "Home",
+      "Leads",
+      "Jobs",
+      "Schedule",
+      "Attention",
+      "More",
+      "Admin",
+    ]);
+  });
+
+  it("dropdowns list the spec's pages in order", () => {
+    const labels = (id: string) => NAV.find((g) => g.id === id)?.items?.map((i) => i.label);
+    expect(labels("leads")).toEqual(["Lead Dashboard", "Lead List", "New Lead"]);
+    expect(labels("jobs")).toEqual(["Jobs Dashboard", "Job List", "Approvals", "New Job"]);
+    expect(labels("schedule")).toEqual([
+      "Production Center",
+      "Master Schedule",
+      "My Projects",
+      "Onboarding Board",
+    ]);
+    expect(labels("more")).toEqual([
+      "Accounts",
+      "Contacts",
+      "Estimates",
+      "Invoices",
+      "Campaigns",
+      "Documents",
+      "Price Book",
+      "Analytics",
+      "My Numbers",
+      "Referrals",
+      "Reviews",
+      "Help",
+    ]);
+    expect(labels("admin")).toEqual([
+      "Setup",
+      "Users",
+      "Roles & Permissions",
+      "Workflows",
+      "Templates",
+      "Integrations",
+      "Audit Log",
+      "Deleted Records",
+    ]);
+  });
+
+  it("recent items: 8 leads and 10 jobs", () => {
+    expect(NAV.find((g) => g.id === "leads")?.recent?.limit).toBe(8);
+    expect(NAV.find((g) => g.id === "jobs")?.recent?.limit).toBe(10);
+  });
+
+  it("Admin is permission-gated", () => {
+    expect(NAV.find((g) => g.id === "admin")?.adminOnly).toBe(true);
+  });
+
+  it("every page has a unique, absolute, lowercase href and a valid phase", () => {
+    const pages = allPages();
+    const hrefs = pages.map((p) => p.href);
+    expect(new Set(hrefs).size).toBe(hrefs.length);
+    for (const p of [HOME, ...pages]) {
+      expect(p.href).toMatch(/^\/[a-z0-9/-]*$/);
+      expect(p.href === "/" || !p.href.endsWith("/")).toBe(true);
+      expect(p.phase).toBeGreaterThanOrEqual(0);
+      expect(p.phase).toBeLessThanOrEqual(10);
+      expect(p.description.length).toBeGreaterThan(0);
+    }
+  });
+
+  it("findPage resolves home, nav and other links", () => {
+    expect(findPage("/")).toBe(HOME);
+    expect(findPage("/leads/list")?.label).toBe("Lead List");
+    expect(findPage("/settings")?.label).toBe("Settings");
+    expect(findPage("/nope")).toBeUndefined();
+    expect(OTHER_LINKS.every((l) => findPage(l.href))).toBe(true);
+  });
+
+  it("marks the right group active", () => {
+    const leads = NAV.find((g) => g.id === "leads");
+    const home = NAV.find((g) => g.id === "home");
+    if (!leads || !home) throw new Error("missing groups");
+    expect(isGroupActive(leads, "/leads/list")).toBe(true);
+    expect(isGroupActive(leads, "/jobs")).toBe(false);
+    expect(isGroupActive(home, "/")).toBe(true);
+    expect(isGroupActive(home, "/leads")).toBe(false);
+  });
+});

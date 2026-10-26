@@ -1,0 +1,183 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * Brushy Bear design tokens (SPEC §16).
+ * Hex values mirror lib/design/tokens.ts — a unit test keeps them in sync.
+ */
+:root {
+  /* Brand */
+  --bb-forest: #1f4d3a;
+  --bb-forest-dark: #163829;
+  --bb-honey: #e9a93b;
+  --bb-cream: #f4ede1;
+  --bb-cream-light: #faf6ef;
+  --bb-ink: #2b2b2b;
+  --bb-border: #e6dac6;
+
+  /* Semantic status */
+  --status-info: #1d4ed8;
+  --status-info-bg: #eff6ff;
+  --status-success: #15803d;
+  --status-success-bg: #f0fdf4;
+  --status-warning: #a16207;
+  --status-warning-bg: #fefce8;
+  --status-danger: #b91c1c;
+  --status-danger-bg: #fef2f2;
+  --status-neutral: #475569;
+  --status-neutral-bg: #f1f5f9;
+
+  /* shadcn/ui semantic variables, mapped to the brand */
+  --radius: 0.75rem;
+  --background: #f6f7f9;
+  --foreground: var(--bb-ink);
+  --card: #ffffff;
+  --card-foreground: var(--bb-ink);
+  --popover: #ffffff;
+  --popover-foreground: var(--bb-ink);
+  --primary: var(--bb-forest);
+  --primary-foreground: #ffffff;
+  --secondary: #eef0f3;
+  --secondary-foreground: var(--bb-ink);
+  --muted: #f1f3f5;
+  --muted-foreground: #5b6470;
+  --accent: #edf3ef;
+  --accent-foreground: var(--bb-forest-dark);
+  --destructive: var(--status-danger);
+  --border: #e3e6ea;
+  --input: #d9dde3;
+  --ring: var(--bb-forest);
+
+  --sidebar: #ffffff;
+  --sidebar-foreground: var(--bb-ink);
+  --sidebar-primary: var(--bb-forest);
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #edf3ef;
+  --sidebar-accent-foreground: var(--bb-forest-dark);
+  --sidebar-border: #e3e6ea;
+  --sidebar-ring: var(--bb-forest);
+}
+
+/* Dark mode tokens are defined but optional (light mode first). */
+.dark {
+  --background: #111614;
+  --foreground: #eef1ef;
+  --card: #18201c;
+  --card-foreground: #eef1ef;
+  --popover: #18201c;
+  --popover-foreground: #eef1ef;
+  --primary: #7cc4a1;
+  --primary-foreground: #0d1d16;
+  --secondary: #222b27;
+  --secondary-foreground: #eef1ef;
+  --muted: #222b27;
+  --muted-foreground: #a3ada8;
+  --accent: #223a2f;
+  --accent-foreground: #eef1ef;
+  --border: #2c3732;
+  --input: #34413b;
+  --ring: #7cc4a1;
+}
+
+@theme inline {
+  --font-sans: "Manrope Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Lilita One", "Manrope Variable", ui-sans-serif, system-ui, sans-serif;
+
+  --color-bb-forest: var(--bb-forest);
+  --color-bb-forest-dark: var(--bb-forest-dark);
+  --color-bb-honey: var(--bb-honey);
+  --color-bb-cream: var(--bb-cream);
+  --color-bb-cream-light: var(--bb-cream-light);
+  --color-bb-ink: var(--bb-ink);
+  --color-bb-border: var(--bb-border);
+
+  --color-info: var(--status-info);
+  --color-info-bg: var(--status-info-bg);
+  --color-success: var(--status-success);
+  --color-success-bg: var(--status-success-bg);
+  --color-warning: var(--status-warning);
+  --color-warning-bg: var(--status-warning-bg);
+  --color-danger: var(--status-danger);
+  --color-danger-bg: var(--status-danger-bg);
+  --color-neutral: var(--status-neutral);
+  --color-neutral-bg: var(--status-neutral-bg);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    @apply bg-background font-sans text-foreground antialiased;
+  }
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  /* Stage badge: set --stage-color inline; text uses the solid color on a light tint. */
+  .stage-badge {
+    color: var(--stage-color);
+    background-color: color-mix(in srgb, var(--stage-color) 12%, white);
+    border-color: color-mix(in srgb, var(--stage-color) 30%, white);
+  }
+  .stage-dot {
+    background-color: var(--stage-color);
+  }
+  /* Brand surfaces: login, proposal/portal pages, PDFs, empty states. */
+  .brand-surface {
+    background-color: var(--bb-cream);
+    color: var(--bb-ink);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

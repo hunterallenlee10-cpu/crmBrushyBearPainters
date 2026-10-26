@@ -9,6 +9,7 @@ Principle for ordering: build the **pure domain logic first** in each phase (`li
 ## Phase 0 — Foundation
 
 **Build**
+
 - Next.js 15 + TS strict, pnpm, ESLint (strict, `no-explicit-any` = error), Prettier, Vitest, Playwright.
 - Tailwind v4 + shadcn/ui; brand tokens from SPEC §16 (`--bb-forest`, honey, cream…), Manrope + Lilita One, semantic status colors, one color per job stage.
 - Supabase local config (`supabase/config.toml`), first migration: `organizations`, base helpers (`updated_at` trigger, soft-delete conventions, per-year number sequences like `BB-2026-0001`).
@@ -27,6 +28,7 @@ Principle for ordering: build the **pure domain logic first** in each phase (`li
 ## Phase 1 — Platform
 
 **Build**
+
 - Schema: `profiles`, `role_templates`, `permission_packs`, `pack_permissions`, `template_packs`, `user_permission_overrides`, `company_settings`, `picklists` + `picklist_values`, `audit_log` (append-only, trigger-driven, records `impersonated_by`), `activity`, `events`, `integration_connections`, `integration_outbox`, `territories`.
 - RLS helpers: `app.current_org_id()`, `app.has_perm()`, `app.record_scope()`; deny-by-default policies on every table.
 - Seed: org, 8 role templates, permission packs by category, territories + ZIPs, picklists from SPEC §15.1, Company Settings with placeholders (`[PHONE]`, `[EMAIL]`, `[HOURS]`, `[LNI_NUMBER]`, `[UBI_NUMBER]`), owners from `SEED_OWNER_EMAILS`.
@@ -43,6 +45,7 @@ Principle for ordering: build the **pure domain logic first** in each phase (`li
 ## Phase 2 — Leads & Customers
 
 **Build**
+
 - Domain: lead scoring (§6.6), phone/email normalization, ZIP → territory, dedupe matching.
 - Schema: `accounts`, `contacts` (consent fields), `properties` (pre-1978, HOA, siding, encrypted gate code), `leads`, `lead_attachments`, `saved_views`; trigram search indexes.
 - Public intake: `POST /api/public/leads` (HMAC, rate limit, idempotency, honeypot, dedupe within 180 days) + `upload-url` presigned flow; `docs/WEBSITE_INTEGRATION.md` with payload contract, server-action snippet, curl example.
@@ -56,6 +59,7 @@ Principle for ordering: build the **pure domain logic first** in each phase (`li
 ## Phase 3 — Jobs core
 
 **Build**
+
 - Domain: stage machine + gates (§6.2), override rules, job health score (§6.5), attention rules v1 (§9, the rules whose data exists by now).
 - Schema: `jobs`, `stage_history`, `job_holds`, `job_team`, `appointments` (walkthroughs first), `notes`, `comments` + mentions, `tasks`, `notifications`, `attention_items`.
 - `advanceJobStage()` as the only path that changes stage; owner override with required reason.
@@ -70,6 +74,7 @@ Principle for ordering: build the **pure domain logic first** in each phase (`li
 ## Phase 4 — Estimating
 
 **Build**
+
 - Domain: pricing engine (§7.4) — labor hours, gallons with container rounding, sundries, margin pricing, catalog flat pricing, overrides with reason, minimum charge, discounts + approval thresholds, tax (configurable), deposit, margin floor warning. 100% unit-test coverage with fixture jobs.
 - Schema: price books, catalog items, paint products, production rates (`is_sample`), estimate settings, estimates / versions / options / areas / line items, color selections, change orders.
 - Seed: "Brushy Bear Standard" price book, surfaces (§7.2), add-ons, sample rates/products with "Sample – Erik to calibrate" badges; "What's included" text (exterior from website, others as "Draft – owner to approve").
@@ -84,6 +89,7 @@ Principle for ordering: build the **pure domain logic first** in each phase (`li
 ## Phase 5 — Onboarding, documents & photos
 
 **Build**
+
 - Domain: onboarding requirement rules + auto-verify (§6.4), "Ready to Schedule" gate.
 - Schema: onboarding requirements, documents, photos (categories, area tags), Storage buckets (private, signed URLs, EXIF stripped on customer copies).
 - Screens: Job → Onboarding, Onboarding Board (kanban with gate-aware drag), Documents (job + global), Photos (gallery, required-shot checklist, before/after slider, camera capture).
@@ -96,6 +102,7 @@ Principle for ordering: build the **pure domain logic first** in each phase (`li
 ## Phase 6 — Production
 
 **Build**
+
 - Domain: scheduling conflict detection + work rules (§15.1), crew recommendation ranking, dispatch readiness %, on-time guarantee logic, rain-delay flow.
 - Schema: crews, members, subcontractors (L&I #, COI, RRP), skills, availability, work types, work rules, schedule drafts, work orders, paint orders, daily logs (+ hours), time entries, punch items.
 - Screens: Schedule Admin, Production Center (Command Center, Master Schedule with drag/resize + draft → Publish, Field Dispatch, Readiness & Crew queues, Paint Orders, Exceptions, Recommendations with approval + 15-min undo, Resources, Weather panel), My Projects portal (mobile), Daily Log form (mobile, required cleanup check + photo), Punch List + customer sign-off, Final Walkthrough.
@@ -108,6 +115,7 @@ Principle for ordering: build the **pure domain logic first** in each phase (`li
 ## Phase 7 — Money
 
 **Build**
+
 - Domain: ledger (§10) — contract, billed, left to bill, collected, balance, due; payment application; void/refund/bounce reversals; A/R aging; job costing & margin; month-close locks. Property-based tests (fast-check) over random invoice/payment sequences.
 - Schema: invoices, invoice lines, payments, payment applications, credits, refunds, month closes; ledger views (no editable balance columns anywhere).
 - Screens: Job → Financial (Worksheet with plain-English "Needs attention", Invoices, Payments, Job Costing, Accounting), global Invoices list, A/R aging, Admin → Finance (close month).
@@ -120,6 +128,7 @@ Principle for ordering: build the **pure domain logic first** in each phase (`li
 ## Phase 8 — Communication & growth
 
 **Build**
+
 - Workflow engine: triggers + conditions → actions, idempotency per (workflow, event), quiet hours (queue until 8 am), consent/DNC checks, dry-run "Test" against a chosen record, run log.
 - 17 seeded workflows (§11.2) and SMS + email templates in Brushy Bear's voice with merge-field preview and SMS segment counter.
 - Messaging inbox/threads, STOP/UNSUBSCRIBE handler stub, Follow-up Lists with power-dialer view, Campaigns & Drips (audience builder, compliance checks), Referrals (Bear Champions, `?ref=` attribution), Reviews, Warranty cases.
@@ -131,6 +140,7 @@ Principle for ordering: build the **pure domain logic first** in each phase (`li
 ## Phase 9 — Analytics & home
 
 **Build**
+
 - `lib/metrics/registry.ts`: every KPI in §12.1 with SQL/RPC, date field, filters, formula caption, owner-only flag, and a fixture test with a known expected value.
 - Executive Overview, Workspace ("My Day"), Leads/Jobs dashboards wired to the registry; "View data" + CSV on every chart (permission-gated, logged).
 - Analytics hub: "Ask Brushy Bear" (keyword → metric matching, no AI), Daily Brief, prebuilt dashboards, report builder, scheduled deliveries (outbox), seeded report templates.
@@ -143,6 +153,7 @@ Principle for ordering: build the **pure domain logic first** in each phase (`li
 ## Phase 10 — Hardening & launch prep
 
 **Build**
+
 - Module Manager (custom fields, layouts, validation rules), CSV import with mapping/review queue, bulk update (preview → apply → revert), reversible merges, export controls + export log.
 - Help Center + 10 seeded articles + release notes.
 - Commissions engine (off by default) with simulator.

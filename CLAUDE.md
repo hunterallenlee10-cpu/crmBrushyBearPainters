@@ -21,6 +21,7 @@ Internal CRM for **Brushy Bear Painters** (residential painting, Eastside Seattl
 12. End of each phase, report: what was built, screenshots, how to try it, known gaps, what's needed from the owners.
 
 Also:
+
 - **Never commit secrets.** `.env.example` lists every key, commented out.
 - **Never call a real external API** in this build (tests mock HTTP).
 - Don't push to `main` or deploy to production without asking. Work happens on the session's designated branch (see DECISIONS 2026-10-26 "Branching").
@@ -45,23 +46,24 @@ Also:
 
 Package manager: **pnpm**.
 
-| Command | What it does |
-|---|---|
-| `pnpm install` | Install dependencies |
-| `pnpm dev` | Next.js dev server on http://localhost:3000 |
-| `pnpm supabase start` | Local Supabase stack (needs Docker) |
-| `pnpm supabase db reset` | Re-apply all migrations + `supabase/seed.sql` |
-| `pnpm db:types` | Regenerate `lib/db/types.ts` from the local DB |
-| `pnpm db:test` | Run SQL/RLS policy tests |
-| `pnpm seed:demo` | Load demo data (`DEMO_DATA=true`, never in production) |
-| `pnpm lint` | ESLint |
-| `pnpm format` / `pnpm format:check` | Prettier |
-| `pnpm typecheck` | `tsc --noEmit` |
-| `pnpm test` | Vitest unit tests |
-| `pnpm test:e2e` | Playwright E2E |
-| `pnpm screens` | Playwright screenshots → `docs/screens/phase-N/` |
+| Command                             | What it does                                                           |
+| ----------------------------------- | ---------------------------------------------------------------------- |
+| `pnpm install`                      | Install dependencies                                                   |
+| `pnpm dev`                          | Next.js dev server on http://localhost:3000                            |
+| `pnpm supabase start`               | Local Supabase stack (needs Docker)                                    |
+| `pnpm supabase db reset`            | Re-apply all migrations + `supabase/seed.sql`                          |
+| `pnpm db:types`                     | Regenerate `lib/db/types.ts` from the local DB                         |
+| `pnpm db:test`                      | Run SQL/RLS tests (uses `DATABASE_URL`, or boots a throwaway Postgres) |
+| `pnpm seed:demo`                    | Load demo data (`DEMO_DATA=true`, never in production) — Phase 10      |
+| `pnpm lint`                         | ESLint                                                                 |
+| `pnpm format` / `pnpm format:check` | Prettier                                                               |
+| `pnpm typecheck`                    | `tsc --noEmit`                                                         |
+| `pnpm test`                         | Vitest unit tests                                                      |
+| `pnpm test:e2e`                     | Playwright E2E                                                         |
+| `pnpm screens`                      | Playwright screenshots → `docs/screens/phase-N/` (`PHASE=N`)           |
 
-(Commands are added as each phase lands; this table is the target.)
+Before every commit: `pnpm lint && pnpm format:check && pnpm typecheck && pnpm test && pnpm db:test`.
+New tables must enable RLS (`supabase/tests/000_rls_everywhere.test.sql` fails otherwise) and get a rollback file in `supabase/rollbacks/`.
 
 ## Folder map
 

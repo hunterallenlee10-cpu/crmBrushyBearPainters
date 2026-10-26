@@ -1,0 +1,30 @@
+# deps
+node_modules/
+
+# next
+.next/
+out/
+next-env.d.ts
+*.tsbuildinfo
+
+# env (never commit secrets)
+.env
+.env*.local
+.env.production
+
+# testing
+coverage/
+playwright-report/
+test-results/
+blob-report/
+.db-test/
+
+# supabase
+supabase/.branches
+supabase/.temp
+supabase/signing_keys.json
+
+# misc
+.DS_Store
+*.log
+.vercel
