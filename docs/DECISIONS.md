@@ -325,3 +325,19 @@ Every non-obvious decision, newest at the bottom. Format: date · decision · re
   - The account timeline shows entries the app writes (account created, gate-code events). Database activity triggers for accounts and contacts come later, so a contact's timeline is empty for now.
   - Account and contact KPI strips count on the server but aren't in the metrics registry yet; they move there with account/contact stats RPCs. **[Deviation from "every KPI from the registry", temporary]**
 - **Reason:** SPEC §8.5, §8.6, §13.1; gate codes per the 2026-10-26 entry above.
+
+### 2026-10-26 · Lead Detail details
+
+- **Decision:**
+  - **Contact bookkeeping** after a text, email or logged call runs on the server with elevated rights, once the message itself was allowed: recording first contact (speed to lead), moving New → Contacted, rescoring, and turning a call outcome into the disposition. The person is recorded as the actor. Someone who may message a lead but not edit it still stops the speed-to-lead clock.
+  - **Do Not Contact** blocks texts and emails; logging a call that already happened is still allowed. _Owners to confirm._
+  - Sends go through the SMS/email adapters into the outbox only ("Simulated – not sent"); the action refuses any other provider.
+  - A task due date without a time is due at 5:00 PM Pacific. A walkthrough can't be booked in the past.
+  - Each tab shows the latest 200 items with a notice; paging comes later. The activity thread is newest first.
+  - Manually changing the status to Contacted doesn't count as first contact. _Owners to decide._ Quiet hours aren't applied to one-to-one texts yet (SPEC §13.2 is about marketing). _Owners to decide._
+- **Reason:** SPEC §8.4 "Lead Detail", §13.
+
+### 2026-10-26 · Trusted server code may delete messages
+
+- **Decision:** Migration `20261026000900_messages_trusted_delete`. Messages stay append-only for people: no one signed in can edit or delete one. The service role may delete (never edit), so test cleanup and the Phase 10 demo-data purge can remove messages and the outbox rows they reference. Deletes are audit-logged.
+- **Reason:** Before this even the service role was refused, so test runs left orphan messages and outbox rows behind, and the demo purge would have hit the same wall.

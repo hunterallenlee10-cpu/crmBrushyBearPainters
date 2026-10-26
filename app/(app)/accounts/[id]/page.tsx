@@ -14,6 +14,7 @@ import {
   Users,
 } from "lucide-react";
 import { EmptyState } from "@/components/layout/empty-state";
+import { RememberRecent } from "@/components/shell/recent-records";
 import { Badge } from "@/components/ui/badge";
 import { LeadStatusBadge } from "@/components/leads/lead-badges";
 import { requirePermission } from "@/lib/auth/viewer";
@@ -175,6 +176,12 @@ export default async function AccountDetailPage({ params }: { params: Params }) 
 
   return (
     <div className="flex flex-col gap-5">
+      <RememberRecent
+        kind="account"
+        id={account.id}
+        title={account.display_name}
+        href={`/accounts/${account.id}`}
+      />
       <Link
         href="/accounts"
         className="inline-flex w-fit items-center gap-1 text-sm text-muted-foreground hover:text-foreground"

@@ -251,6 +251,12 @@ insert into public.messages (org_id, channel, direction, subject_type, subject_i
 values (tests.org_id(), 'call', 'outbound', 'lead', (select id from l where k = 'ella'), 'Left a voicemail', 'left_voicemail', 'logged');
 select tests.assert_eq((select sent_by from public.messages where channel = 'call'), (select id from u where k = 'est'), 'calls record who logged them');
 select tests.assert_raises($$update public.messages set body = 'changed'$$, 'messages are append-only', '42501');
+select tests.assert_raises($$delete from public.messages$$, 'people cannot delete messages', '42501');
+select tests.logout();
+select tests.login_service();
+select tests.assert_raises($$update public.messages set body = 'changed'$$, 'not even trusted code can edit a message', '42501');
+select tests.assert_eq(tests.rows_affected($$delete from public.messages where channel = 'call' and body = 'Left a voicemail'$$), 1::bigint,
+  'trusted code can delete messages (cleanup and demo purge)');
 select tests.logout();
 select tests.assert_eq((select count(*) from public.audit_log where table_name = 'public.messages' and after ? 'body'), 0::bigint,
   'message text stays out of the audit log');

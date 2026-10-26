@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, History, UserRoundSearch } from "lucide-react";
 import { EmptyState } from "@/components/layout/empty-state";
+import { RememberRecent } from "@/components/shell/recent-records";
 import { LeadStatusBadge } from "@/components/leads/lead-badges";
 import { requirePermission } from "@/lib/auth/viewer";
 import { createSupabaseServerClient } from "@/lib/db/server";
@@ -98,6 +99,12 @@ export default async function ContactDetailPage({ params }: { params: Params }) 
 
   return (
     <div className="flex flex-col gap-5">
+      <RememberRecent
+        kind="contact"
+        id={c.id}
+        title={name || "Contact"}
+        href={`/contacts/${c.id}`}
+      />
       <Link
         href="/contacts"
         className="inline-flex w-fit items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
