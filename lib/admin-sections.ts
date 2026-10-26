@@ -102,6 +102,14 @@ export const ADMIN_SECTIONS: readonly AdminSection[] = [
     description: "Fix stuck jobs and stage history.",
   },
   {
+    label: "Lead Scoring",
+    href: "/admin/lead-scoring",
+    group: "Sales & messaging",
+    phase: 2,
+    requiresAny: ["settings:manage"],
+    description: "Points per factor, grades and Hot / Warm / Cold.",
+  },
+  {
     label: "Estimate Setup",
     href: "/admin/estimate-setup",
     group: "Sales & messaging",

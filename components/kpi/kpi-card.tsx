@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { type LucideIcon } from "lucide-react";
+import { ChevronRight, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { type StatusTone } from "@/lib/design/tokens";
 
@@ -15,7 +15,8 @@ const chipTone: Record<StatusTone | "brand", string> = {
 /**
  * KPI card (SPEC §8 global patterns): label, big number, colored icon chip and
  * a formula caption so every number explains itself. Values must come from
- * the metrics registry (Phase 9); this component only renders them.
+ * the metrics registry (lib/metrics/registry.ts); this component only renders
+ * them. With `href`, the whole card is one link to the drilled-down list.
  */
 export function KpiCard({
   label,
@@ -24,6 +25,7 @@ export function KpiCard({
   icon: Icon,
   tone = "brand",
   href,
+  linkLabel = "View",
   className,
 }: {
   label: string;
@@ -34,13 +36,15 @@ export function KpiCard({
   tone?: StatusTone | "brand";
   /** Drill-down to the filtered list. */
   href?: string;
+  /** Text of the drill-down hint shown on linked cards. */
+  linkLabel?: string;
   className?: string;
 }) {
   const body = (
     <div
       className={cn(
         "flex h-full flex-col gap-2 rounded-2xl border bg-card p-4 transition-colors",
-        href && "hover:border-bb-forest/40",
+        href && "group-hover:border-bb-forest/40",
         className,
       )}
     >
@@ -51,13 +55,24 @@ export function KpiCard({
         </span>
       </div>
       <p className="text-2xl font-bold tracking-tight text-bb-ink tabular-nums">{value}</p>
-      <p className="text-xs text-muted-foreground">{caption}</p>
+      <div className="mt-auto flex items-end justify-between gap-2">
+        <p className="text-xs text-muted-foreground">{caption}</p>
+        {href && (
+          <span className="inline-flex shrink-0 items-center text-xs font-medium text-bb-forest group-hover:underline">
+            {linkLabel}
+            <ChevronRight className="size-3" aria-hidden />
+          </span>
+        )}
+      </div>
     </div>
   );
 
   if (!href) return body;
   return (
-    <Link href={href} className="block rounded-2xl">
+    <Link
+      href={href}
+      className="group block h-full rounded-2xl outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+    >
       {body}
     </Link>
   );

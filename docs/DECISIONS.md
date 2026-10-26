@@ -277,3 +277,21 @@ Every non-obvious decision, newest at the bottom. Format: date · decision · re
 
 - **Decision:** Notifications are written by database triggers and trusted server code (mentions, repeat website submissions). People can only mark their own as read (a column-level grant). Messages are append-only; texts and emails must reference their outbox row. Message text stays out of the audit log.
 - **Reason:** SPEC §5.7, §13.1 and §18 rule 3. A message log that can be edited isn't a record.
+
+### 2026-10-26 · Metrics registry shape and lead rates
+
+- **Decision:**
+  - Each metric in `lib/metrics/registry.ts` names the server-side RPC it reads (`lead_stats`), its unit and a plain-words formula, and has a pure `compute`. The payload is parsed with zod; a missing or malformed field reads as 0. Chart data (status, funnel, sources, cities, aging) is built in the registry too, so components do no math.
+  - Rates are clamped to 0–100%. When there's nothing to divide by, the card shows "—" instead of 0%.
+  - Lead → Contact, Walkthrough Rate and Conversion to Job are each divided by **all leads** in the period. The funnel also shows each step as a % of the step before it. _Owners to confirm_ whether Walkthrough Rate should be ÷ contacted leads instead.
+- **Reason:** CLAUDE.md: every KPI comes from the registry, aggregated on the server.
+
+### 2026-10-26 · Dashboard charts and accessibility
+
+- **Decision:** Charts are hidden from screen readers and described by one spoken summary; every chart has a "View data" table, which is the accessible version. Bars use the brand green (a light tint of it for "not converted yet"). "Download CSV" is disabled until Export Controls (Phase 10). Lead Aging links open the list filtered by Pacific calendar day, so a bucket's link can differ from its count by part of a day at the edges (the View data dialog says so).
+- **Reason:** SPEC §8.3 and WCAG 2.2 AA. Exact aging links would need extra list chips; not worth it yet.
+
+### 2026-10-26 · Recalculating lead scores needs two permissions
+
+- **Decision:** Admin → Lead Scoring saves only the rules that changed. "Recalculate open leads" needs `settings:manage` **and** `leads:update`, uses the person's own session, and rescores up to 2,000 of the newest open leads. Otherwise a score updates the next time its lead changes.
+- **Reason:** Recalculating edits leads. Without `leads:update`, row security would silently skip leads and the result would look complete when it isn't.
