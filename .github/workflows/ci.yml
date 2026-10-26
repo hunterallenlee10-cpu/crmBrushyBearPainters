@@ -69,13 +69,11 @@ jobs:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
       - name: Reset is repeatable (migrations + seed apply cleanly twice)
         run: supabase db reset
-      - name: Generated types match lib/db/types.ts
-        # Informational until the hand-written Phase 0 file is replaced by real output.
-        continue-on-error: true
+      - name: Generated types match lib/db/types.ts (run `pnpm db:types` after migrations)
         run: |
           supabase gen types typescript --local --schema public > /tmp/types.ts
           pnpm exec prettier --stdin-filepath lib/db/types.ts < /tmp/types.ts > /tmp/types.fmt.ts
-          diff -u lib/db/types.ts /tmp/types.fmt.ts || echo "::warning::lib/db/types.ts differs from generated types"
+          diff -u lib/db/types.ts /tmp/types.fmt.ts
       - name: Stop Supabase
         if: always()
         run: supabase stop --no-backup

@@ -84,10 +84,10 @@ Every non-obvious decision, newest at the bottom. Format: date · decision · re
 - **Decision:** Ready to Schedule `#854D0E`, Final Walkthrough `#9A3412`, Completed `#166534`.
 - **Reason:** The first picks measured 4.2–4.35:1 as badge text on their own tint, below WCAG AA (4.5:1). A unit test now checks every stage color.
 
-### 2026-10-26 · Hand-written DB types in Phase 0
+### 2026-10-26 · Generated DB types, checked in CI
 
-- **Decision:** `lib/db/types.ts` is hand-written in `supabase gen types` shape for Phase 0. CI regenerates it from the real stack and warns on drift (non-blocking for now).
-- **Reason:** `supabase gen types` needs Docker, which this sandbox lacks. Once the first CI run produces the real output, it replaces the file and the check becomes blocking.
+- **Decision:** `lib/db/types.ts` is the exact `supabase gen types` output (Prettier-formatted). CI regenerates it from the real stack and fails on any difference. After each migration, run `pnpm db:types` (or copy the diff from the failing CI step when working without Docker).
+- **Reason:** SPEC §18 rule 6. The first CI run produced the real output; the file now matches it byte for byte.
 
 ### 2026-10-26 · CSP deferred to Phase 10
 
