@@ -2,6 +2,23 @@
 
 All notable changes, by build phase. See `docs/PLAN.md` for what each phase covers.
 
+## Phase 1 — Platform
+
+### Added
+
+- **Sign-in:** email magic links (invite-only), Google sign-in (ready once the owners add Google credentials), two-step sign-in (TOTP) required for Owner and Bookkeeper, No-access page for accounts that aren't set up or are turned off, sign out. Every app page requires sign-in and keeps the page you were going to.
+- **Permission engine in Postgres:** 85 permissions, 18 permission packs (with own/team/all scope), 8 role templates (Owner, Office Manager, Estimator, Project Manager / Crew Lead, Painter, Subcontractor, Bookkeeper, Read-only) and per-user grants/revokes with a reason. Row-level security on every table uses the same resolver, so the screens and the database always agree.
+- **View as user** (owners): see the app exactly as a teammate does, read-only, with a banner; recorded in the audit log.
+- **Audit log** on every change (who, what, before/after, when, IP, device) and a domain event for every change, both written by the database.
+- **Soft delete + Deleted Records** with restore.
+- **Admin → Setup** hub with quick find; **Company Settings** (contact, licensing, business hours, SLA timers, on-time guarantee, season, deposit, estimate expiry, review link, referral reward) with placeholders flagged.
+- **Admin screens:** Users, Roles & Permissions, Field Picklists, Territories, Integrations (11 cards, all "Not connected", plus the simulated outbox), Audit Log, Deleted Records; personal Settings.
+- **Integration adapters:** one interface per domain with an outbox provider (records "Simulated – not sent") and disabled real-provider stubs behind three locks.
+- Shell now shows only what each role can use; crew roles get the mobile tab bar.
+- Real brand assets (logo, mascot, icons) from the Brushy Bear website.
+- `pnpm seed:owners` creates owner accounts from `SEED_OWNER_EMAILS`.
+- Tests: SQL/RLS tests for every role (187 assertions), unit tests for permissions, territories, settings, adapters and auth helpers, Playwright E2E + axe for sign-in, every role, View as and each admin screen. CI runs E2E against a local Supabase stack.
+
 ## Phase 0 — Foundation
 
 ### Added
