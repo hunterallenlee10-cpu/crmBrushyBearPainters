@@ -147,6 +147,327 @@ export type Database = {
           },
         ];
       };
+      appointments: {
+        Row: {
+          all_day: boolean;
+          assigned_user_ids: string[];
+          canceled_reason: string | null;
+          completed_at: string | null;
+          confirmed_at: string | null;
+          created_at: string;
+          created_by: string | null;
+          deleted_at: string | null;
+          ends_at: string;
+          external_calendar_event_id: string | null;
+          id: string;
+          job_id: string | null;
+          lead_id: string | null;
+          location: string | null;
+          notes: string | null;
+          org_id: string;
+          reminders: NonNullable<Json>;
+          result: string | null;
+          starts_at: string;
+          status: string;
+          title: string | null;
+          type: string;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        ComputedFields: never;
+        Insert: {
+          all_day?: boolean;
+          assigned_user_ids?: string[];
+          canceled_reason?: string | null;
+          completed_at?: string | null;
+          confirmed_at?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          deleted_at?: string | null;
+          ends_at: string;
+          external_calendar_event_id?: string | null;
+          id?: string;
+          job_id?: string | null;
+          lead_id?: string | null;
+          location?: string | null;
+          notes?: string | null;
+          org_id: string;
+          reminders?: NonNullable<Json>;
+          result?: string | null;
+          starts_at: string;
+          status?: string;
+          title?: string | null;
+          type: string;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          all_day?: boolean;
+          assigned_user_ids?: string[];
+          canceled_reason?: string | null;
+          completed_at?: string | null;
+          confirmed_at?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          deleted_at?: string | null;
+          ends_at?: string;
+          external_calendar_event_id?: string | null;
+          id?: string;
+          job_id?: string | null;
+          lead_id?: string | null;
+          location?: string | null;
+          notes?: string | null;
+          org_id?: string;
+          reminders?: NonNullable<Json>;
+          result?: string | null;
+          starts_at?: string;
+          status?: string;
+          title?: string | null;
+          type?: string;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "appointments_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
+            referencedRelation: "jobs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "appointments_lead_id_fkey";
+            columns: ["lead_id"];
+            isOneToOne: false;
+            referencedRelation: "leads";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "appointments_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      approval_requests: {
+        Row: {
+          created_at: string;
+          decided_at: string | null;
+          decided_by: string | null;
+          decision_note: string | null;
+          id: string;
+          job_id: string;
+          org_id: string;
+          payload: NonNullable<Json>;
+          reason: string;
+          requested_at: string;
+          requested_by: string;
+          status: string;
+          type: string;
+          updated_at: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          created_at?: string;
+          decided_at?: string | null;
+          decided_by?: string | null;
+          decision_note?: string | null;
+          id?: string;
+          job_id: string;
+          org_id: string;
+          payload?: NonNullable<Json>;
+          reason: string;
+          requested_at?: string;
+          requested_by: string;
+          status?: string;
+          type: string;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          decided_at?: string | null;
+          decided_by?: string | null;
+          decision_note?: string | null;
+          id?: string;
+          job_id?: string;
+          org_id?: string;
+          payload?: NonNullable<Json>;
+          reason?: string;
+          requested_at?: string;
+          requested_by?: string;
+          status?: string;
+          type?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "approval_requests_decided_by_fkey";
+            columns: ["decided_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "approval_requests_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
+            referencedRelation: "jobs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "approval_requests_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "approval_requests_requested_by_fkey";
+            columns: ["requested_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      attention_items: {
+        Row: {
+          category: string;
+          condition_cleared_at: string | null;
+          created_at: string;
+          dedupe_key: string;
+          detail: string | null;
+          due_at: string | null;
+          id: string;
+          last_seen_at: string;
+          opened_at: string;
+          org_id: string;
+          owner_id: string | null;
+          priority: string;
+          resolution: string | null;
+          resolution_note: string | null;
+          resolved_at: string | null;
+          resolved_by: string | null;
+          rule_key: string;
+          snoozed_until: string | null;
+          status: string;
+          subject_id: string;
+          subject_type: string;
+          title: string;
+          updated_at: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          category: string;
+          condition_cleared_at?: string | null;
+          created_at?: string;
+          dedupe_key: string;
+          detail?: string | null;
+          due_at?: string | null;
+          id?: string;
+          last_seen_at?: string;
+          opened_at?: string;
+          org_id: string;
+          owner_id?: string | null;
+          priority: string;
+          resolution?: string | null;
+          resolution_note?: string | null;
+          resolved_at?: string | null;
+          resolved_by?: string | null;
+          rule_key: string;
+          snoozed_until?: string | null;
+          status?: string;
+          subject_id: string;
+          subject_type: string;
+          title: string;
+          updated_at?: string;
+        };
+        Update: {
+          category?: string;
+          condition_cleared_at?: string | null;
+          created_at?: string;
+          dedupe_key?: string;
+          detail?: string | null;
+          due_at?: string | null;
+          id?: string;
+          last_seen_at?: string;
+          opened_at?: string;
+          org_id?: string;
+          owner_id?: string | null;
+          priority?: string;
+          resolution?: string | null;
+          resolution_note?: string | null;
+          resolved_at?: string | null;
+          resolved_by?: string | null;
+          rule_key?: string;
+          snoozed_until?: string | null;
+          status?: string;
+          subject_id?: string;
+          subject_type?: string;
+          title?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "attention_items_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "attention_items_owner_id_fkey";
+            columns: ["owner_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      attention_rules: {
+        Row: {
+          created_at: string;
+          created_by: string | null;
+          enabled: boolean;
+          org_id: string;
+          rule_key: string;
+          thresholds: NonNullable<Json>;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        ComputedFields: never;
+        Insert: {
+          created_at?: string;
+          created_by?: string | null;
+          enabled?: boolean;
+          org_id: string;
+          rule_key: string;
+          thresholds?: NonNullable<Json>;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          created_at?: string;
+          created_by?: string | null;
+          enabled?: boolean;
+          org_id?: string;
+          rule_key?: string;
+          thresholds?: NonNullable<Json>;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "attention_rules_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       audit_log: {
         Row: {
           action: string;
@@ -714,6 +1035,429 @@ export type Database = {
           },
         ];
       };
+      job_financials: {
+        Row: {
+          contract_baseline_cents: number | null;
+          created_at: string;
+          created_by: string | null;
+          job_id: string;
+          org_id: string;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        ComputedFields: never;
+        Insert: {
+          contract_baseline_cents?: number | null;
+          created_at?: string;
+          created_by?: string | null;
+          job_id: string;
+          org_id: string;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          contract_baseline_cents?: number | null;
+          created_at?: string;
+          created_by?: string | null;
+          job_id?: string;
+          org_id?: string;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "job_financials_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: true;
+            referencedRelation: "jobs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "job_financials_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      job_holds: {
+        Row: {
+          blocks_scheduling: boolean;
+          created_at: string;
+          hold_type: string;
+          id: string;
+          job_id: string;
+          org_id: string;
+          placed_at: string;
+          placed_by: string | null;
+          reason: string;
+          release_note: string | null;
+          released_at: string | null;
+          released_by: string | null;
+          updated_at: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          blocks_scheduling?: boolean;
+          created_at?: string;
+          hold_type: string;
+          id?: string;
+          job_id: string;
+          org_id: string;
+          placed_at?: string;
+          placed_by?: string | null;
+          reason: string;
+          release_note?: string | null;
+          released_at?: string | null;
+          released_by?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          blocks_scheduling?: boolean;
+          created_at?: string;
+          hold_type?: string;
+          id?: string;
+          job_id?: string;
+          org_id?: string;
+          placed_at?: string;
+          placed_by?: string | null;
+          reason?: string;
+          release_note?: string | null;
+          released_at?: string | null;
+          released_by?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "job_holds_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
+            referencedRelation: "jobs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "job_holds_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      job_team: {
+        Row: {
+          added_at: string;
+          added_by: string | null;
+          job_id: string;
+          org_id: string;
+          role: string;
+          user_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          added_at?: string;
+          added_by?: string | null;
+          job_id: string;
+          org_id: string;
+          role: string;
+          user_id: string;
+        };
+        Update: {
+          added_at?: string;
+          added_by?: string | null;
+          job_id?: string;
+          org_id?: string;
+          role?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "job_team_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
+            referencedRelation: "jobs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "job_team_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "job_team_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      jobs: {
+        Row: {
+          accepted_estimate_id: string | null;
+          account_id: string;
+          active_hold_count: number;
+          actual_start_date: string | null;
+          blocking_hold_count: number;
+          closed_at: string | null;
+          completed_at: string | null;
+          contract_signed_at: string | null;
+          created_at: string;
+          created_by: string | null;
+          delete_reason: string | null;
+          deleted_at: string | null;
+          deleted_by: string | null;
+          deposit_paid_at: string | null;
+          estimate_accepted_at: string | null;
+          estimate_sent_at: string | null;
+          estimated_completion_date: string | null;
+          estimated_duration_days: number | null;
+          final_invoiced_at: string | null;
+          final_walkthrough_at: string | null;
+          first_contact_at: string | null;
+          health_checked_at: string | null;
+          health_factors: NonNullable<Json>;
+          health_score: number | null;
+          id: string;
+          is_priority_reschedule: boolean;
+          job_number: string;
+          lead_created_at: string | null;
+          lead_id: string | null;
+          lead_source: string | null;
+          lead_sub_source: string | null;
+          lost_at: string | null;
+          lost_reason: string | null;
+          name: string;
+          on_time_guarantee_status: string;
+          onboarding_completed_at: string | null;
+          onboarding_started_at: string | null;
+          org_id: string;
+          owner_id: string | null;
+          paid_in_full_at: string | null;
+          point_of_contact_id: string | null;
+          primary_contact_id: string | null;
+          priority: string;
+          priority_reason: string | null;
+          project_manager_id: string | null;
+          promised_start_date: string | null;
+          property_id: string | null;
+          ready_to_schedule_at: string | null;
+          scheduled_at: string | null;
+          search_text: string | null;
+          stage: string;
+          stage_entered_at: string;
+          status: string;
+          tags: string[];
+          target_season: number | null;
+          team_user_ids: string[];
+          territory_id: string | null;
+          updated_at: string;
+          updated_by: string | null;
+          walkthrough_completed_at: string | null;
+          walkthrough_scheduled_at: string | null;
+          work_completed_at: string | null;
+          work_types: string[];
+        };
+        ComputedFields: never;
+        Insert: {
+          accepted_estimate_id?: string | null;
+          account_id: string;
+          active_hold_count?: number;
+          actual_start_date?: string | null;
+          blocking_hold_count?: number;
+          closed_at?: string | null;
+          completed_at?: string | null;
+          contract_signed_at?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          delete_reason?: string | null;
+          deleted_at?: string | null;
+          deleted_by?: string | null;
+          deposit_paid_at?: string | null;
+          estimate_accepted_at?: string | null;
+          estimate_sent_at?: string | null;
+          estimated_completion_date?: string | null;
+          estimated_duration_days?: number | null;
+          final_invoiced_at?: string | null;
+          final_walkthrough_at?: string | null;
+          first_contact_at?: string | null;
+          health_checked_at?: string | null;
+          health_factors?: NonNullable<Json>;
+          health_score?: number | null;
+          id?: string;
+          is_priority_reschedule?: boolean;
+          job_number: string;
+          lead_created_at?: string | null;
+          lead_id?: string | null;
+          lead_source?: string | null;
+          lead_sub_source?: string | null;
+          lost_at?: string | null;
+          lost_reason?: string | null;
+          name: string;
+          on_time_guarantee_status?: string;
+          onboarding_completed_at?: string | null;
+          onboarding_started_at?: string | null;
+          org_id: string;
+          owner_id?: string | null;
+          paid_in_full_at?: string | null;
+          point_of_contact_id?: string | null;
+          primary_contact_id?: string | null;
+          priority?: string;
+          priority_reason?: string | null;
+          project_manager_id?: string | null;
+          promised_start_date?: string | null;
+          property_id?: string | null;
+          ready_to_schedule_at?: string | null;
+          scheduled_at?: string | null;
+          search_text?: never;
+          stage?: string;
+          stage_entered_at?: string;
+          status?: string;
+          tags?: string[];
+          target_season?: number | null;
+          team_user_ids?: string[];
+          territory_id?: string | null;
+          updated_at?: string;
+          updated_by?: string | null;
+          walkthrough_completed_at?: string | null;
+          walkthrough_scheduled_at?: string | null;
+          work_completed_at?: string | null;
+          work_types?: string[];
+        };
+        Update: {
+          accepted_estimate_id?: string | null;
+          account_id?: string;
+          active_hold_count?: number;
+          actual_start_date?: string | null;
+          blocking_hold_count?: number;
+          closed_at?: string | null;
+          completed_at?: string | null;
+          contract_signed_at?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          delete_reason?: string | null;
+          deleted_at?: string | null;
+          deleted_by?: string | null;
+          deposit_paid_at?: string | null;
+          estimate_accepted_at?: string | null;
+          estimate_sent_at?: string | null;
+          estimated_completion_date?: string | null;
+          estimated_duration_days?: number | null;
+          final_invoiced_at?: string | null;
+          final_walkthrough_at?: string | null;
+          first_contact_at?: string | null;
+          health_checked_at?: string | null;
+          health_factors?: NonNullable<Json>;
+          health_score?: number | null;
+          id?: string;
+          is_priority_reschedule?: boolean;
+          job_number?: string;
+          lead_created_at?: string | null;
+          lead_id?: string | null;
+          lead_source?: string | null;
+          lead_sub_source?: string | null;
+          lost_at?: string | null;
+          lost_reason?: string | null;
+          name?: string;
+          on_time_guarantee_status?: string;
+          onboarding_completed_at?: string | null;
+          onboarding_started_at?: string | null;
+          org_id?: string;
+          owner_id?: string | null;
+          paid_in_full_at?: string | null;
+          point_of_contact_id?: string | null;
+          primary_contact_id?: string | null;
+          priority?: string;
+          priority_reason?: string | null;
+          project_manager_id?: string | null;
+          promised_start_date?: string | null;
+          property_id?: string | null;
+          ready_to_schedule_at?: string | null;
+          scheduled_at?: string | null;
+          search_text?: never;
+          stage?: string;
+          stage_entered_at?: string;
+          status?: string;
+          tags?: string[];
+          target_season?: number | null;
+          team_user_ids?: string[];
+          territory_id?: string | null;
+          updated_at?: string;
+          updated_by?: string | null;
+          walkthrough_completed_at?: string | null;
+          walkthrough_scheduled_at?: string | null;
+          work_completed_at?: string | null;
+          work_types?: string[];
+        };
+        Relationships: [
+          {
+            foreignKeyName: "jobs_account_id_fkey";
+            columns: ["account_id"];
+            isOneToOne: false;
+            referencedRelation: "accounts";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "jobs_lead_id_fkey";
+            columns: ["lead_id"];
+            isOneToOne: true;
+            referencedRelation: "leads";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "jobs_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "jobs_owner_id_fkey";
+            columns: ["owner_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "jobs_point_of_contact_id_fkey";
+            columns: ["point_of_contact_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "jobs_primary_contact_id_fkey";
+            columns: ["primary_contact_id"];
+            isOneToOne: false;
+            referencedRelation: "contacts";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "jobs_project_manager_id_fkey";
+            columns: ["project_manager_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "jobs_property_id_fkey";
+            columns: ["property_id"];
+            isOneToOne: false;
+            referencedRelation: "properties";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "jobs_territory_id_fkey";
+            columns: ["territory_id"];
+            isOneToOne: false;
+            referencedRelation: "territories";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       lead_attachments: {
         Row: {
           content_type: string;
@@ -1039,6 +1783,13 @@ export type Database = {
             columns: ["contact_id"];
             isOneToOne: false;
             referencedRelation: "contacts";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "leads_converted_job_fk";
+            columns: ["converted_job_id"];
+            isOneToOne: false;
+            referencedRelation: "jobs";
             referencedColumns: ["id"];
           },
           {
@@ -2082,6 +2833,70 @@ export type Database = {
           },
         ];
       };
+      stage_history: {
+        Row: {
+          approval_request_id: string | null;
+          changed_at: string;
+          changed_by: string | null;
+          from_stage: string | null;
+          gate: NonNullable<Json>;
+          id: string;
+          impersonated_by: string | null;
+          job_id: string;
+          org_id: string;
+          override: boolean;
+          reason: string | null;
+          seq: number;
+          to_stage: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          approval_request_id?: string | null;
+          changed_at?: string;
+          changed_by?: string | null;
+          from_stage?: string | null;
+          gate?: NonNullable<Json>;
+          id?: string;
+          impersonated_by?: string | null;
+          job_id: string;
+          org_id: string;
+          override?: boolean;
+          reason?: string | null;
+          seq?: never;
+          to_stage: string;
+        };
+        Update: {
+          approval_request_id?: string | null;
+          changed_at?: string;
+          changed_by?: string | null;
+          from_stage?: string | null;
+          gate?: NonNullable<Json>;
+          id?: string;
+          impersonated_by?: string | null;
+          job_id?: string;
+          org_id?: string;
+          override?: boolean;
+          reason?: string | null;
+          seq?: never;
+          to_stage?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "stage_history_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
+            referencedRelation: "jobs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "stage_history_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       tasks: {
         Row: {
           assignee_id: string;
@@ -2332,11 +3147,28 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      apply_job_stage_change: {
+        Args: {
+          p_approval_request?: string;
+          p_from: string;
+          p_gate?: Json;
+          p_job: string;
+          p_lost_reason?: string;
+          p_override?: boolean;
+          p_reason?: string;
+          p_to: string;
+        };
+        Returns: string;
+      };
+      attention_summary: { Args: Record<PropertyKey, never>; Returns: Json };
       consume_rate_limit: {
         Args: { p_bucket: string; p_limit: number; p_window_seconds: number };
         Returns: boolean;
       };
+      convert_lead_to_job: { Args: { p_lead: string; p_work_types?: string[] }; Returns: string };
       integration_summary: { Args: Record<PropertyKey, never>; Returns: Json };
+      job_stats: { Args: { p_from: string; p_prev_from: string; p_to: string }; Returns: Json };
+      job_status_counts: { Args: Record<PropertyKey, never>; Returns: Json };
       lead_stats: { Args: { p_now?: string }; Returns: Json };
       lead_status_counts: { Args: Record<PropertyKey, never>; Returns: Json };
       list_deleted_records: {
