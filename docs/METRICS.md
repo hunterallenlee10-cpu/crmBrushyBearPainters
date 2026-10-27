@@ -13,15 +13,15 @@
 
 From `estimate_stats(p_from, p_to)` (one server query, row-security scoped), defined in `ESTIMATE_METRICS`. Shown on `/estimates`.
 
-| Metric | Formula | Date field |
-| --- | --- | --- |
-| Estimates Sent | estimates first sent in the period | `estimates.sent_at` |
-| 24h Estimate SLA | sent within the SLA hours (Company Settings) after the walkthrough ÷ those with a completed walkthrough | `sent_at` vs `jobs.walkthrough_completed_at` |
-| Close Rate | accepted ÷ sent, same cohort (first sent in the period) | `sent_at` |
-| Close Rate ($) | accepted value ÷ sent value, same cohort | `sent_at` |
-| Avg Job Value | accepted value ÷ estimates accepted in the period | `accepted_at` |
-| Open Estimates | value of estimates sent or viewed and not yet answered, right now | — |
-| Discounts waiting (Approvals) | pending `estimate_discount` approval requests | — |
+| Metric                        | Formula                                                                                                 | Date field                                   |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
+| Estimates Sent                | estimates first sent in the period                                                                      | `estimates.sent_at`                          |
+| 24h Estimate SLA              | sent within the SLA hours (Company Settings) after the walkthrough ÷ those with a completed walkthrough | `sent_at` vs `jobs.walkthrough_completed_at` |
+| Close Rate                    | accepted ÷ sent, same cohort (first sent in the period)                                                 | `sent_at`                                    |
+| Close Rate ($)                | accepted value ÷ sent value, same cohort                                                                | `sent_at`                                    |
+| Avg Job Value                 | accepted value ÷ estimates accepted in the period                                                       | `accepted_at`                                |
+| Open Estimates                | value of estimates sent or viewed and not yet answered, right now                                       | —                                            |
+| Discounts waiting (Approvals) | pending `estimate_discount` approval requests                                                           | —                                            |
 
 Fixture tests: `lib/metrics/registry.test.ts`. The Jobs Dashboard money now reads the contract amount (accepted estimate + signed change orders, else the baseline).
 

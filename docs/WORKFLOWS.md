@@ -35,14 +35,14 @@
 
 These already fire (from database triggers and the send/accept functions) and the worker handles the ones marked ✓. Workflow automations on top of them arrive in Phase 8.
 
-| Event | When | Worker today |
-| --- | --- | --- |
-| `estimate.sent` | A version is sent (simulated text/email) | — (follow-ups are workflow #4) |
-| `estimate.viewed` | The customer first opens the link | ✓ notifies the job's point of contact / owner |
-| `estimate.accepted` | Accept & Sign | ✓ finishes acceptance if needed (signed PDF, stage moves) and notifies the team |
-| `estimate.declined` | The customer declines | ✓ notifies the team |
-| `change_order.sent` / `change_order.signed` / `change_order.declined` | Change-order link life cycle | ✓ signed: stores the signed PDF, updates the contract; notifies |
-| `approval.created` (`estimate_discount`) | A discount over the sender's limit | ✓ notifies owners |
-| row events on estimates, lines, invoices, onboarding, paint and work orders | Every change | audit + events only |
+| Event                                                                       | When                                     | Worker today                                                                    |
+| --------------------------------------------------------------------------- | ---------------------------------------- | ------------------------------------------------------------------------------- |
+| `estimate.sent`                                                             | A version is sent (simulated text/email) | — (follow-ups are workflow #4)                                                  |
+| `estimate.viewed`                                                           | The customer first opens the link        | ✓ notifies the job's point of contact / owner                                   |
+| `estimate.accepted`                                                         | Accept & Sign                            | ✓ finishes acceptance if needed (signed PDF, stage moves) and notifies the team |
+| `estimate.declined`                                                         | The customer declines                    | ✓ notifies the team                                                             |
+| `change_order.sent` / `change_order.signed` / `change_order.declined`       | Change-order link life cycle             | ✓ signed: stores the signed PDF, updates the contract; notifies                 |
+| `approval.created` (`estimate_discount`)                                    | A discount over the sender's limit       | ✓ notifies owners                                                               |
+| row events on estimates, lines, invoices, onboarding, paint and work orders | Every change                             | audit + events only                                                             |
 
 Expired links: the worker run calls `expire_proposals()` each minute, which marks unanswered versions past their date as Expired.
