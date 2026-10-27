@@ -12,3 +12,4 @@ select app.seed_org_defaults(id) from public.organizations;
 select app.seed_leads_defaults(id) from public.organizations;
 select app.seed_jobs_defaults(id) from public.organizations;
 select app.seed_estimating_defaults(id) from public.organizations;
+select app.seed_production_defaults(id) from public.organizations;
