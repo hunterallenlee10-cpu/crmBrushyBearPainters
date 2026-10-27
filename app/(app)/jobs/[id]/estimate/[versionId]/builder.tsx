@@ -939,24 +939,26 @@ function DiscountApproval({ data, needsApproval }: { data: BuilderData; needsApp
 
 function TermsForm({ data, readOnly }: { data: BuilderData; readOnly: boolean }) {
   const { version } = data;
-  const init = React.useCallback(
-    () => ({
-      discount_type: (version.discountType ?? "none") as "none" | "amount" | "percent",
-      discount_value:
-        version.discountValue === null
-          ? ""
-          : version.discountType === "amount"
-            ? (version.discountValue / 100).toFixed(2)
-            : String(version.discountValue),
-      discount_reason: version.discountReason ?? "",
-      deposit_percent: version.depositPercent === null ? "" : String(version.depositPercent),
-      customer_notes: version.customerNotes ?? "",
-      internal_notes: version.internalNotes ?? "",
-    }),
-    [version],
-  );
-  const [form, setForm] = React.useState(init);
-  React.useEffect(() => setForm(init()), [init]);
+  const saved = {
+    discount_type: (version.discountType ?? "none") as "none" | "amount" | "percent",
+    discount_value:
+      version.discountValue === null
+        ? ""
+        : version.discountType === "amount"
+          ? (version.discountValue / 100).toFixed(2)
+          : String(version.discountValue),
+    discount_reason: version.discountReason ?? "",
+    deposit_percent: version.depositPercent === null ? "" : String(version.depositPercent),
+    customer_notes: version.customerNotes ?? "",
+    internal_notes: version.internalNotes ?? "",
+  };
+  // Reset only when the saved values change, not on every refresh (a line
+  // saved elsewhere refreshes the page and used to wipe unsaved typing here).
+  const savedKey = JSON.stringify(saved);
+  const [form, setForm] = React.useState(saved);
+  React.useEffect(() => {
+    setForm(JSON.parse(savedKey) as typeof saved);
+  }, [savedKey]);
   const [errors, setErrors] = React.useState<Record<string, string>>({});
   const { pending, run } = useRunAction();
   const set = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) =>

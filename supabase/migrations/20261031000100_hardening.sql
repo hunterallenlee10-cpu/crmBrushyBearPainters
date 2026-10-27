@@ -1381,7 +1381,9 @@ begin
   select coalesce(array_agg(id), '{}') into v_jobs from public.jobs where org_id = p_org and is_demo;
   select coalesce(array_agg(id), '{}') into v_leads from public.leads where org_id = p_org and is_demo;
   select coalesce(array_agg(id), '{}') into v_accounts from public.accounts where org_id = p_org and is_demo;
-  select coalesce(array_agg(id), '{}') into v_contacts from public.contacts where org_id = p_org and is_demo;
+  -- Contacts of demo accounts go with them, tagged or not.
+  select coalesce(array_agg(id), '{}') into v_contacts from public.contacts
+   where org_id = p_org and (is_demo or account_id = any(v_accounts));
   select coalesce(array_agg(id), '{}') into v_crews from public.crews where org_id = p_org and is_demo;
   v_subjects := v_jobs || v_leads || v_accounts || v_contacts;
   select coalesce(array_agg(x::text), '{}') into v_texts from unnest(v_subjects) x;
@@ -1434,6 +1436,15 @@ begin
   get diagnostics v_n = row_count;
   v_out := v_out || jsonb_build_object('leads', v_n);
 
+  -- A real lead that ended up pointing at a demo customer keeps its own data
+  -- and just loses the link.
+  update public.leads set property_id = null
+   where org_id = p_org and property_id in (select p.id from public.properties p
+                                             where p.org_id = p_org and (p.is_demo or p.account_id = any(v_accounts)));
+  update public.leads set contact_id = null
+   where org_id = p_org and contact_id in (select c.id from public.contacts c
+                                            where c.org_id = p_org and (c.id = any(v_contacts) or c.account_id = any(v_accounts)));
+  update public.leads set account_id = null where org_id = p_org and account_id = any(v_accounts);
   delete from public.documents where org_id = p_org and account_id = any(v_accounts);
   delete from public.properties where org_id = p_org and (is_demo or account_id = any(v_accounts));
   get diagnostics v_n = row_count;
