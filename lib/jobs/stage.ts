@@ -24,7 +24,7 @@ type Db = SupabaseClient<Database>;
 
 /** Facts the gates read, loaded with the service client after a visibility check. */
 export async function loadGateContext(service: Db, jobId: string): Promise<GateContext> {
-  const [walk, holds, labels] = await Promise.all([
+  const [walk, holds, labels, estimates, deposit, signatures] = await Promise.all([
     service
       .from("appointments")
       .select("id")
@@ -44,10 +44,43 @@ export async function loadGateContext(service: Db, jobId: string): Promise<GateC
       .from("picklist_values")
       .select("value, label, picklists!inner(key)")
       .eq("picklists.key", "hold_type"),
+    service
+      .from("estimates")
+      .select(
+        "id, status, accepted_version_id, versions:estimate_versions!estimate_versions_estimate_id_fkey(id, sent_at, accepted_totals)",
+      )
+      .eq("job_id", jobId)
+      .is("deleted_at", null),
+    service
+      .from("invoices")
+      .select("id")
+      .eq("job_id", jobId)
+      .eq("invoice_type", "deposit")
+      .neq("status", "void")
+      .limit(1),
+    service
+      .from("signatures")
+      .select("estimate_version_id")
+      .eq("job_id", jobId)
+      .not("estimate_version_id", "is", null),
   ]);
   const label = new Map((labels.data ?? []).map((v) => [v.value, v.label]));
+  const ests = estimates.data ?? [];
+  const accepted = ests.filter((e) => e.status === "accepted" && e.accepted_version_id);
+  const signedVersions = new Set((signatures.data ?? []).map((s) => s.estimate_version_id));
+  const signed = accepted.some((e) => signedVersions.has(e.accepted_version_id));
+  const noDeposit = accepted.some((e) => {
+    const v = (e.versions ?? []).find((x) => x.id === e.accepted_version_id);
+    const totals = v?.accepted_totals;
+    const deposit =
+      totals && typeof totals === "object" && !Array.isArray(totals) ? totals.depositCents : null;
+    return typeof deposit === "number" ? deposit === 0 : deposit == null;
+  });
   return {
     walkthroughMeasured: (walk.data ?? []).length > 0,
+    estimateSent: ests.some((e) => (e.versions ?? []).some((v) => v.sent_at !== null)),
+    estimateSigned: signed,
+    depositInvoiceReady: (deposit.data ?? []).length > 0 || noDeposit,
     blockingHolds: (holds.data ?? []).map((h) => label.get(h.hold_type) ?? h.hold_type),
   };
 }

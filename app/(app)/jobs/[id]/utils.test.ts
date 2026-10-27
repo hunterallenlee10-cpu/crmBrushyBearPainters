@@ -141,7 +141,8 @@ describe("milestones stepper", () => {
       to: "walkthrough_complete",
       label: "Walkthrough Complete",
     });
-    expect(nextHint("walkthrough_complete")?.arrivesInPhase).toBe(4);
+    expect(nextHint("walkthrough_complete")?.arrivesInPhase).toBeUndefined();
+    expect(nextHint("onboarding")?.arrivesInPhase).toBe(5);
     expect(nextHint("closed_won")).toBeNull();
   });
 });

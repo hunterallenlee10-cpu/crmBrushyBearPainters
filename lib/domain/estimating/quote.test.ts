@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildChangeOrderSnapshot,
   buildProposalSnapshot,
+  priceChangeOrder,
   daysUntil,
   discountCents,
   expiresAt,
@@ -342,5 +344,101 @@ describe("proposal snapshot", () => {
     expect(q?.addOns).toHaveLength(1);
     expect(quoteSelection(snap, { optionId: "nope", addOnIds: [] })).toBeNull();
     expect(quoteSelection(snap, { optionId: "opt-B", addOnIds: ["forged"] })).toBeNull();
+  });
+});
+
+describe("change orders", () => {
+  const job = exteriorJob();
+  const base = job.lines.find((l) => l.id === "addon-rot")!;
+  const rot = { ...base, optionId: null, isOptional: false, id: "co-rot" };
+  const credit = {
+    ...base,
+    id: "co-credit",
+    name: "Skip the garage trim",
+    sortOrder: 20,
+    optionId: null,
+    isOptional: false,
+    input: { ...base.input, quantity: 4, isCredit: true, taxable: false },
+  };
+
+  it("prices additions and credits with tax on the taxable part", () => {
+    const settings = { ...SETTINGS, tax: { ...SETTINGS.tax, ratePercent: 10 } };
+    const p = priceChangeOrder({
+      id: "co",
+      title: "Rot",
+      reason: null,
+      lines: [credit, rot],
+      settings,
+    });
+    expect(p.lines.map((l) => l.line.id)).toEqual(["co-rot", "co-credit"]);
+    expect(p.subtotalCents).toBe(25_000 - 10_000);
+    expect(p.taxCents).toBe(2_500);
+    expect(p.totalCents).toBe(17_500);
+    expect(p.costCents).toBe(12_000 - 4_800);
+    expect(p.laborHours).toBe(7);
+    expect(p.sendable).toBe(true);
+
+    const snap = buildChangeOrderSnapshot(
+      { id: "co", title: "Rot", reason: "Found soft wood", lines: [rot, credit], settings },
+      p,
+      { beforeCents: 1_000_000 },
+    );
+    expect(snap.options[0]).toMatchObject({
+      id: "co",
+      name: "Rot",
+      description: "Found soft wood",
+    });
+    expect(snap.options[0]?.totals.totalCents).toBe(17_500);
+    expect(snap.options[0]?.totals.taxableCents).toBe(25_000);
+    expect(snap.changeOrder).toEqual({ beforeCents: 1_000_000, afterCents: 1_017_500 });
+    expect(snap.workTypes).toEqual(["exterior"]);
+    expect(snap.leadSafe).toBe(false);
+  });
+
+  it("can go negative, needs a line, and handles an unknown contract", () => {
+    const p = priceChangeOrder({
+      id: "co",
+      title: "Credit",
+      reason: null,
+      lines: [credit],
+      settings: SETTINGS,
+    });
+    expect(p.totalCents).toBe(-10_000);
+    const empty = priceChangeOrder({
+      id: "co",
+      title: "Nothing",
+      reason: null,
+      lines: [],
+      settings: SETTINGS,
+    });
+    expect(empty.sendable).toBe(false);
+    expect(empty.issues[0]?.code).toBe("empty");
+    const unexplained = { ...rot, input: { ...rot.input, overridePriceCents: 100 } };
+    const bad = priceChangeOrder({
+      id: "co",
+      title: "Bad",
+      reason: null,
+      lines: [unexplained],
+      settings: SETTINGS,
+    });
+    expect(bad.issues).toEqual([
+      expect.objectContaining({ code: "override_reason", lineId: "co-rot" }),
+    ]);
+    expect(bad.sendable).toBe(false);
+    const lead = { ...rot, workType: null, input: { ...rot.input, leadSafe: true } };
+    const snap = buildChangeOrderSnapshot(
+      { id: "co", title: "Lead", reason: null, lines: [lead], settings: SETTINGS },
+      priceChangeOrder({
+        id: "co",
+        title: "Lead",
+        reason: null,
+        lines: [lead],
+        settings: SETTINGS,
+      }),
+      { beforeCents: null },
+    );
+    expect(snap.changeOrder.afterCents).toBeNull();
+    expect(snap.leadSafe).toBe(true);
+    expect(snap.workTypes).toEqual([]);
   });
 });

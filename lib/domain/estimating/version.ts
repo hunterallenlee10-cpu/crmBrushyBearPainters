@@ -329,3 +329,116 @@ export function quoteSelection(
   if (addOns.length !== wanted.size) return null;
   return { option, addOns, totals: quoteTotals(option.lines, addOns, snapshot.terms) };
 }
+
+// ---------------------------------------------------------------------------
+// Change orders (SPEC §7.7): same line engine, no minimum, discount or deposit;
+// credits (removed scope) count negative, so the total can be below zero.
+// ---------------------------------------------------------------------------
+
+export type ChangeOrderInput = {
+  id: string;
+  title: string;
+  reason: string | null;
+  lines: readonly VersionLine[];
+  settings: PricingSettings;
+};
+
+export type PricedChangeOrder = {
+  lines: LineWithPrice[];
+  subtotalCents: number;
+  taxCents: number;
+  totalCents: number;
+  costCents: number;
+  laborHours: number;
+  issues: VersionIssue[];
+  sendable: boolean;
+};
+
+export function priceChangeOrder(co: ChangeOrderInput): PricedChangeOrder {
+  const lines = [...co.lines]
+    .sort((a, b) => a.sortOrder - b.sortOrder)
+    .map((line) => ({ line, priced: priceLine(line.input, co.settings) }));
+  const subtotal = lines.reduce((s, l) => s + l.priced.priceCents, 0);
+  const taxable = lines
+    .filter((l) => l.line.input.taxable)
+    .reduce((s, l) => s + l.priced.priceCents, 0);
+  const tax = Math.round((taxable * Math.max(0, co.settings.tax.ratePercent)) / 100);
+  const issues: VersionIssue[] = lines.flatMap((l) =>
+    l.priced.issues.map((i) => ({ ...i, lineId: l.line.id })),
+  );
+  if (lines.length === 0) {
+    issues.push({
+      severity: "error",
+      code: "empty",
+      message: "Add at least one line.",
+      lineId: null,
+    });
+  }
+  return {
+    lines,
+    subtotalCents: subtotal,
+    taxCents: tax,
+    totalCents: subtotal + tax,
+    costCents: lines.reduce((s, l) => s + l.priced.costCents, 0),
+    laborHours: Math.round(lines.reduce((s, l) => s + l.priced.laborHours, 0) * 100) / 100,
+    issues,
+    sendable: issues.every((i) => i.severity !== "error"),
+  };
+}
+
+/** Customer snapshot for a change order, in the proposal shape (one "option"). */
+export function buildChangeOrderSnapshot(
+  co: ChangeOrderInput,
+  priced: PricedChangeOrder,
+  contract: { beforeCents: number | null },
+): ProposalSnapshot & { changeOrder: { beforeCents: number | null; afterCents: number | null } } {
+  const lines = priced.lines.map(proposalLine);
+  const totals: QuoteTotals = {
+    linesCents: priced.subtotalCents,
+    addOnsCents: 0,
+    rrpCents: 0,
+    subtotalCents: priced.subtotalCents,
+    minimumAdjustmentCents: 0,
+    adjustedCents: priced.subtotalCents,
+    discountCents: 0,
+    preTaxCents: priced.subtotalCents,
+    taxableCents: priced.lines
+      .filter((l) => l.line.input.taxable)
+      .reduce((s, l) => s + l.priced.priceCents, 0),
+    taxCents: priced.taxCents,
+    totalCents: priced.totalCents,
+    depositCents: 0,
+    computedAdjustedCents: priced.subtotalCents,
+    effectiveDiscountPercent: 0,
+    hasLeadSafe: priced.lines.some((l) => l.line.input.leadSafe === true),
+  };
+  const workTypes = [...new Set(co.lines.map((l) => l.workType).filter((w): w is string => !!w))];
+  return {
+    version: 1,
+    options: [
+      {
+        id: co.id,
+        name: co.title,
+        description: co.reason,
+        isRecommended: true,
+        areas: [{ name: "Changes", workType: null, lines }],
+        lines,
+        totals,
+      },
+    ],
+    addOns: [],
+    terms: {
+      minimumJobCents: 0,
+      discount: null,
+      taxRatePercent: co.settings.tax.ratePercent,
+      depositPercent: 0,
+      rrp: { priceCents: 0, taxable: false },
+    },
+    workTypes,
+    leadSafe: totals.hasLeadSafe,
+    changeOrder: {
+      beforeCents: contract.beforeCents,
+      afterCents: contract.beforeCents === null ? null : contract.beforeCents + priced.totalCents,
+    },
+  };
+}

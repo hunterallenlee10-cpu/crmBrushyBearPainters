@@ -18,6 +18,8 @@ const nextConfig: NextConfig = {
   // The dev-only badge sits on top of the Help button (bottom-left).
   devIndicators: false,
   reactStrictMode: true,
+  // PDFs are rendered on the server with @react-pdf/renderer (Node APIs, not bundled).
+  serverExternalPackages: ["@react-pdf/renderer"],
   // Test sign-in locks and helper worktrees must not trigger dev rebuilds.
   webpack(config, { dev }) {
     if (dev) {

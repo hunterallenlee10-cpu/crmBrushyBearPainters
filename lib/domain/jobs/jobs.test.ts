@@ -3,8 +3,14 @@ import { JOB_STAGES, type JobStageId } from "@/lib/domain/stages";
 import { EXIT_GATES, checkTransition, exitGate, nextStage, type GateContext } from "./gates";
 import { computeJobHealth, healthLabel, type HealthInput } from "./health";
 
-const open: GateContext = { walkthroughMeasured: false, blockingHolds: [] };
-const measured: GateContext = { walkthroughMeasured: true, blockingHolds: [] };
+const open: GateContext = {
+  walkthroughMeasured: false,
+  estimateSent: false,
+  estimateSigned: false,
+  depositInvoiceReady: false,
+  blockingHolds: [],
+};
+const measured: GateContext = { ...open, walkthroughMeasured: true };
 
 describe("stage order", () => {
   it("walks the pipeline one stage at a time and stops when closed", () => {
@@ -33,12 +39,27 @@ describe("gates", () => {
     expect(exitGate("walkthrough_scheduled", measured).passes).toBe(true);
   });
 
+  it("estimate gates read the estimate, the signature and the deposit invoice (Phase 4)", () => {
+    expect(exitGate("walkthrough_complete", measured)).toMatchObject({
+      passes: false,
+      reasons: ["No estimate has been sent yet."],
+    });
+    expect(exitGate("walkthrough_complete", { ...measured, estimateSent: true }).passes).toBe(true);
+    expect(exitGate("estimate_sent", { ...measured, estimateSent: true }).reasons[0]).toMatch(
+      /accepted and signed/,
+    );
+    expect(exitGate("estimate_sent", { ...measured, estimateSigned: true }).passes).toBe(true);
+    expect(exitGate("sold", measured).reasons[0]).toMatch(/deposit invoice/);
+    expect(exitGate("sold", { ...measured, depositInvoiceReady: true }).passes).toBe(true);
+    expect(exitGate("walkthrough_complete", measured).arrivesInPhase).toBeUndefined();
+  });
+
   it("gates whose data comes later stay closed and say which phase", () => {
-    const g = exitGate("walkthrough_complete", measured);
+    const g = exitGate("onboarding", measured);
     expect(g.passes).toBe(false);
-    expect(g.arrivesInPhase).toBe(4);
-    expect(g.reasons[0]).toMatch(/Phase 4.*override/);
-    for (const s of ["estimate_sent", "sold", "onboarding", "scheduled", "invoiced"] as const) {
+    expect(g.arrivesInPhase).toBe(5);
+    expect(g.reasons[0]).toMatch(/Phase 5.*override/);
+    for (const s of ["onboarding", "scheduled", "invoiced"] as const) {
       expect(exitGate(s, measured).passes).toBe(false);
     }
   });
@@ -101,7 +122,7 @@ describe("transitions", () => {
   });
 
   it("blocking holds stop Ready to Schedule and later, even with an override", () => {
-    const held: GateContext = { walkthroughMeasured: true, blockingHolds: ["HOA"] };
+    const held: GateContext = { ...measured, blockingHolds: ["HOA"] };
     const r = checkTransition("onboarding", "ready_to_schedule", held);
     expect(r).toMatchObject({ allowed: false, overridable: false, blockedByHolds: true });
     expect(r.reasons[0]).toMatch(/Release the HOA hold/);

@@ -23,12 +23,9 @@ export const EXIT_GATES: Record<
   walkthrough_scheduled: {
     requirement: "The walkthrough is marked completed with the result “Measured”.",
   },
-  walkthrough_complete: { requirement: "An estimate is sent.", arrivesInPhase: 4 },
-  estimate_sent: {
-    requirement: "The estimate is accepted and the contract signed.",
-    arrivesInPhase: 4,
-  },
-  sold: { requirement: "The deposit invoice exists.", arrivesInPhase: 4 },
+  walkthrough_complete: { requirement: "An estimate is sent." },
+  estimate_sent: { requirement: "The estimate is accepted and the contract signed." },
+  sold: { requirement: "The deposit invoice exists." },
   onboarding: {
     requirement: "Every required onboarding item is cleared and no hold blocks scheduling.",
     arrivesInPhase: 5,
@@ -55,6 +52,12 @@ export const EXIT_GATES: Record<
 export type GateContext = {
   /** A walkthrough on this job is completed with result "measured". */
   walkthroughMeasured: boolean;
+  /** An estimate version on this job has been sent. */
+  estimateSent: boolean;
+  /** The estimate is accepted and the customer signed it. */
+  estimateSigned: boolean;
+  /** The deposit invoice exists (or the accepted estimate asks for no deposit). */
+  depositInvoiceReady: boolean;
   /** Active holds that block scheduling (label for messages). */
   blockingHolds: readonly string[];
 };
@@ -100,6 +103,22 @@ export function exitGate(stage: JobStageId, ctx: GateContext): GateResult {
             passes: false,
             reasons: ["The walkthrough hasn't been completed with the result “Measured” yet."],
           };
+    case "walkthrough_complete":
+      return ctx.estimateSent
+        ? { ...base, passes: true, reasons: [] }
+        : { ...base, passes: false, reasons: ["No estimate has been sent yet."] };
+    case "estimate_sent":
+      return ctx.estimateSigned
+        ? { ...base, passes: true, reasons: [] }
+        : {
+            ...base,
+            passes: false,
+            reasons: ["The customer hasn't accepted and signed the estimate yet."],
+          };
+    case "sold":
+      return ctx.depositInvoiceReady
+        ? { ...base, passes: true, reasons: [] }
+        : { ...base, passes: false, reasons: ["The deposit invoice hasn't been created yet."] };
     case "paid_in_full":
       return { ...base, passes: true, reasons: [] };
     default:
