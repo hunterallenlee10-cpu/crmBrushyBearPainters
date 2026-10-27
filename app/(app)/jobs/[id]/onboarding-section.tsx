@@ -1,20 +1,28 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
-import { CirclePause, ClipboardList, FolderOpen, ListChecks, ShieldAlert } from "lucide-react";
+import {
+  CircleAlert,
+  CirclePause,
+  ClipboardList,
+  FolderOpen,
+  ListChecks,
+  ShieldAlert,
+  ShieldCheck,
+} from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EmptySection } from "@/components/jobs/empty-section";
+import type { ChecklistSummary } from "@/lib/domain/onboarding/checklist";
 import type { Option } from "@/lib/leads/service";
 import type { HoldItem } from "./types";
 import { HoldsPanel } from "./holds-panel";
 
-const TABS = ["checklist", "holds", "cases", "tasks"] as const;
+const TABS = ["checklist", "cases", "tasks", "holds"] as const;
 type Tab = (typeof TABS)[number];
 
 /**
- * Onboarding (SPEC §8.5 #2): the requirement checklist (seeded on acceptance,
- * verified in Phase 5) and holds. Footnote per SPEC §6.4.
+ * Onboarding (SPEC §8.5 #2): stat tiles, sub-tabs Checklist · Cases · Tasks ·
+ * Holds, the job summary and the footnote from SPEC §6.4.
  */
 export function OnboardingSection({
   jobId,
@@ -24,10 +32,11 @@ export function OnboardingSection({
   editReason,
   tasksDue,
   openTasks,
-  tasksHref,
   initialTab,
   checklist,
-  progress,
+  summary,
+  jobSummary,
+  tasks,
 }: {
   jobId: string;
   holds: HoldItem[];
@@ -36,11 +45,13 @@ export function OnboardingSection({
   editReason: string | null;
   tasksDue: number | null;
   openTasks: number | null;
-  tasksHref: string;
   initialTab: string | undefined;
-  /** The requirement checklist, once the estimate is accepted (rendered on the server). */
+  /** The requirement checklist, once the estimate is accepted. */
   checklist?: React.ReactNode;
-  progress?: { required: number; cleared: number } | null;
+  summary?: ChecklistSummary | null;
+  jobSummary?: { label: string; value: string }[];
+  /** The job's tasks (rendered on the server). */
+  tasks?: React.ReactNode;
 }) {
   const [tab, setTab] = React.useState<Tab>(
     (TABS as readonly string[]).includes(initialTab ?? "")
@@ -51,6 +62,7 @@ export function OnboardingSection({
   );
   const active = holds.filter((h) => !h.releasedAt);
   const blocking = active.filter((h) => h.blocksScheduling);
+  const pct = summary?.percent;
 
   const select = (next: string) => {
     const t = next as Tab;
@@ -62,12 +74,36 @@ export function OnboardingSection({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
         <Tile
           label="Checklist progress"
-          value={progress ? `${progress.cleared}/${progress.required}` : "—"}
-          caption={progress ? "Required items cleared" : "Starts when the estimate is accepted"}
+          value={pct === null || pct === undefined ? "—" : `${Math.round(pct * 100)}%`}
+          caption={
+            summary
+              ? `${summary.cleared}/${summary.required} required cleared`
+              : "Starts when the estimate is accepted"
+          }
           icon={ClipboardList}
+        />
+        <Tile
+          label="Auto-verified"
+          value={summary ? String(summary.autoVerified) : "—"}
+          caption="Cleared by the checks"
+          icon={ShieldCheck}
+        />
+        <Tile
+          label="Needs attention"
+          value={summary ? String(summary.needAttention) : "—"}
+          caption="Missing or needs review"
+          icon={CircleAlert}
+          tone={summary?.needAttention ? "warning" : undefined}
+        />
+        <Tile label="Open cases" value="—" caption="Cases arrive in Phase 8" icon={FolderOpen} />
+        <Tile
+          label="Tasks due"
+          value={tasksDue === null ? "—" : String(tasksDue)}
+          caption={openTasks === null ? "Not available to you" : `${openTasks} open in total`}
+          icon={ListChecks}
         />
         <Tile
           label="Active holds"
@@ -78,73 +114,88 @@ export function OnboardingSection({
           icon={CirclePause}
           tone={blocking.length ? "warning" : undefined}
         />
-        <Tile label="Open cases" value="—" caption="Arrives in Phase 5" icon={FolderOpen} />
-        <Tile
-          label="Tasks due"
-          value={tasksDue === null ? "—" : String(tasksDue)}
-          caption={openTasks === null ? "Not available to you" : `${openTasks} open in total`}
-          icon={ListChecks}
-        />
       </div>
 
-      <Tabs value={tab} onValueChange={select} className="gap-4">
-        <div className="-mx-1 overflow-x-auto px-1">
-          <TabsList aria-label="Onboarding">
-            <TabsTrigger value="checklist">Checklist</TabsTrigger>
-            <TabsTrigger value="holds">
-              Holds
-              {active.length > 0 && (
-                <span className="ml-1 rounded-full bg-muted-foreground/15 px-1.5 text-xs tabular-nums">
-                  {active.length}
-                </span>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="cases">Cases</TabsTrigger>
-            <TabsTrigger value="tasks">Tasks</TabsTrigger>
-          </TabsList>
-        </div>
-        <TabsContent value="checklist">
-          {checklist ?? (
-            <EmptySection icon={ShieldAlert} title="Onboarding checklist">
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-start">
+        <Tabs value={tab} onValueChange={select} className="min-w-0 flex-1 gap-4">
+          <div className="-mx-1 overflow-x-auto px-1">
+            <TabsList aria-label="Onboarding">
+              <TabsTrigger value="checklist">
+                Checklist
+                {summary && summary.open.length > 0 && (
+                  <span className="ml-1 rounded-full bg-muted-foreground/15 px-1.5 text-xs tabular-nums">
+                    {summary.open.length}
+                  </span>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="cases">Cases</TabsTrigger>
+              <TabsTrigger value="tasks">Tasks</TabsTrigger>
+              <TabsTrigger value="holds">
+                Holds
+                {active.length > 0 && (
+                  <span className="ml-1 rounded-full bg-muted-foreground/15 px-1.5 text-xs tabular-nums">
+                    {active.length}
+                  </span>
+                )}
+              </TabsTrigger>
+            </TabsList>
+          </div>
+          <TabsContent value="checklist">
+            {checklist ?? (
+              <EmptySection icon={ShieldAlert} title="Onboarding checklist">
+                <p>
+                  The checklist (signed contract, deposit, colors, HOA approval, lead-safe plan,
+                  paint order, crew, prep instructions) is built when the customer accepts the
+                  estimate. Until then, use holds to show what the job is waiting on.
+                </p>
+              </EmptySection>
+            )}
+          </TabsContent>
+          <TabsContent value="cases">
+            <EmptySection icon={FolderOpen} title="Cases" phase={8}>
               <p>
-                The checklist (signed contract, deposit, colors, HOA approval, lead-safe plan, paint
-                order, crew, prep instructions) is built when the customer accepts the estimate.
-                Until then, use holds to show what the job is waiting on.
+                Customer issues and warranty requests get their own cases with Communication &amp;
+                growth. For now, add a task or a note so nothing is missed.
               </p>
             </EmptySection>
-          )}
-        </TabsContent>
-        <TabsContent value="holds">
-          <HoldsPanel
-            jobId={jobId}
-            holds={holds}
-            holdTypes={holdTypes}
-            canEdit={canEdit}
-            editReason={editReason}
-          />
-        </TabsContent>
-        <TabsContent value="cases">
-          <EmptySection icon={FolderOpen} title="Cases" phase={5}>
-            <p>
-              Customer issues and warranty requests get their own cases. For now, add a task or a
-              note so nothing is missed.
-            </p>
-          </EmptySection>
-        </TabsContent>
-        <TabsContent value="tasks">
-          <EmptySection
-            icon={ListChecks}
-            title="Onboarding tasks"
-            action={
-              <Link href={tasksHref} className="text-sm font-semibold text-bb-forest underline">
-                Open Tasks &amp; Checklists
-              </Link>
-            }
+          </TabsContent>
+          <TabsContent value="tasks">{tasks}</TabsContent>
+          <TabsContent value="holds">
+            <HoldsPanel
+              jobId={jobId}
+              holds={holds}
+              holdTypes={holdTypes}
+              canEdit={canEdit}
+              editReason={editReason}
+            />
+          </TabsContent>
+        </Tabs>
+
+        {jobSummary && (
+          <aside
+            className="rounded-2xl border bg-card p-4 xl:w-72"
+            aria-labelledby="ob-job-summary"
           >
-            <p>Follow-ups for this job live in Tasks &amp; Checklists.</p>
-          </EmptySection>
-        </TabsContent>
-      </Tabs>
+            <h3 id="ob-job-summary" className="mb-2 text-sm font-semibold">
+              Job summary
+            </h3>
+            <dl className="flex flex-col gap-2 text-sm">
+              {jobSummary.map((r) => (
+                <div key={r.label} className="flex justify-between gap-3">
+                  <dt className="text-muted-foreground">{r.label}</dt>
+                  <dd className="text-right font-medium">{r.value}</dd>
+                </div>
+              ))}
+              <div className="flex justify-between gap-3">
+                <dt className="text-muted-foreground">Active holds</dt>
+                <dd className="text-right font-medium">
+                  {active.length ? active.map((h) => h.label).join(", ") : "None"}
+                </dd>
+              </div>
+            </dl>
+          </aside>
+        )}
+      </div>
 
       <p className="text-xs text-muted-foreground">
         Ready to Schedule = every required item cleared and no blocking holds.

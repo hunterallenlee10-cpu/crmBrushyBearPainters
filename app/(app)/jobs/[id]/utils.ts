@@ -156,6 +156,8 @@ const ACTIONS: readonly HealthAction[] = [
   "record_contract",
   "record_deposit",
   "update_start",
+  "review_onboarding",
+  "upload_photos",
 ];
 
 /** Reads the stored health_factors jsonb defensively (unknown shapes are skipped). */
@@ -213,7 +215,10 @@ export function actionRequired(input: {
       tone: "warning",
       ...(f.action === "review_tasks" ? { section: "tasks" as const } : {}),
       ...(f.action === "record_contract" ? { section: "estimate" as const } : {}),
-      ...(f.action === "record_deposit" ? { section: "admin" as const } : {}),
+      ...(f.action === "record_deposit" || f.action === "review_onboarding"
+        ? { section: "onboarding" as const }
+        : {}),
+      ...(f.action === "upload_photos" ? { section: "photos" as const } : {}),
     });
   }
   const upcoming = input.appointments.some(

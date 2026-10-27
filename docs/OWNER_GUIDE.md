@@ -23,6 +23,14 @@
 
 **Before real customers:** set your real numbers in Admin → Estimate Setup and the Price Book (everything says "Sample – Erik to calibrate" until saved), confirm tax with your accountant, and publish the agreement templates after your attorney's review.
 
+## Clear onboarding and get to Ready to Schedule
+
+1. When a customer signs, the job lands on the **Onboarding Board** (Schedule → Onboarding Board) in **Deposit Hold** with its checklist (Job → Onboarding).
+2. Most items check themselves: the signed contract, contact info, colors, paint order, prep instructions, start date in season. Each says what it found.
+3. For the rest use the buttons on each item: **Request** (texts or emails the customer, simulated for now), **Upload** (HOA approval, lead-safe acknowledgment), **Task** (for a teammate), or **Mark cleared** with a note (for example "Check #1042 received"). Clearing the deposit releases the Deposit Hold.
+4. When everything required is cleared and nothing is on hold, the job moves to **Ready to Schedule** by itself. On the board you can also drag it there, or press its button; anything else you drop explains what's missing.
+5. Photos: crew use **Camera** (phone tab bar) or the job's Photos section. Without signal, photos wait on the phone and upload when it's back ("Offline · 2 waiting to upload").
+
 ## Run the schedule _(Phase 6)_
 
 ## Close out a job _(Phases 6–7)_

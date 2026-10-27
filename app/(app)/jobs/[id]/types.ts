@@ -154,6 +154,13 @@ export type JobPermissions = {
   readMessages: boolean;
   readNotes: boolean;
   readTasks: boolean;
+  /** Send customer messages (simulated). */
+  sendMessages: boolean;
+  manageDocuments: boolean;
+  manageTasks: boolean;
+  readPhotos: boolean;
+  uploadPhotos: boolean;
+  deletePhotos: boolean;
 };
 
 export type JobDetailData = {
@@ -171,7 +178,14 @@ export type JobDetailData = {
   contractBaselineCents: number | null;
   contractFromEstimate: boolean;
   gate: GateContext;
-  counts: { notes: number | null; openTasks: number | null; tasksDue: number | null };
+  counts: {
+    notes: number | null;
+    openTasks: number | null;
+    tasksDue: number | null;
+    documents: number | null;
+    photos: number | null;
+    onboardingOpen: number | null;
+  };
   can: JobPermissions;
   viewerId: string;
   readOnly: boolean;

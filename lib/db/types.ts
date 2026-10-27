@@ -2649,6 +2649,118 @@ export type Database = {
           },
         ];
       };
+      job_photos: {
+        Row: {
+          area: string | null;
+          caption: string | null;
+          category: string;
+          checklist_key: string | null;
+          client_id: string | null;
+          created_at: string;
+          created_by: string | null;
+          customer_visible: boolean;
+          delete_reason: string | null;
+          deleted_at: string | null;
+          deleted_by: string | null;
+          exif_stripped: boolean;
+          height: number | null;
+          id: string;
+          job_id: string;
+          mime_type: string;
+          org_id: string;
+          sha256: string | null;
+          shared_at: string | null;
+          size_bytes: number;
+          source: string;
+          storage_path: string;
+          taken_at: string | null;
+          thumb_path: string;
+          thumb_size_bytes: number;
+          updated_at: string;
+          updated_by: string | null;
+          uploaded_by: string | null;
+          width: number | null;
+        };
+        ComputedFields: never;
+        Insert: {
+          area?: string | null;
+          caption?: string | null;
+          category?: string;
+          checklist_key?: string | null;
+          client_id?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          customer_visible?: boolean;
+          delete_reason?: string | null;
+          deleted_at?: string | null;
+          deleted_by?: string | null;
+          exif_stripped?: boolean;
+          height?: number | null;
+          id?: string;
+          job_id: string;
+          mime_type: string;
+          org_id: string;
+          sha256?: string | null;
+          shared_at?: string | null;
+          size_bytes: number;
+          source?: string;
+          storage_path: string;
+          taken_at?: string | null;
+          thumb_path: string;
+          thumb_size_bytes?: number;
+          updated_at?: string;
+          updated_by?: string | null;
+          uploaded_by?: string | null;
+          width?: number | null;
+        };
+        Update: {
+          area?: string | null;
+          caption?: string | null;
+          category?: string;
+          checklist_key?: string | null;
+          client_id?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          customer_visible?: boolean;
+          delete_reason?: string | null;
+          deleted_at?: string | null;
+          deleted_by?: string | null;
+          exif_stripped?: boolean;
+          height?: number | null;
+          id?: string;
+          job_id?: string;
+          mime_type?: string;
+          org_id?: string;
+          sha256?: string | null;
+          shared_at?: string | null;
+          size_bytes?: number;
+          source?: string;
+          storage_path?: string;
+          taken_at?: string | null;
+          thumb_path?: string;
+          thumb_size_bytes?: number;
+          updated_at?: string;
+          updated_by?: string | null;
+          uploaded_by?: string | null;
+          width?: number | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "job_photos_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
+            referencedRelation: "jobs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "job_photos_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       job_team: {
         Row: {
           added_at: string;
@@ -3366,6 +3478,7 @@ export type Database = {
           status: string;
           subject_id: string;
           subject_type: string;
+          template_key: string | null;
           to_address: string | null;
         };
         ComputedFields: never;
@@ -3387,6 +3500,7 @@ export type Database = {
           status: string;
           subject_id: string;
           subject_type: string;
+          template_key?: string | null;
           to_address?: string | null;
         };
         Update: {
@@ -3407,6 +3521,7 @@ export type Database = {
           status?: string;
           subject_id?: string;
           subject_type?: string;
+          template_key?: string | null;
           to_address?: string | null;
         };
         Relationships: [
@@ -3548,6 +3663,8 @@ export type Database = {
       };
       onboarding_requirements: {
         Row: {
+          auto_detail: string | null;
+          auto_status: string | null;
           auto_verify_rule: string | null;
           created_at: string;
           created_by: string | null;
@@ -3560,10 +3677,13 @@ export type Database = {
           note: string | null;
           org_id: string;
           owner_role: string | null;
+          requested_at: string | null;
+          requested_by: string | null;
           required: boolean;
           sort_order: number;
           source_estimate_version_id: string | null;
           status: string;
+          task_id: string | null;
           updated_at: string;
           updated_by: string | null;
           verified_at: string | null;
@@ -3572,6 +3692,8 @@ export type Database = {
         };
         ComputedFields: never;
         Insert: {
+          auto_detail?: string | null;
+          auto_status?: string | null;
           auto_verify_rule?: string | null;
           created_at?: string;
           created_by?: string | null;
@@ -3584,10 +3706,13 @@ export type Database = {
           note?: string | null;
           org_id: string;
           owner_role?: string | null;
+          requested_at?: string | null;
+          requested_by?: string | null;
           required?: boolean;
           sort_order?: number;
           source_estimate_version_id?: string | null;
           status?: string;
+          task_id?: string | null;
           updated_at?: string;
           updated_by?: string | null;
           verified_at?: string | null;
@@ -3595,6 +3720,8 @@ export type Database = {
           verified_by?: string | null;
         };
         Update: {
+          auto_detail?: string | null;
+          auto_status?: string | null;
           auto_verify_rule?: string | null;
           created_at?: string;
           created_by?: string | null;
@@ -3607,10 +3734,13 @@ export type Database = {
           note?: string | null;
           org_id?: string;
           owner_role?: string | null;
+          requested_at?: string | null;
+          requested_by?: string | null;
           required?: boolean;
           sort_order?: number;
           source_estimate_version_id?: string | null;
           status?: string;
+          task_id?: string | null;
           updated_at?: string;
           updated_by?: string | null;
           verified_at?: string | null;
@@ -3637,6 +3767,13 @@ export type Database = {
             columns: ["source_estimate_version_id"];
             isOneToOne: false;
             referencedRelation: "estimate_versions";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "onboarding_requirements_task_id_fkey";
+            columns: ["task_id"];
+            isOneToOne: false;
+            referencedRelation: "tasks";
             referencedColumns: ["id"];
           },
         ];
@@ -5576,6 +5713,7 @@ export type Database = {
         };
         Returns: string;
       };
+      apply_onboarding_checks: { Args: { p_job: string; p_results: Json }; Returns: Json };
       approve_version_discount: {
         Args: { p_by: string; p_percent: number; p_version: string };
         Returns: undefined;
@@ -5620,10 +5758,12 @@ export type Database = {
       copy_estimate_version: { Args: { p_version: string }; Returns: string };
       create_estimate: { Args: { p_job: string; p_title?: string }; Returns: string };
       decline_proposal: { Args: { p_reason: string; p_token_hash: string }; Returns: Json };
+      document_stats: { Args: { p_job?: string }; Returns: Json };
       estimate_stats: { Args: { p_from: string; p_to: string }; Returns: Json };
       estimate_status_counts: { Args: Record<PropertyKey, never>; Returns: Json };
       expire_proposals: { Args: Record<PropertyKey, never>; Returns: number };
       integration_summary: { Args: Record<PropertyKey, never>; Returns: Json };
+      job_photo_summary: { Args: { p_job: string }; Returns: Json };
       job_stats: { Args: { p_from: string; p_prev_from: string; p_to: string }; Returns: Json };
       job_status_counts: { Args: Record<PropertyKey, never>; Returns: Json };
       lead_stats: { Args: { p_now?: string }; Returns: Json };

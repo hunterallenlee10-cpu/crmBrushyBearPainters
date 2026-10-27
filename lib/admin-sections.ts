@@ -244,4 +244,4 @@ export function visibleAdminSections(can: (p: Permission) => boolean): AdminSect
 }
 
 /** The phase being built; sections and nav pages from later phases are shown as upcoming. */
-export const CURRENT_PHASE = 4;
+export const CURRENT_PHASE = 5;

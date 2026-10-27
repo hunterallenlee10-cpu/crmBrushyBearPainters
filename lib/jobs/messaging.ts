@@ -106,6 +106,7 @@ export async function sendJobSms(
   provider: SmsProvider,
   job: MessagingJob,
   body: string,
+  opts: { templateKey?: string } = {},
 ): Promise<SentJobMessage> {
   blocked(job, "sms");
   requireOutbox(provider);
@@ -130,6 +131,7 @@ export async function sendJobSms(
     status: result.status === "simulated" ? "simulated" : "queued",
     simulated: true,
     outbox_id: result.outboxId,
+    template_key: opts.templateKey ?? null,
   });
   return { messageId, outboxId: result.outboxId };
 }
@@ -140,6 +142,7 @@ export async function sendJobEmail(
   provider: EmailProvider,
   job: MessagingJob,
   input: { subject: string; body: string },
+  opts: { templateKey?: string } = {},
 ): Promise<SentJobMessage> {
   blocked(job, "email");
   requireOutbox(provider);
@@ -167,6 +170,7 @@ export async function sendJobEmail(
     status: result.status === "simulated" ? "simulated" : "queued",
     simulated: true,
     outbox_id: result.outboxId,
+    template_key: opts.templateKey ?? null,
   });
   return { messageId, outboxId: result.outboxId };
 }

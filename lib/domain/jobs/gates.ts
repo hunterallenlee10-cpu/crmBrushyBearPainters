@@ -28,7 +28,6 @@ export const EXIT_GATES: Record<
   sold: { requirement: "The deposit invoice exists." },
   onboarding: {
     requirement: "Every required onboarding item is cleared and no hold blocks scheduling.",
-    arrivesInPhase: 5,
   },
   ready_to_schedule: {
     requirement: "Production dates are published on the Master Schedule.",
@@ -60,6 +59,11 @@ export type GateContext = {
   depositInvoiceReady: boolean;
   /** Active holds that block scheduling (label for messages). */
   blockingHolds: readonly string[];
+  /**
+   * Required onboarding items not yet cleared (short names), or null when the
+   * job has no checklist (it's built when the estimate is accepted).
+   */
+  onboardingOpen: readonly string[] | null;
 };
 
 export type GateResult = {
@@ -119,6 +123,23 @@ export function exitGate(stage: JobStageId, ctx: GateContext): GateResult {
       return ctx.depositInvoiceReady
         ? { ...base, passes: true, reasons: [] }
         : { ...base, passes: false, reasons: ["The deposit invoice hasn't been created yet."] };
+    case "onboarding": {
+      const reasons: string[] = [];
+      if (ctx.onboardingOpen === null) {
+        reasons.push(
+          "The onboarding checklist hasn't been built. It comes from the accepted estimate.",
+        );
+      } else if (ctx.onboardingOpen.length) {
+        const n = ctx.onboardingOpen.length;
+        reasons.push(
+          `${n} required onboarding item${n === 1 ? " is" : "s are"} still open: ${ctx.onboardingOpen.join(", ")}.`,
+        );
+      }
+      if (ctx.blockingHolds.length) {
+        reasons.push(`Release the ${ctx.blockingHolds.map(holdName).join(", ")} first.`);
+      }
+      return { ...base, passes: reasons.length === 0, reasons };
+    }
     case "paid_in_full":
       return { ...base, passes: true, reasons: [] };
     default:
@@ -222,8 +243,12 @@ export function checkTransition(
       break;
     default: {
       const gate = exitGate(from, ctx);
-      needsOverride = !gate.passes;
-      reasons.push(...gate.reasons);
+      // The hold message is already there (with "even with an override").
+      const gateReasons = gate.reasons.filter(
+        (r) => !(blockedByHolds && r.startsWith("Release the ")),
+      );
+      needsOverride = gateReasons.length > 0;
+      reasons.push(...gateReasons);
     }
   }
 

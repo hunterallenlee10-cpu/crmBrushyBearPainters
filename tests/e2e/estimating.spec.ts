@@ -322,7 +322,8 @@ test("the office sees the signed contract, deposit invoice and checklist", async
   await page.goto(`/jobs/${jobId}?section=financial`);
   await expect(page.getByText(/· Deposit/)).toBeVisible();
   await page.goto(`/jobs/${jobId}?section=onboarding&tab=checklist`);
-  await expect(page.getByText("Required items cleared")).toBeVisible();
+  await expect(page.getByText(/required cleared/)).toBeVisible();
+  await expect(page.getByTestId("onboarding-summary")).toContainText("cleared");
   await page.screenshot({ path: `${SCREENS}/onboarding-checklist.png`, fullPage: true });
 });
 

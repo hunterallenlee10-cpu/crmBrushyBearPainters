@@ -139,6 +139,8 @@ Needs no account. Built in Phase 4: the customer opens `/p/[token]` (no login), 
 
 ### Photos: CompanyCam
 
+Photos are stored in our own private `photos` bucket (Phase 5); a CompanyCam sync would copy them out once connected. Until then nothing leaves the app, and sharing photos with a customer is a simulated message (`photo_share`) in the outbox.
+
 1. In the owners' CompanyCam account, create an API access token in the developer settings.
 2. Env: `COMPANYCAM_API_TOKEN`, `INTEGRATION_PHOTOS_PROVIDER=companycam`.
 3. Optional webhook for new photos: `https://<your-domain>/api/webhooks/companycam`.

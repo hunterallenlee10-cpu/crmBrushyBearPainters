@@ -9,6 +9,10 @@ const PUBLIC_PREFIXES = [
   "/p/",
   "/dev/ui",
   "/setup-required",
+  // PWA: the service worker, manifest and offline page load without a session.
+  "/sw.js",
+  "/manifest.webmanifest",
+  "/offline",
 ];
 
 export function isPublicPath(pathname: string): boolean {

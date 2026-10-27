@@ -142,7 +142,8 @@ describe("milestones stepper", () => {
       label: "Walkthrough Complete",
     });
     expect(nextHint("walkthrough_complete")?.arrivesInPhase).toBeUndefined();
-    expect(nextHint("onboarding")?.arrivesInPhase).toBe(5);
+    expect(nextHint("onboarding")?.arrivesInPhase).toBeUndefined();
+    expect(nextHint("ready_to_schedule")?.arrivesInPhase).toBe(6);
     expect(nextHint("closed_won")).toBeNull();
   });
 });

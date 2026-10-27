@@ -58,6 +58,7 @@ import {
   PropertyDialog,
 } from "../_components/record-dialogs";
 import { AccessCodeControl } from "../_components/access-code";
+import { AccountDocuments } from "./documents";
 import { fieldEncryptionKey } from "../_lib/rows";
 
 type Params = Promise<{ id: string }>;
@@ -531,6 +532,15 @@ export default async function AccountDetailPage({ params }: { params: Params }) 
               </ul>
             )}
           </Section>
+
+          {viewer.can("documents:read") && (
+            <Section title="Documents">
+              <AccountDocuments
+                accountId={id}
+                canManage={viewer.can("documents:manage") && !viewer.impersonating}
+              />
+            </Section>
+          )}
         </div>
 
         <div className="flex min-w-0 flex-col gap-5">

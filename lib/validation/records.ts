@@ -12,6 +12,9 @@ export const DELETED_RECORD_TABLES = [
   "territories",
   "role_templates",
   "permission_packs",
+  "jobs",
+  "documents",
+  "job_photos",
 ] as const;
 export type DeletedRecordTable = (typeof DELETED_RECORD_TABLES)[number];
 
@@ -30,6 +33,9 @@ export const DELETED_RECORD_TYPES: Record<
     plural: "Permission packs",
     href: "/admin/roles",
   },
+  jobs: { singular: "Job", plural: "Jobs", href: "/jobs/list" },
+  documents: { singular: "Document", plural: "Documents", href: "/documents" },
+  job_photos: { singular: "Photo", plural: "Photos", href: "/jobs/list" },
 };
 
 export function isDeletedRecordTable(v: string): v is DeletedRecordTable {

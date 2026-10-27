@@ -1,23 +1,15 @@
-import Link from "next/link";
-import {
-  CalendarRange,
-  Camera,
-  ClipboardList,
-  FileText,
-  HardHat,
-  ListTodo,
-  NotebookPen,
-} from "lucide-react";
+import { CalendarRange, ClipboardList, HardHat, ListTodo, NotebookPen } from "lucide-react";
 import { EmptySection } from "@/components/jobs/empty-section";
 import { JOB_SECTIONS } from "@/lib/domain/jobs/constants";
 import type { JobDetailData } from "./types";
-import { sectionHref } from "./utils";
 import { Overview } from "./overview";
 import { OnboardingWithChecklist } from "./onboarding-checklist";
 import { FinancialSection } from "./financial-section";
 import { EstimateSection } from "./estimate/section";
 import { AdminSection } from "./admin-section";
 import { AppointmentsCard } from "./appointments-card";
+import { PhotosSection } from "./photos/section";
+import { DocumentsSection } from "./documents-section/section";
 import {
   ActivitySection,
   CustomerSection,
@@ -26,10 +18,16 @@ import {
   TasksSection,
 } from "./_sections";
 
-const linkClass = "text-sm font-semibold text-bb-forest underline";
-
 /** Renders the section picked by `?section=` (SPEC §8.5). */
-export function SectionContent({ data, tab }: { data: JobDetailData; tab?: string }) {
+export function SectionContent({
+  data,
+  tab,
+  limit,
+}: {
+  data: JobDetailData;
+  tab?: string;
+  limit?: number;
+}) {
   const { job, can, section } = data;
   const title = JOB_SECTIONS.find((s) => s.id === section)?.label ?? "Overview";
   const editReason = data.readOnly
@@ -46,6 +44,8 @@ export function SectionContent({ data, tab }: { data: JobDetailData; tab?: strin
     case "onboarding":
       body = (
         <OnboardingWithChecklist
+          data={data}
+          users={data.options.users}
           jobId={job.id}
           holds={data.holds}
           holdTypes={data.options.picklists.hold_type}
@@ -53,8 +53,8 @@ export function SectionContent({ data, tab }: { data: JobDetailData; tab?: strin
           editReason={editReason}
           tasksDue={data.counts.tasksDue}
           openTasks={data.counts.openTasks}
-          tasksHref={sectionHref(job.id, "tasks")}
           initialTab={tab}
+          tasks={<TasksSection jobId={job.id} canEdit={can.update} />}
         />
       );
       break;
@@ -106,33 +106,30 @@ export function SectionContent({ data, tab }: { data: JobDetailData; tab?: strin
       break;
     case "photos":
       body = (
-        <EmptySection
-          icon={Camera}
-          title="Photos"
-          phase={5}
-          action={
-            job.leadId ? (
-              <Link href={`/leads/${job.leadId}`} className={linkClass}>
-                See the photos on the original lead
-              </Link>
-            ) : undefined
-          }
-        >
-          <p>
-            Before, progress and after photos with the required-shot checklist.
-            {job.leadId && " Photos the customer sent with their request stay on the lead."}
-          </p>
-        </EmptySection>
+        <PhotosSection
+          jobId={job.id}
+          workTypes={job.workTypes}
+          viewerId={data.viewerId}
+          contactFirstName={job.contact?.name.split(/\s+/)[0] ?? null}
+          limit={limit}
+          can={{
+            read: can.readPhotos,
+            upload: can.uploadPhotos,
+            delete: can.deletePhotos,
+            share: can.sendMessages && can.update,
+            edit: can.update,
+          }}
+        />
       );
       break;
     case "documents":
       body = (
-        <EmptySection icon={FileText} title="Documents" phase={5}>
-          <p>
-            Proposals, contracts, HOA approvals and lead-safe paperwork get stored here. Keep
-            anything important in a note for now.
-          </p>
-        </EmptySection>
+        <DocumentsSection
+          jobId={job.id}
+          accountId={job.accountId}
+          canRead={can.readDocuments}
+          canManage={can.manageDocuments && can.update}
+        />
       );
       break;
     case "work-orders":

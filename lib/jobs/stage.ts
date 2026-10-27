@@ -10,6 +10,7 @@ import {
   type TransitionCheck,
 } from "@/lib/domain/jobs/gates";
 import { getStage, isJobStageId, type JobStageId } from "@/lib/domain/stages";
+import { checklistSummary, shortLabel } from "@/lib/domain/onboarding/checklist";
 import { recomputeJobHealth } from "@/lib/jobs/health";
 import { logError } from "@/lib/log";
 
@@ -24,7 +25,7 @@ type Db = SupabaseClient<Database>;
 
 /** Facts the gates read, loaded with the service client after a visibility check. */
 export async function loadGateContext(service: Db, jobId: string): Promise<GateContext> {
-  const [walk, holds, labels, estimates, deposit, signatures] = await Promise.all([
+  const [walk, holds, labels, estimates, deposit, signatures, onboarding] = await Promise.all([
     service
       .from("appointments")
       .select("id")
@@ -63,6 +64,10 @@ export async function loadGateContext(service: Db, jobId: string): Promise<GateC
       .select("estimate_version_id")
       .eq("job_id", jobId)
       .not("estimate_version_id", "is", null),
+    service
+      .from("onboarding_requirements")
+      .select("key, label, group_key, required, status, verified_auto")
+      .eq("job_id", jobId),
   ]);
   const label = new Map((labels.data ?? []).map((v) => [v.value, v.label]));
   const ests = estimates.data ?? [];
@@ -82,6 +87,18 @@ export async function loadGateContext(service: Db, jobId: string): Promise<GateC
     estimateSigned: signed,
     depositInvoiceReady: (deposit.data ?? []).length > 0 || noDeposit,
     blockingHolds: (holds.data ?? []).map((h) => label.get(h.hold_type) ?? h.hold_type),
+    onboardingOpen: onboarding.data?.length
+      ? checklistSummary(
+          onboarding.data.map((r) => ({
+            key: r.key,
+            label: r.label,
+            group: r.group_key,
+            required: r.required,
+            status: r.status,
+            verifiedAuto: r.verified_auto,
+          })),
+        ).open.map((o) => shortLabel(o.key, o.label))
+      : null,
   };
 }
 
@@ -146,6 +163,14 @@ export async function advanceJobStage(
   const from = job.stage;
 
   const service = await ctx.service();
+  if (from === "onboarding" && input.toStage === "ready_to_schedule") {
+    // Fresh onboarding results before the gate reads them (imported lazily:
+    // the checks module moves jobs forward through this one).
+    const { reverifyJob } = await import("@/lib/onboarding/checks");
+    await reverifyJob(service, input.jobId, { advance: false }).catch((e: unknown) =>
+      logError("jobs.advance.reverify", e),
+    );
+  }
   const context = await loadGateContext(service, input.jobId);
   const check = checkTransition(from, input.toStage, context, { lostReason: input.lostReason });
   const wantsOverride = input.override === true;

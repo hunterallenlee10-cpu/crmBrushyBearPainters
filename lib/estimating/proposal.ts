@@ -23,6 +23,7 @@ import { getStage, isJobStageId, type JobStageId } from "@/lib/domain/stages";
 import { recomputeJobHealth } from "@/lib/jobs/health";
 import { advanceIfGatePasses } from "@/lib/jobs/stage";
 import { logError } from "@/lib/log";
+import { reverifyJob } from "@/lib/onboarding/checks";
 import { ProposalDocument } from "@/lib/pdf/proposal-document";
 import { renderPdf } from "@/lib/pdf/render";
 import { storeGeneratedDocument } from "./documents";
@@ -820,7 +821,14 @@ export async function completeAcceptance(
     if (error) throw error;
     documentId = stored.id;
   }
-  const stage = await advanceAfterAcceptance(service, estimate.job_id);
+  let stage = await advanceAfterAcceptance(service, estimate.job_id);
+  // First onboarding check right away (it may clear items and, rarely, the gate).
+  try {
+    const r = await reverifyJob(service, estimate.job_id);
+    if (r.advanced) stage = "ready_to_schedule";
+  } catch (e) {
+    logError("proposal.accept.onboarding", e);
+  }
   await recomputeJobHealth(service, [estimate.job_id]).catch((e: unknown) =>
     logError("proposal.accept.health", e),
   );
@@ -854,6 +862,9 @@ export async function completeChangeOrder(
     p_document: stored.id,
   });
   if (error) throw error;
+  await reverifyJob(service, data.job.id).catch((e: unknown) =>
+    logError("proposal.co.onboarding", e),
+  );
   await recomputeJobHealth(service, [data.job.id]).catch((e: unknown) =>
     logError("proposal.co.health", e),
   );

@@ -6,13 +6,15 @@ import { serverEnv } from "@/lib/env";
 import { recomputeJobHealth } from "@/lib/jobs/health";
 import { advanceIfGatePasses } from "@/lib/jobs/stage";
 import { logError } from "@/lib/log";
+import { sweepOnboarding } from "@/lib/onboarding/checks";
 import { processEvents } from "@/lib/worker/events";
 
 /**
  * Background worker (SPEC §2, §9, §11). Vercel Cron calls it every minute with
  * `Authorization: Bearer $CRON_SECRET`. Each run: process queued events,
- * auto-close jobs 3 days after Paid in Full, refresh job health, and run the
- * attention rules (open new items, auto-resolve cleared ones).
+ * auto-close jobs 3 days after Paid in Full, re-run onboarding checks, refresh
+ * job health, and run the attention rules (open new items, auto-resolve
+ * cleared ones).
  */
 
 export const dynamic = "force-dynamic";
@@ -75,6 +77,15 @@ async function run(request: NextRequest) {
     summary.autoClosed = closed;
   } catch (e) {
     logError("worker.auto_close", e);
+  }
+
+  // Onboarding checks (SPEC §6.4): clear what the data shows, release the
+  // Deposit Hold, and move cleared jobs to Ready to Schedule.
+  try {
+    summary.onboarding = await sweepOnboarding(service);
+  } catch (e) {
+    logError("worker.onboarding", e);
+    summary.onboarding = { error: true };
   }
 
   try {

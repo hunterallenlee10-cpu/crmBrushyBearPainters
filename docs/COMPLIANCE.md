@@ -49,3 +49,12 @@
 - [ ] Approve the interior, cabinets and deck/fence "What's included" lists and the guarantees (drafts; the exterior list is the website's wording).
 - [ ] Confirm the sales-tax rate and treatment with your accountant, then set it in Estimate Setup and tick "Confirmed with our accountant" (tax is 0% until then).
 - [ ] Decide how long signed documents are kept. They're stored privately and never deleted by the app.
+
+## Photos, documents and lead-safe paperwork (Phase 5)
+
+- [ ] Photos: the app removes GPS location and every other EXIF field from photos when they're uploaded and doesn't keep the originals. If you want proof-of-location on photos for disputes, ask for a staff-only location field instead.
+- [ ] Decide what you tell customers before sharing photos of their home (and whether neighbors' homes in a shot need blurring). Sharing is simulated until email/text are connected.
+- [ ] Lead-safe (RRP): upload each customer's signed "Renovate Right" acknowledgment (category Lead-Safe). The lead-safe onboarding item clears only with that document and, once crews arrive (Phase 6), a certified renovator on the crew. Washington runs its own RRP program through the Department of Commerce: confirm current record-keeping and retention requirements with them (records are commonly kept for years after the job).
+- [ ] HOA approvals: upload the HOA's written approval (category HOA) before scheduling exterior color changes.
+- [ ] Review the draft customer messages used for onboarding requests and prep instructions ("Draft wording – owner to approve" in the dialog; `lib/onboarding/messages.ts`).
+- [ ] Decide how long uploaded documents and photos are kept. Deleted ones can be restored from Admin → Deleted Records; signed documents can't be deleted.

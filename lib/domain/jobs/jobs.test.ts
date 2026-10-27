@@ -9,6 +9,7 @@ const open: GateContext = {
   estimateSigned: false,
   depositInvoiceReady: false,
   blockingHolds: [],
+  onboardingOpen: null,
 };
 const measured: GateContext = { ...open, walkthroughMeasured: true };
 
@@ -55,13 +56,50 @@ describe("gates", () => {
   });
 
   it("gates whose data comes later stay closed and say which phase", () => {
-    const g = exitGate("onboarding", measured);
+    const g = exitGate("ready_to_schedule", measured);
     expect(g.passes).toBe(false);
-    expect(g.arrivesInPhase).toBe(5);
-    expect(g.reasons[0]).toMatch(/Phase 5.*override/);
-    for (const s of ["onboarding", "scheduled", "invoiced"] as const) {
+    expect(g.arrivesInPhase).toBe(6);
+    expect(g.reasons[0]).toMatch(/Phase 6.*override/);
+    for (const s of ["scheduled", "invoiced"] as const) {
       expect(exitGate(s, measured).passes).toBe(false);
     }
+  });
+
+  it("the onboarding gate needs a cleared checklist and no blocking holds", () => {
+    expect(exitGate("onboarding", measured).reasons[0]).toMatch(/hasn't been built/);
+    const open2 = exitGate("onboarding", { ...measured, onboardingOpen: ["deposit", "colors"] });
+    expect(open2.passes).toBe(false);
+    expect(open2.arrivesInPhase).toBeUndefined();
+    expect(open2.reasons).toEqual(["2 required onboarding items are still open: deposit, colors."]);
+    expect(exitGate("onboarding", { ...measured, onboardingOpen: ["deposit"] }).reasons[0]).toMatch(
+      /1 required onboarding item is still open/,
+    );
+    const held = exitGate("onboarding", {
+      ...measured,
+      onboardingOpen: [],
+      blockingHolds: ["HOA"],
+    });
+    expect(held).toMatchObject({ passes: false, reasons: ["Release the HOA hold first."] });
+    expect(exitGate("onboarding", { ...measured, onboardingOpen: [] }).passes).toBe(true);
+    // Forward move: allowed when cleared; holds still stop it, with one message.
+    expect(
+      checkTransition("onboarding", "ready_to_schedule", { ...measured, onboardingOpen: [] })
+        .allowed,
+    ).toBe(true);
+    const blocked = checkTransition("onboarding", "ready_to_schedule", {
+      ...measured,
+      onboardingOpen: [],
+      blockingHolds: ["Deposit Hold"],
+    });
+    expect(blocked).toMatchObject({ allowed: false, overridable: false, blockedByHolds: true });
+    expect(blocked.reasons).toEqual([
+      "Release the Deposit Hold first. Holds stop scheduling even with an override.",
+    ]);
+    const notCleared = checkTransition("onboarding", "ready_to_schedule", {
+      ...measured,
+      onboardingOpen: ["colors"],
+    });
+    expect(notCleared).toMatchObject({ allowed: false, overridable: true });
   });
 
   it("Paid in Full may close as won", () => {
@@ -199,15 +237,81 @@ describe("job health", () => {
     const h = computeJobHealth(
       {
         ...base,
-        stage: "onboarding",
+        stage: "ready_to_schedule",
         contractSignedAt: "2026-10-20T00:00:00Z",
         depositPaidAt: "2026-10-21T00:00:00Z",
       },
       now,
     );
-    const later = h?.factors.find((f) => f.key === "onboarding_cleared");
-    expect(later).toMatchObject({ status: "unavailable", arrivesInPhase: 5 });
+    const later = h?.factors.find((f) => f.key === "crew_assigned");
+    expect(later).toMatchObject({ status: "unavailable", arrivesInPhase: 6 });
     expect(h?.score).toBe(100);
+  });
+
+  it("onboarding progress and a cleared deposit item count", () => {
+    const input = {
+      ...base,
+      stage: "onboarding" as const,
+      contractSignedAt: "2026-10-20T00:00:00Z",
+      onboarding: { required: 10, cleared: 7, open: ["deposit", "colors", "paint order"] },
+    };
+    const h = computeJobHealth(input, now);
+    const ob = h?.factors.find((f) => f.key === "onboarding_cleared");
+    expect(ob).toMatchObject({ status: "fail", action: "review_onboarding" });
+    expect(ob?.recommendation).toBe(
+      "7 of 10 onboarding items cleared. Still open: deposit, colors, paint order.",
+    );
+    expect(h?.factors.find((f) => f.key === "deposit_paid")?.status).toBe("fail");
+    const cleared = computeJobHealth(
+      {
+        ...input,
+        depositCleared: true,
+        onboarding: { required: 10, cleared: 10, open: [] },
+      },
+      now,
+    );
+    expect(cleared?.factors.find((f) => f.key === "deposit_paid")?.status).toBe("pass");
+    expect(cleared?.factors.find((f) => f.key === "onboarding_cleared")?.status).toBe("pass");
+    const many = computeJobHealth(
+      { ...input, onboarding: { required: 9, cleared: 4, open: ["a", "b", "c", "d", "e"] } },
+      now,
+    );
+    expect(many?.factors.find((f) => f.key === "onboarding_cleared")?.recommendation).toMatch(
+      /Still open: a, b, c, d…$/,
+    );
+    const noList = computeJobHealth({ ...input, onboarding: null }, now);
+    expect(noList?.factors.some((f) => f.key === "onboarding_cleared")).toBe(false);
+  });
+
+  it("photos: before and progress while in progress, after from the final walkthrough", () => {
+    const start = {
+      ...base,
+      contractSignedAt: "2026-10-01T00:00:00Z",
+      depositPaidAt: "2026-10-02T00:00:00Z",
+    };
+    const inProgress = computeJobHealth(
+      { ...start, stage: "in_progress", photos: { before: 0, progress: 0, after: 0 } },
+      now,
+    );
+    expect(inProgress?.factors.find((f) => f.key === "photos")).toMatchObject({
+      status: "fail",
+      recommendation: "No before or progress photos yet. Add them in Photos.",
+      action: "upload_photos",
+    });
+    const finalWalk = computeJobHealth(
+      { ...start, stage: "final_walkthrough", photos: { before: 2, progress: 0, after: 0 } },
+      now,
+    );
+    expect(finalWalk?.factors.find((f) => f.key === "photos")?.recommendation).toBe(
+      "No after photos yet. Add them in Photos.",
+    );
+    const ok = computeJobHealth(
+      { ...start, stage: "final_walkthrough", photos: { before: 2, progress: 0, after: 1 } },
+      now,
+    );
+    expect(ok?.factors.find((f) => f.key === "photos")?.status).toBe("pass");
+    const unknown = computeJobHealth({ ...start, stage: "in_progress" }, now);
+    expect(unknown?.factors.some((f) => f.key === "photos")).toBe(false);
   });
 
   it("a passed promised start date without a start fails", () => {

@@ -360,3 +360,45 @@ erDiagram
 New RPCs (service role only unless noted): `mark_estimate_sent`, `resolve_proposal_token`, `record_proposal_view`, `accept_estimate`, `decline_proposal`, `expire_proposals`, `store_version_pricing`, `store_change_order_pricing`, `approve_version_discount`, `mark_change_order_sent`, `accept_change_order`, `attach_signed_document`; for signed-in users: `create_estimate`, `copy_estimate_version`, `estimate_stats(from, to)`, `estimate_status_counts()`. `job_stats` reads `contract_cents`. Seed function `app.seed_estimating_defaults(org)` loads the sample configuration.
 
 Migrations: `20261027000100_estimating`, `20261027000200_estimating_seed`, each with a rollback.
+
+## Added in Phase 5 — Onboarding, documents & photos
+
+```mermaid
+erDiagram
+  jobs ||--o{ onboarding_requirements : "checklist"
+  jobs ||--o{ job_photos : "photos"
+  jobs ||--o{ documents : "documents"
+  accounts ||--o{ documents : "customer-only documents"
+  onboarding_requirements }o--o| tasks : "follow-up task"
+  job_photos {
+    text category "before/prep/progress/after/damage/color/cleanup/other"
+    text area "area tag"
+    text checklist_key "required shot it was taken for"
+    text storage_path "org/jobs/job/… (display copy)"
+    text thumb_path "org/jobs/job/…-thumb"
+    uuid client_id "offline idempotency key"
+    bool exif_stripped "always true"
+    bool customer_visible
+  }
+  onboarding_requirements {
+    text status "verified/pending/missing/needs_review/not_required"
+    bool verified_auto "false = cleared by hand"
+    text auto_status "last check result"
+    text auto_detail "what the check found"
+    timestamptz requested_at
+    uuid task_id
+  }
+```
+
+| Table / column                                                                                      | Purpose                                                                                                                                                                                                                                                                                                      |
+| --------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `onboarding_requirements` + `auto_status`, `auto_detail`, `requested_at`, `requested_by`, `task_id` | The check result for each item (written by `apply_onboarding_checks()`), when it was requested from the customer, and its follow-up task. A manual clear is `status = verified` with `verified_auto = false` and a `note`; checks never overwrite it. Clearing `deposit_received` releases the Deposit Hold. |
+| `job_photos`                                                                                        | Job photos in the private `photos` bucket: display copy (≤ 2,560 px JPEG, no metadata) + thumbnail (480 px), category, area, caption, checklist shot, size, dimensions, hash, taken-at, uploader, source (upload/camera/offline), shared with the customer. Unique `(job_id, client_id)`. Soft delete.       |
+| `documents` (Phase 4 table)                                                                         | Now also uploads: any of PDF, images, Word, Excel, text, CSV up to 25 MB; a document can move to another job of the same customer or stay on the customer only; signed documents can't be deleted; soft delete and restore.                                                                                  |
+| `messages.template_key`                                                                             | Which template a message came from (`prep_instructions`, `onboarding_*`, `photo_share`).                                                                                                                                                                                                                     |
+
+New functions: `apply_onboarding_checks(job, results)` (service role), `app.onboarding_cleared(job)` (service role), `app.job_gate_passes('onboarding')` (real), `document_stats(job?)` and `job_photo_summary(job)` (signed-in users, row security applies), `app.job_in_scope(scope, job)`. `soft_delete_record`, `restore_record` and `list_deleted_records` cover `documents` and `job_photos`.
+
+Storage: private buckets `documents` (25 MB, document types) and `photos` (15 MB, JPEG/PNG/WebP). Files are only read by server code after a row-security check.
+
+Migration: `20261027000300_onboarding_documents_photos`, with a rollback.

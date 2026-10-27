@@ -39,6 +39,19 @@ export async function deleteJobs(jobIds: string[]) {
       jobIds.map((id) => `/jobs/${id}`),
     );
   await db.from("leads").update({ converted_job_id: null }).in("converted_job_id", jobIds);
+  // Stored files go with their rows (rows cascade with the job).
+  const { data: docs } = await db.from("documents").select("storage_path").in("job_id", jobIds);
+  const docPaths = (docs ?? []).map((d: { storage_path: string }) => d.storage_path);
+  if (docPaths.length) await db.storage.from("documents").remove(docPaths);
+  const { data: photos } = await db
+    .from("job_photos")
+    .select("storage_path, thumb_path")
+    .in("job_id", jobIds);
+  const photoPaths = (photos ?? []).flatMap((p: { storage_path: string; thumb_path: string }) => [
+    p.storage_path,
+    p.thumb_path,
+  ]);
+  if (photoPaths.length) await db.storage.from("photos").remove(photoPaths);
   // appointments, holds, team, stage history, approvals and financials cascade.
   const { error } = await db.from("jobs").delete().in("id", jobIds);
   if (error) throw error;
@@ -78,6 +91,12 @@ export async function deleteAccounts(accountIds: string[]) {
   const propIds = (props ?? []).map((p: { id: string }) => p.id);
   await deleteSubjectRows("account", accountIds);
   await deleteSubjectRows("contact", contactIds);
+  const { data: docs } = await db
+    .from("documents")
+    .select("storage_path")
+    .in("account_id", accountIds);
+  const docPaths = (docs ?? []).map((d: { storage_path: string }) => d.storage_path);
+  if (docPaths.length) await db.storage.from("documents").remove(docPaths);
   await db
     .from("leads")
     .update({ account_id: null, contact_id: null, property_id: null })
