@@ -117,6 +117,15 @@ The website posts quote requests to `POST /api/public/leads` (contract in `docs/
 
 ## Month close _(Phase 7)_
 
+- **Close a month** (Admin → Finance, `finance:close_month`: owners and the bookkeeper): check the month's list first — payments not yet marked cleared, unapplied money, invoices still in draft. **Close month** saves a summary snapshot (billed, collected, refunds, counts) and locks every payment, refund, invoice and expense dated in that month (Pacific dates).
+- **Fixing something in a closed month:** an owner (`finance:override_lock`, in no pack) makes the change and types a reason (10+ characters) in the "month is closed" box; it's audit-logged. Or an owner **Reopens** the month with a reason, fixes it and closes it again (the snapshot is rebuilt).
+- **Money is written only through database functions** (`record_payment`, `refund_payment`, `mark_invoice_sent`, …; service role only, each re-checks the person's permission and company). Never edit `payments`, `payment_applications`, `refunds` or `credits` rows by hand in SQL; use the app, or call the function with the right actor. Balances aren't stored anywhere: `job_ledger`, `invoice_ledger` and `payment_ledger` compute them.
+- **A job didn't move to Invoiced / Paid in Full:** Completed → Invoiced needs the final invoice **sent**; Invoiced → Paid in Full needs nothing left to bill and a $0 balance. Job → Financial → Needs attention says what's missing (unapplied payment, credit waiting, final invoice in draft, left to bill). The worker re-checks every minute.
+- **Worker:** each minute it also runs `sweepMoney`: `sweep_invoices` (refreshes overdue status and emits `invoice.overdue` at 7 and 30 days, once each per invoice), drafts missing final invoices for Completed jobs and re-checks money gates. The worker JSON has `money: { invoices, finalDrafted, moved }`.
+- **Bounced payment:** Job → Financial → Payments → **Mark bounced** with the reason. The invoices it paid reopen and finance is notified. If the job had already reached Paid in Full it stays there with a "Paid stage with a balance" warning; collect, then record the new payment.
+- **Receipts bucket:** `receipts` (private, 15 MB, JPEG or PDF, `<org>/<job>/<expense id>.jpg|pdf`), streamed through `/api/files/receipts/<expense id>` after a `job_costing:read` check. Back it up with the other buckets.
+- **Migration for production:** `20261028000100_money.sql` (additive: new tables, views, functions, gates 10–12, receipts bucket; backfills approved On-Time Guarantee credits into `credits` and seeds the overdue-invoice attention rule for every organization, both safe to re-run). Rollback in `supabase/rollbacks/20261028000100_money.down.sql`.
+
 ## Purge demo data _(Phase 10)_
 
 Demo data only exists in dev/preview (`DEMO_DATA=true`) and is tagged `is_demo = true`. An owner-only admin action removes it.

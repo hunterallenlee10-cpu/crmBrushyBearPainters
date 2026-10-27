@@ -108,6 +108,10 @@ describe("invoiceDisplayStatus", () => {
     expect(
       invoiceDisplayStatus({ ...base, status: "draft", sentAt: null }, 1000, "2026-11-01"),
     ).toBe("paid");
+    // A draft paid at signing whose payment then bounced is a draft again.
+    expect(invoiceDisplayStatus({ ...base, status: "paid", sentAt: null }, 0, "2026-11-01")).toBe(
+      "draft",
+    );
     expect(invoiceDisplayStatus(base, 0, "2026-11-10")).toBe("sent");
     expect(invoiceDisplayStatus({ ...base, viewedAt: "x" }, 0, "2026-11-10")).toBe("viewed");
     expect(invoiceDisplayStatus(base, 400, "2026-11-10")).toBe("partially_paid");

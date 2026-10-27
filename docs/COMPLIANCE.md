@@ -67,3 +67,14 @@
 - [ ] **Customer messages:** schedule notices, rain-delay texts and daily updates use draft wording (owner to approve) and are only simulated until texting/email are connected. They respect opt-outs (SMS only with opt-in, otherwise email).
 - [ ] **Hours:** crew hours come from daily logs. If you'll use them for payroll, decide who approves them and confirm Washington break/overtime rules with your payroll provider — the app doesn't calculate pay.
 - [ ] **On-time credit:** the amount comes from Company Settings (On-time guarantee). Confirm the amount and the customer-facing terms; credits are drafted for owner approval and never applied automatically.
+
+## Money (Phase 7)
+
+- [ ] **Payment terms:** invoices are due on the issue date ("due on receipt") unless you pick another due date when sending. Tell us your standard terms (deposit %, progress billing, final due within N days) and the wording to print on invoices.
+- [ ] **How to pay:** invoice emails, texts and the PDF say `[HOW_TO_PAY — owner to provide]`. Give us the payment methods you accept (check payable to …, Zelle, card) and any card-fee policy. No card payments are taken in the app (Stripe isn't connected).
+- [ ] **Sales tax:** the app doesn't calculate tax; invoice lines are the prices from the accepted estimate. Confirm with your accountant how Washington sales tax applies to your residential painting work and how it should appear on invoices; we'll add it once you tell us.
+- [ ] **Credits, refunds and late reminders:** review the draft wording for overdue reminders (7 and 30 days) and invoice messages (`lib/money/messages.ts`), and decide your refund policy. Refunds and credits need a written reason and are audit-logged; there are no late fees or interest in the app.
+- [ ] **Lien and collection notices:** none are generated. If you send pre-lien or lien notices under Washington law, confirm the deadlines and wording with your attorney; the app can remind you once you give us the rules.
+- [ ] **Receipts:** expense receipts (photos or PDFs) are stored privately, photos with location and other EXIF removed. Decide how long receipts must be kept for tax purposes (ask your accountant).
+- [ ] **Closed months:** once a month is closed in Admin → Finance, nobody can change payments, refunds, invoices or expenses dated in it except an owner with a written reason (audit-logged). Agree with your bookkeeper when each month gets closed.
+- [ ] **Access to money:** crew roles never see contract amounts, payments or margins. The bookkeeper can read hourly labor cost for job costing (not edit it). Check Admin → Users that only the right people have Finance packs.

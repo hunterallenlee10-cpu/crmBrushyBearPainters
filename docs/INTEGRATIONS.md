@@ -31,6 +31,17 @@ What the production screens record in the outbox (all `simulated`, draft wording
 
 Weather: the Weather page and the weather work rule read `loadWeather()`, which returns "not connected" until a weather provider is enabled, so no forecast rule ever fires and `weather_forecasts` stays empty. Field Dispatch shows a list by city until Address & Maps is connected. Calendar sync of schedule entries waits for the calendar provider.
 
+## Money messages and accounting previews (Phase 7)
+
+| When                                    | To / where              | Channel / operation                                                                            | Template key       | `related_type`     |
+| --------------------------------------- | ----------------------- | ---------------------------------------------------------------------------------------------- | ------------------ | ------------------ |
+| Invoice **Send**                        | Customer                | email (invoice PDF listed under `attachments`: file name, type, size, document id) and/or text | `invoice`          | message on the job |
+| Invoice 7 and 30 days past due (worker) | Customer                | text if the contact has a mobile and opted in, else email; once per threshold                  | `invoice_reminder` | message on the job |
+| Invoice sent                            | Accounting (QuickBooks) | `syncInvoice` "would sync" preview: customer, number, dates, lines, total in dollars           | —                  | `invoice`          |
+| Payment recorded                        | Accounting (QuickBooks) | `syncPayment` "would sync" preview: amount, method, date, which invoices it pays               | —                  | `payment`          |
+
+All `simulated`; wording is "Draft – owner to approve" and says how to pay with the placeholder `[HOW_TO_PAY — owner to provide]`. Email attachments are recorded in the outbox payload only; the real email providers will attach the stored PDF when connected. Invoices and payments carry `accounting_sync_status = not_connected` (`pending` / `synced` / `error` once QuickBooks is connected) and an `external_id`. Job → Financial → Accounting lists the previews. No payment link is offered (Stripe not connected), so there is no customer invoice page yet.
+
 ## How the lock works
 
 A real provider is used only when **all three** of these hold. `resolveProviderChoice()` in `lib/integrations/core.ts` enforces it; anything short of all three returns the default provider.

@@ -226,7 +226,7 @@ test("the checks verify what the data shows", async ({ page }, info) => {
   await expect(item(page, "contact_reachable").getByTestId("requirement-status")).toHaveText(
     "Auto-verified",
   );
-  await expect(item(page, "deposit_received")).toContainText("Phase 7");
+  await expect(item(page, "deposit_received")).toContainText("Record the payment in Financial");
   await expect(item(page, "colors_selected")).toContainText("1 of 2 surfaces have a color");
   await expect(item(page, "hoa_approval").getByTestId("requirement-status")).toHaveText("Missing");
   await expect(page.getByTestId("onboarding-summary")).toContainText(
@@ -265,7 +265,7 @@ test("clearing items moves the job to Ready to Schedule on its own", async ({ pa
   test.skip(info.project.name !== "e2e-desktop", "Mutations run once.");
   await page.goto(`/jobs/${jobId}?section=onboarding&tab=checklist`);
 
-  // Deposit: cleared by hand (payments arrive in Phase 7) → the Deposit Hold releases.
+  // Deposit: cleared by hand (e.g. paid before the CRM) → the Deposit Hold releases.
   await item(page, "deposit_received")
     .getByRole("button", { name: /^Mark cleared/ })
     .click();

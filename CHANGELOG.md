@@ -2,6 +2,37 @@
 
 All notable changes, by build phase. See `docs/PLAN.md` for what each phase covers.
 
+## Phase 7 — Money
+
+### Added
+
+- **Ledger (derived, never stored):** contract (accepted estimate + signed change orders − approved credits), billed, left to bill, collected, balance, due, unapplied and refunded, computed the same way in `lib/domain/ledger` (pure, property-tested) and in the `invoice_ledger` / `payment_ledger` / `job_ledger` views. Plain-English reconciliation warnings: unapplied payment, overpaid or overbilled invoice, left to bill after the final invoice, credit waiting or pending approval, payment not cleared after 10 days, stale draft, no contract, Paid in Full stage with a balance, overdue.
+- **Invoices:** deposit, progress, final and credit memo; create and edit drafts (lines, due date, terms, notes), **Send** (simulated email with the PDF attached and/or text, PDF stored in Documents, timeline entry), void with a reason. Status kept current by the database (draft, sent, viewed, partially paid, paid, overdue, void); overdue recomputed every minute.
+- **Payments with forced application:** record check / cash / card / ACH / Zelle / financing / other with reference and date; the amount must be split across open invoices (oldest due first suggested); change the split later. **Reversals:** mark cleared, bounced (reopens the invoices, notifies finance), void (entered by mistake) and partial or full refunds (unapplied money first, then newest invoice first).
+- **Credits:** goodwill, discount and referral credits requested on Job → Financial and approved or rejected by an owner; approved On-Time Guarantee credits (Phase 6) join the ledger automatically. Approved credits go onto the draft final invoice, or onto a credit memo once the final invoice is sent; the job's on-time credit shows "Credit applied".
+- **Job → Financial** (sub-tabs Worksheet · Invoices · Payments · Job Costing · Accounting): Money Summary (contract, billed, left to bill, collected, balance, due), Needs attention, invoices and payments with their applications, credits on the worksheet, job costing for owners and the bookkeeper (labor from daily-log hours × hourly cost, paint orders, subcontractor hours, expenses with receipt photos or PDFs in a private bucket, gross margin), QuickBooks "would sync" previews.
+- **Overview money tiles** use the ledger, with a "Paid in full" state; the customer section shows paid and balance.
+- **Invoices** (`/invoices`): list with search, status and type filters, saved views and registry KPIs (A/R outstanding, overdue, collected, collection %, draft invoices, unapplied money). **A/R aging** (`/invoices/aging`): current, 1–30, 31–60, 61–90, 90+ days by customer and invoice. Universal search finds invoices.
+- **Admin → Finance:** month list with totals and a close checklist (uncleared payments, unapplied money, drafts), **Close month** with a summary snapshot, **Reopen** (owners, with a reason). Closed months lock payments, refunds, invoices and expenses dated in them; owners can override with a written reason (new permission `finance:override_lock`, in no pack).
+- **Stage automation (gates 10–12, TypeScript and SQL):** reaching Completed drafts the final invoice; sending it → Invoiced; the payment that brings the balance to $0 → Paid in Full; Closed Won needs a $0 balance. All through `advanceJobStage()`.
+- **Attention and worker:** "Overdue invoice" (Medium at 7 days, High at 30, editable) with one simulated reminder per threshold (`invoice.overdue`); "Sold, no deposit" uses the real deposit invoice. Job health "balance current" is real, with a "Collect payment" next action.
+- **Metrics** (registry, one `finance_stats` call): revenue sold, revenue completed, collected, billed, A/R outstanding, overdue, collection %, gross margin % on completed jobs (owners), days completed → paid, unapplied, aging buckets, open / draft invoices, pending credits.
+- Accounting: invoice and payment "would sync" previews in `integration_outbox` (status `simulated`); QuickBooks stays disconnected.
+
+### Changed
+
+- Onboarding's deposit check reads the money actually applied to the deposit invoice; recording the deposit clears the item and releases the Deposit Hold.
+- Onboarding Board cards show collected money from the ledger, and the "Under 30% collected" filter works.
+- The bookkeeper can read hourly costs for job costing (still no HR access).
+- Invoice PDFs show Paid and Balance due.
+- Simulated emails can list attachments.
+
+### Tests
+
+- SQL/RLS: 691 assertions across 14 files (Phase 7 adds 104 in `013_money.test.sql`: no stored balance columns, the ledger view against the shared scenario, forced application and over-application refused, bounce / void / refund, credits and credit memo, gates 10–12, month lock and owner override, per-role row security (crew sees no amounts), `finance_stats`, cross-company isolation; migration applied, rolled back and re-applied).
+- Unit: 1,036 tests across 81 files (Phase 7 adds the ledger domain with fast-check property tests — balance = billed − collected, every live dollar applied or shown as unapplied, no application exceeds its payment or invoice, refunds never exceed a payment, credits only on live invoices, due within the balance, aging adds up — plus reconciliation, aging, costing, month lock, gates, health, attention and registry metrics).
+- E2E + axe on a production build (desktop and phone): recording the deposit clears the onboarding item and releases the Deposit Hold; the final invoice carries the approved $250 On-Time Guarantee credit; paying it moves the job to Paid in Full; Invoices list, A/R aging and Admin → Finance; bookkeeper job costing with a receipt upload; phone layout. Screenshots in `docs/screens/phase-7/`.
+
 ## Phase 6 — Production
 
 ### Added

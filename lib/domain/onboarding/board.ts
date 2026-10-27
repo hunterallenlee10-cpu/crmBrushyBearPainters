@@ -76,7 +76,7 @@ export type BoardCard = {
   holds: readonly BoardHold[];
   /** Contract amount; null when the viewer can't see money. */
   contractCents: number | null;
-  /** Collected so far; null until payments exist (Phase 7). */
+  /** Collected so far (job ledger); null when money is hidden. */
   collectedCents: number | null;
   /** Deposit invoice total; null when none or hidden. */
   depositCents: number | null;

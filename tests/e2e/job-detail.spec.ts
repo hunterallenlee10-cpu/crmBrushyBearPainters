@@ -228,9 +228,9 @@ test.describe("Job Detail (owner)", () => {
     // Property quick info: built 1965 → lead-safe; HOA.
     await expect(page.getByText("Lead-safe practices apply")).toBeVisible();
     await expect(page.getByText(/Yes · Sample Ridge HOA/)).toBeVisible();
-    // Money is visible to owners; Paid/Balance wait for Phase 7.
+    // Money is visible to owners; Paid and Balance come from the ledger (Phase 7).
     await expect(page.getByRole("heading", { name: "Money" })).toBeVisible();
-    await expect(page.getByText("Arrives with Money (Phase 7)").first()).toBeVisible();
+    await expect(page.getByText("Payments applied to invoices").first()).toBeVisible();
     // Build Estimate opens the Estimate & Scope section (Phase 4).
     await expect(page.getByRole("link", { name: "Build Estimate" }).first()).toHaveAttribute(
       "href",
@@ -431,7 +431,9 @@ test.describe("Job Detail (owner)", () => {
     expect(await seriousAxe(page)).toEqual([]);
 
     page = await open(page, path);
-    await expect(page.getByRole("region", { name: "Money" }).getByText("$12,500.00")).toBeVisible();
+    await expect(
+      page.getByRole("region", { name: "Money" }).getByText("$12,500.00", { exact: true }),
+    ).toBeVisible();
   });
 
   test("390px wide: no sideways scroll; sections switch from a select", async () => {

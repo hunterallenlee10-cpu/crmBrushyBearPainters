@@ -84,9 +84,9 @@ function sum(values: readonly number[]): number {
   return s;
 }
 
-/** The invoice was sent to the customer (anything but a draft or void). */
+/** The invoice was sent to the customer and isn't void (a draft paid at signing isn't issued). */
 export function isIssued(inv: Pick<LedgerInvoice, "status" | "sentAt">): boolean {
-  return inv.status !== "void" && (inv.status !== "draft" || inv.sentAt !== null);
+  return inv.status !== "void" && inv.sentAt !== null;
 }
 
 /** Days past due for a sent invoice with money still owed (0 otherwise). */

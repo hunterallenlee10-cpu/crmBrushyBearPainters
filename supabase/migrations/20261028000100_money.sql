@@ -120,7 +120,7 @@ as $$
   select case
     when p_status = 'void' then 'void'
     when p_total > 0 and p_total - p_collected <= 0 then 'paid'
-    when p_status = 'draft' and p_sent_at is null then 'draft'
+    when p_sent_at is null then 'draft'
     when p_total <= 0 then 'sent'
     when p_due is not null and p_due < p_today then 'overdue'
     when p_collected > 0 then 'partially_paid'
@@ -337,8 +337,8 @@ select
   i.accounting_sync_status,
   case when i.status = 'void' then 0 else coalesce(c.collected, 0) end::bigint as collected_cents,
   case when i.status = 'void' then 0 else i.total_cents - coalesce(c.collected, 0) end::bigint as balance_cents,
-  (i.status <> 'void' and (i.status <> 'draft' or i.sent_at is not null)) as issued,
-  case when i.status <> 'void' and (i.status <> 'draft' or i.sent_at is not null)
+  (i.status <> 'void' and i.sent_at is not null) as issued,
+  case when i.status <> 'void' and i.sent_at is not null
             and i.total_cents - coalesce(c.collected, 0) > 0 and i.due_date is not null
        then greatest(0, app.production_today() - i.due_date) else 0 end as days_past_due,
   app.invoice_display_status(i.status, i.sent_at, i.viewed_at, i.due_date, i.total_cents,
@@ -1560,7 +1560,7 @@ begin
   end if;
   select jsonb_build_object(
     'billed_cents', coalesce((select sum(total_cents) from public.invoices where org_id = v_org and status <> 'void'
-        and (sent_at is not null or status <> 'draft') and date_trunc('month', issue_date) = v_month), 0),
+        and sent_at is not null and date_trunc('month', issue_date) = v_month), 0),
     'collected_cents', coalesce((select sum(a.amount_cents) from public.payment_applications a
         join public.payments p on p.id = a.payment_id
         where p.org_id = v_org and p.status in ('received', 'cleared') and date_trunc('month', p.received_on) = v_month), 0),

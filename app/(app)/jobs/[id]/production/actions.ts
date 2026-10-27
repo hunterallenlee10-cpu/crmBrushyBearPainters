@@ -170,7 +170,7 @@ export const captureSignoff = defineAction({
   },
 });
 
-/** Owner decision on a drafted on-time credit (SPEC §1.3); Phase 7 applies approved ones to the invoice. */
+/** Owner decision on a drafted on-time credit (SPEC §1.3); approved ones become ledger credits on the final invoice (Phase 7). */
 export const decideOnTimeCredit = defineAction({
   name: "job.on_time_credit.decide",
   schema: z.object({

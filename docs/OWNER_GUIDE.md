@@ -45,7 +45,24 @@
 1. Crew leads press **Start job** on day one (or post the first daily log) and post a **Daily Log** every evening from their phone: what got done, what's next, hours, "Cleanup done" and a cleanup photo. The customer gets the update signed by the job's point of contact.
 2. When the last work order is marked completed, the job moves to **Final Walkthrough**. Book the final walkthrough (job → Schedule → Book appointment).
 3. At the walkthrough add touch-ups on **Punch List** (area, what to fix, photo), mark them fixed, then **Capture customer sign-off** on the phone. The job moves to **Completed**.
-4. If a start was late for a reason other than weather, an **on-time credit** waits for your approval on the job's Schedule section. Approve or waive it; approved credits go on the final invoice (Phase 7).
+4. If a start was late for a reason other than weather, an **on-time credit** waits for your approval on the job's Schedule section. Approve or waive it; approved credits go on the final invoice by themselves.
+5. When the job reaches **Completed**, the **final invoice** is drafted for you (what's left of the contract, with approved credits as lines). Open Job → **Financial**, check it and press **Send**. The job moves to **Invoiced**.
+6. When the customer pays, **Record payment** (below). Once the balance is $0 the job moves to **Paid in Full**.
+
+## Record payments and send invoices _(Phase 7)_
+
+1. Open the job → **Financial**. The **Money summary** shows contract, billed, left to bill, collected and balance; **Needs attention** says in plain English what's off (for example "A $500.00 payment isn't applied to any invoice").
+2. **Record payment:** method, amount, date and check number or reference, then say which invoices it pays (the app suggests the oldest first; the split must add up). Recording the deposit clears the onboarding deposit item and releases the Deposit Hold.
+3. **New invoice** for deposits or progress billing; **Send** emails and/or texts it with the PDF (simulated until email and texting are connected) and stores the PDF in Documents.
+4. Mistakes: **Mark bounced** (the invoices reopen), **Void** a payment entered by mistake, **Refund** part or all of a payment (with a reason), **Void** an invoice. Nothing is deleted; everything is logged.
+5. **Credits:** add a goodwill, discount or referral credit with a reason; owners approve it. Approved credits come off the contract and land on the final invoice (or a credit memo if the final invoice was already sent).
+6. **Invoices** (top nav) lists every invoice with A/R, overdue and collection tiles; **A/R Aging** shows who owes what by age. Overdue invoices get a reminder at 7 and 30 days (simulated) and show up in Attention.
+7. **Job Costing** (owners and bookkeeper): labor from daily-log hours, paint orders, subcontractor costs and expenses with receipt photos, and the job's gross margin.
+
+## Close the month _(Phase 7)_
+
+1. **Admin → Finance** lists each month with billed, collected and what to tidy up (uncleared payments, unapplied money, draft invoices).
+2. Press **Close month**. Nobody can then change money dated in that month — except you, with a written reason, if something really has to change. **Reopen** a month the same way.
 
 ## What the CRM promises customers for you
 

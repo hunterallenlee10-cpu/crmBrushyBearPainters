@@ -52,6 +52,15 @@ export async function deleteJobs(jobIds: string[]) {
     p.thumb_path,
   ]);
   if (photoPaths.length) await db.storage.from("photos").remove(photoPaths);
+  // Money: payments first (their applications point at invoices), then receipt files.
+  await db.from("payments").delete().in("job_id", jobIds);
+  const { data: receipts } = await db
+    .from("job_expenses")
+    .select("receipt_path")
+    .in("job_id", jobIds)
+    .not("receipt_path", "is", null);
+  const receiptPaths = (receipts ?? []).map((r: { receipt_path: string }) => r.receipt_path);
+  if (receiptPaths.length) await db.storage.from("receipts").remove(receiptPaths);
   // appointments, holds, team, stage history, approvals and financials cascade.
   const { error } = await db.from("jobs").delete().in("id", jobIds);
   if (error) throw error;

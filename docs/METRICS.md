@@ -81,6 +81,28 @@ Source: `public.production_stats()` (one server query, row-security scoped; mone
 
 Fixture tests: `lib/metrics/registry.test.ts` (parsing, units, money hidden without financials). SQL: `supabase/tests/012_production.test.sql` checks `production_stats()` counts.
 
+## Money (Phase 7)
+
+Source: `public.finance_stats(from, to)` (one server query, security invoker so row security applies; everything hidden without `financials:read`, costs only with `job_costing:read`), defined in `FINANCE_METRICS`. Shown on `/invoices`, A/R aging, Admin → Finance; the Onboarding Board's collected / outstanding use `job_ledger`. "Sent" means issued: not void and `sent_at` set.
+
+| Metric                                  | Formula                                                                                                                                                                              | Date field                  |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------- |
+| A/R Outstanding                         | Σ balance of sent invoices (credit memos net against it)                                                                                                                             | — (right now)               |
+| Overdue / Overdue invoices              | Σ balance (and count) of sent invoices past their due date                                                                                                                           | `invoices.due_date`         |
+| Collected                               | Σ applications of live payments (received or cleared) received in the period; unapplied money excluded                                                                               | `payments.received_on`      |
+| Billed                                  | Σ totals of invoices sent in the period                                                                                                                                              | `invoices.issue_date`       |
+| Collection %                            | collected ÷ billed on invoices issued in the period × 100                                                                                                                            | `invoices.issue_date`       |
+| Revenue sold                            | Σ contract (net of credits) of jobs whose estimate was accepted in the period                                                                                                        | `jobs.estimate_accepted_at` |
+| Revenue completed                       | Σ contract (net of credits) of jobs completed in the period                                                                                                                          | `jobs.completed_at`         |
+| Gross Margin % (completed)              | (revenue − cost) ÷ revenue × 100 on jobs completed in the period; cost = labor hours × hourly cost + paint orders + subcontractor POs + expenses (owners only; negative shows as 0%) | `jobs.completed_at`         |
+| Days completed → paid                   | average days from Completed to Paid in Full, jobs paid in full in the period                                                                                                         | `jobs.paid_in_full_at`      |
+| Unapplied cash                          | Σ live payment money not applied to any invoice                                                                                                                                      | — (right now)               |
+| Aging: Current, 1–30, 31–60, 61–90, 90+ | Σ balance of sent invoices by days past due (0, 1–30, 31–60, 61–90, > 90), with counts                                                                                               | `invoices.due_date`         |
+| Open / Draft invoices                   | sent invoices with money owed; drafts                                                                                                                                                | — (right now)               |
+| Pending credits                         | Σ credits waiting for owner approval                                                                                                                                                 | — (right now)               |
+
+Job-level figures (contract, billed, left to bill, collected, balance, due) come from `job_ledger` and `computeJobLedger()`; see DATA_MODEL "No stored balances". Fixture tests: `lib/metrics/finance.test.ts`; SQL: `supabase/tests/013_money.test.sql` checks `finance_stats()`.
+
 ## Minimum set (SPEC §12.1)
 
 Leads created · leads by source · speed to lead (median, p90) · contact rate · walkthrough set rate · walkthrough show rate · estimates sent · 24h SLA % · close rate (count and $) · avg job value · sales velocity · pipeline value · backlog crew-days · projected revenue · revenue sold/completed/collected · gross margin % · labor hours estimated vs actual · daily-update compliance % · on-time start % · rain-delay days · punch items per job · days completed → paid · A/R aging · collection % · review rate · referral conversions · revenue by city/source/estimator · cost per lead & CAC.

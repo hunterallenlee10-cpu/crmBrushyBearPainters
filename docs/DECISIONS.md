@@ -643,6 +643,93 @@ Every non-obvious decision, newest at the bottom. Format: date · decision · re
 - **Decision:** Not built in Phase 6: reading gate/lockbox codes is still Owner/Office Manager only (narrowing to the assigned crew on scheduled days, promised in the Phase 2 entry, is left as a gap); suggested walkthrough time slots and calendar sync (calendar integration not connected); map views; real weather forecasts; on-time credit applied to invoices (Phase 7); clock-in/out time entries (hours come from daily logs).
 - **Reason:** Scope and "no real integrations" rule; listed in the Phase 6 report.
 
+## Phase 7 — Money
+
+### 2026-10-27 · One ledger, derived every time, in TypeScript and SQL
+
+- **Decision:** Every money figure is computed from the records, never stored: Contract = `job_financials.contract_cents` (accepted estimate + signed change orders) − approved/applied credits; Billed = Σ non-void invoices (drafts included, the SPEC §10 wording); Left to bill = Contract − Billed; Collected = Σ applications of live payments (received or cleared) on non-void invoices; Balance = Billed − Collected; Due = the overdue part of the balance (capped at the balance). Unapplied money is shown separately and never counts as collected. The pure version is `lib/domain/ledger` (property-tested with fast-check, 1,000 random operation sequences per invariant); the database version is the `invoice_ledger`, `payment_ledger` and `job_ledger` views. Both are checked against the same scenario (`lib/domain/ledger/fixtures.ts` and `supabase/tests/013_money.test.sql`). A SQL test fails if any money table grows a column named like a balance, paid, collected, outstanding or due amount.
+- **Reason:** SPEC §10 "balances derived, never stored"; CLAUDE.md money rules. Two implementations kept in step by one scenario are cheaper than a round trip for every screen.
+
+### 2026-10-27 · A/R counts sent invoices; a draft is never "issued"
+
+- **Decision:** An invoice is issued when it is not void and `sent_at` is set. A/R outstanding, overdue, aging and reminders only look at issued invoices; Billed still includes drafts (SPEC wording), so "Left to bill" drops the moment the final invoice is drafted. A draft deposit invoice paid at signing reads **Paid**; if that payment later bounces it reads **Draft** again, not Sent.
+- **Reason:** Customers don't owe what they haven't been sent; the Overview's "billed" should still show what the office has prepared.
+
+### 2026-10-27 · Payment status `void` (deviation)
+
+- **Decision:** Payments have the SPEC statuses received / cleared / bounced / refunded plus **void** for a payment entered by mistake (reason required). Bounced and void payments keep their history and stop counting; their applications stay on record but are ignored by the ledger. Payments are never deleted.
+- **Reason:** "Bounced" and "refunded" mean something happened with the customer's money; a typo needs its own honest status. Noted as a deviation from SPEC §5.6.
+
+### 2026-10-27 · Money is written only through checked database functions
+
+- **Decision:** People can read money tables (with `financials:read`) but never insert, update or delete them directly. Every write goes through a `service_role`-only function (`create_invoice`, `record_payment`, `refund_payment`, `decide_credit`, `close_month`, …) called by a thin Server Action. Each function re-checks the acting person's permission and company (`app.require_actor_perm`, `app.require_actor_org`, actor from the signed request header) and runs the whole change in one transaction, so totals, applications and statuses can't drift. Triggers guard what the functions write (applications never exceed what a payment can cover or what an invoice still owes, no edits to sent invoices except status, locked months).
+- **Reason:** CLAUDE.md "every mutation zod-validated, permission-checked, audit-logged"; money rules are easier to prove once, in the database.
+
+### 2026-10-27 · Forced application
+
+- **Decision:** Recording a payment (`payments:record`) requires saying which invoices it pays; the form suggests oldest-due-first and the amounts must add up to the payment (or the payment is larger than everything owed, and the rest is shown as unapplied with a warning). Applications can be changed later (**Apply** on the payment) as long as the new split still adds up. The worksheet lists "Payments applied to invoices" so the office can see exactly what paid what.
+- **Reason:** SPEC §10 "forced application"; unapplied money is the most common reconciliation problem.
+
+### 2026-10-27 · Reversals: bounce, void, refund
+
+- **Decision:** A bounce (with reason) stops the payment counting, reopens the invoices it paid, writes a timeline entry, emits `payment.bounced` and notifies finance. A refund (amount ≤ what's left, method, reason) comes out of unapplied money first and then off the payment's applications, newest invoice first; the split is stored on the refund (`detail`). A fully refunded payment becomes `refunded`. Stage automation only moves forward, so a reversal after Paid in Full raises the "Paid stage with a balance" warning instead of moving the job back.
+- **Reason:** SPEC §10 reversals; stage changes only through `advanceJobStage()`, which never moves backwards on its own.
+
+### 2026-10-27 · Credits: requested, approved, placed
+
+- **Decision:** Goodwill, discount and referral credits are added on Job → Financial (`invoices:edit` or `credits:approve`) and wait for an owner (`credits:approve`) unless the owner adds them as approved. On-Time Guarantee credits are never typed in: approving the drafted `on_time_credits` row (Phase 6) mirrors it into `credits`. Approved credits lower the contract and are **placed**: onto the draft final invoice as a negative line (only if the new total stays at or above what's already paid on it), otherwise onto a draft **credit memo** once the final invoice has been sent; before there is a final invoice they wait. Placing sets the credit to `applied` with its invoice, and the mirrored `on_time_credits` row too (job credit status "Credit applied"). Migration backfills credits for approved on-time credits already in production.
+- **Reason:** SPEC §1.3 (on-time credit "applied to the final invoice"), §5.6, §10; the "stays at or above what's paid" rule came from a property-test counterexample (a credit pushing a part-paid final invoice negative).
+
+### 2026-10-27 · The database keeps invoice status current
+
+- **Decision:** `invoices.status` is refreshed by the database after every payment, application, refund or send (`app.refresh_invoice_status`): paid, partially paid, overdue, viewed, sent, draft or void, the same rules as `invoiceDisplayStatus()`. "Overdue" is also recomputed every minute by `sweep_invoices`, because time passing changes it. The same refresh stamps `jobs.deposit_paid_at` the first time a deposit invoice is fully paid.
+- **Reason:** Lists and filters need a status column they can index; the ledger views stay the source of truth for amounts.
+
+### 2026-10-27 · Gates 10–12 are real
+
+- **Decision:** Completed → Invoiced: the final invoice has been sent. Invoiced → Paid in Full: something billed, nothing left to bill and a $0 balance. Paid in Full → Closed Won: still a $0 balance. Reaching Completed drafts the final invoice (contract − everything already billed, approved credits as lines) through `ensureFinalInvoice()`; sending it moves the job to Invoiced, and the payment that clears the balance moves it to Paid in Full, both through `advanceIfGatePasses()`. Same rules in `lib/domain/jobs/gates.ts` and `app.job_gate_passes`. Job health "balance current" is real (overdue invoices), with a "Collect payment" next action.
+- **Reason:** SPEC §6.2 gates 10–12; PLAN Phase 7 "paying the balance moves the job to Paid in Full".
+
+### 2026-10-27 · Sending an invoice
+
+- **Decision:** Send (issue date, due date, email and/or text) marks the invoice sent, renders the invoice PDF (now with Paid and Balance due), stores it in Documents (`invoices.pdf_document_id`), records the simulated email (with the PDF listed as an attachment) and text in `integration_outbox`, logs the timeline, and writes a QuickBooks "would sync" preview. The due date defaults to the issue date ("due on receipt") until the owners give real terms. Messages say how to pay with the placeholder `[HOW_TO_PAY — owner to provide]`; wording is "Draft – owner to approve".
+- **Reason:** SPEC §10 "send (simulated SMS/email + PDF)"; no real messages or invented payment instructions.
+
+### 2026-10-27 · Accounting stays a disconnected stub
+
+- **Decision:** Invoices and payments carry `accounting_sync_status = not_connected`. Sending an invoice or recording a payment writes an `accounting.*` row to `integration_outbox` with status `simulated` showing exactly what would be sent to QuickBooks; Job → Financial → Accounting lists those previews. No QuickBooks call exists in this build.
+- **Reason:** CLAUDE.md "never connect real integrations"; SPEC §14.
+
+### 2026-10-27 · Overdue reminders at 7 and 30 days
+
+- **Decision:** The worker's money sweep emits `invoice.overdue` once per invoice per threshold (7 and 30 days past due, idempotency key per invoice and threshold). The handler sends one simulated reminder to the customer (text, else email; draft wording) and notifies finance. The "Overdue invoice" attention rule raises Medium at 7 days and High at 30 (editable in Admin → Attention Rules, seeded idempotently). "Sold, no deposit" now uses the real deposit invoice and payments.
+- **Reason:** SPEC §9 "Overdue invoice 7 / 30 days → Medium/High".
+
+### 2026-10-27 · Month close and the owner-only override
+
+- **Decision:** Admin → Finance shows each month's totals and an un-cleared / unapplied / draft checklist, and closes a month (`finance:close_month`, owners and the bookkeeper), saving a summary snapshot. Payments, refunds, invoices and expenses dated in a closed month can't be added or changed, except by someone with the new permission **`finance:override_lock`**, which isn't in any pack (owners only) and needs a written reason (≥ 10 characters, audit-logged). Reopening a month needs the same permission and a reason. The lock is enforced in the database functions and triggers, not only in the screens.
+- **Reason:** SPEC §10 month close / lock; bookkeeper can close, only owners can change the past.
+
+### 2026-10-27 · Job costing for owners and the bookkeeper
+
+- **Decision:** Job → Financial → Job Costing (`job_costing:read`): contract, labor (daily-log hours × each person's hourly cost), materials from paint orders, subcontractor hours, other expenses with receipt photos or PDFs, gross margin and margin %. Expenses are written with the same permission; receipts are re-encoded (photos lose EXIF) and stored in the private `receipts` bucket, streamed through `/api/files/receipts/[id]` after a check. The bookkeeper may read `profile_compensation` for costing only, not edit it, and still has no `hr:read`. Crew roles see no amounts anywhere (no `financials:read`).
+- **Reason:** SPEC §4 permissions, §5.6 job_costs, §8.5 #5.
+
+### 2026-10-27 · Finance numbers come from one database function
+
+- **Decision:** `finance_stats(from, to)` (security invoker, so row security applies) returns every money KPI in one round trip: A/R outstanding, overdue, collected, billed, collection %, revenue sold / completed, gross margin % on completed jobs (owner only), days completed → paid, unapplied, aging buckets (current, 1–30, 31–60, 61–90, 90+) and counts. The registry (`lib/metrics/registry.ts`) defines each metric once on top of it; `/invoices`, A/R aging, Admin → Finance and the board read only the registry. Negative margins display as 0% in the registry tiles (gap noted).
+- **Reason:** CLAUDE.md "every KPI from the registry", "server-side aggregation".
+
+### 2026-10-27 · Sales tax is an owner question
+
+- **Decision:** Invoice lines are tax-included amounts with no separate sales-tax line; no tax rule is coded. This waits for the owners.
+- **Reason:** CLAUDE.md "don't invent tax rules".
+
+### 2026-10-27 · Deviations and gaps left for later
+
+- **Decision:** Not built in Phase 7: commissions (Phase 10); a customer-facing invoice page or online payments (no payment processor connected); real email attachments (recorded in the outbox only); the Analytics money dashboards (Phase 9); workflow templates on money events (Phase 8).
+- **Reason:** Scope and "no real integrations" rule; listed in the Phase 7 report.
+
 ## Hosting
 
 ### 2026-10-27 · Separate hosting; worker every minute from the database

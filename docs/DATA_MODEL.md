@@ -467,3 +467,55 @@ erDiagram
 New functions: `public.production_stats()` (Command Center numbers, money only with `financials:read`), `public.emit_production_event(type, aggregate, id, payload)` (service role, whitelisted types), `app.job_materials_ready(job)`, `app.job_crew_user_ids(job, crew)`, `app.refresh_job_teams(…)`, `app.jobs_for_crew(crew)`, `app.subcontractor_status(sub, date)`, `app.production_today()`, `app.seed_production_defaults(org)`; `app.job_gate_passes` covers gates 6–9.
 
 Migrations: `20261027000400_production`, `20261027000500_production_seed`, each with a rollback.
+
+## Added in Phase 7 — Money
+
+```mermaid
+erDiagram
+  jobs ||--o{ invoices : "invoices"
+  invoices ||--o{ invoice_line_items : "lines"
+  jobs ||--o{ payments : "payments"
+  payments ||--o{ payment_applications : "applied to"
+  invoices ||--o{ payment_applications : "paid by"
+  payments ||--o{ refunds : "refunds"
+  jobs ||--o{ credits : "credits"
+  invoices ||--o{ credits : "placed on"
+  on_time_credits ||--o| credits : "mirrored"
+  jobs ||--o{ job_expenses : "expenses + receipts"
+  organizations ||--o{ month_closes : "closed months"
+  payments {
+    text method "check/cash/card/ach/zelle/financing/other"
+    bigint amount_cents
+    date received_on
+    text status "received/cleared/bounced/refunded/void"
+    text accounting_sync_status "not_connected"
+  }
+  payment_applications {
+    bigint amount_cents "what this payment pays on that invoice"
+  }
+  credits {
+    text credit_type "on_time_guarantee/goodwill/discount/referral"
+    text status "pending_approval/approved/applied/rejected/voided"
+    uuid invoice_id "set when applied"
+  }
+```
+
+| Table / column                 | Purpose                                                                                                                                                                                                              |
+| ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `payments`                     | Money received for a job (method, amount, date, reference, status). Never deleted; bounced / void (reason required) stop counting. `void` is beyond the SPEC list (entered by mistake).                              |
+| `payment_applications`         | Which invoices a payment pays and how much (forced application). One row per payment and invoice. Applications of bounced, void or refunded money are kept but ignored by the ledger.                                |
+| `refunds`                      | Money given back from a payment (amount, date, method, reason); `detail` records how it came off (unapplied first, then invoices newest first).                                                                      |
+| `credits`                      | Credits that lower the contract. On-time guarantee credits are mirrored from `on_time_credits` on approval (`on_time_credit_id`). `invoice_id` + status `applied` once placed on the final invoice or a credit memo. |
+| `month_closes`                 | One row per company and month: closed (with summary snapshot and note) or reopened (who, when, why). Closed months lock money records dated in them.                                                                 |
+| `job_expenses`                 | Other job costs (materials, subcontractor, equipment, permit, disposal, other) with an optional receipt (JPEG or PDF) in the private `receipts` bucket; soft delete with a reason.                                   |
+| `invoices` + `pdf_document_id` | The PDF stored in Documents when the invoice was sent. One live final invoice per job (`invoices_one_final_idx`). `status` is kept current by the database.                                                          |
+| `saved_views.module`           | Adds `invoices`.                                                                                                                                                                                                     |
+| Views `invoice_ledger`         | Per invoice: collected, balance, days past due, display status, issued. Security invoker; amounts only with `financials:read`.                                                                                       |
+| Views `payment_ledger`         | Per payment: applied, refunded, unapplied, available.                                                                                                                                                                |
+| Views `job_ledger`             | Per job: contract base, credits, pending credits, contract, billed, left to bill, collected, balance, due, unapplied, refunded, uncleared, open / overdue invoice counts.                                            |
+
+**No stored balances.** No table has a balance, paid, collected, outstanding, amount-due, left-to-bill or unapplied column; `supabase/tests/013_money.test.sql` fails if one appears. Every figure comes from the views (or `lib/domain/ledger` in TypeScript, checked against the same scenario).
+
+New functions (all writes are `service_role` only and re-check the actor's permission and company): `create_invoice`, `update_invoice_draft`, `mark_invoice_sent`, `void_invoice`, `record_payment`, `set_payment_applications`, `update_payment_status` (clear / bounce / void), `refund_payment`, `create_credit`, `decide_credit`, `place_job_credits`, `draft_final_invoice`, `close_month`, `reopen_month`, `sweep_invoices`; `public.finance_stats(from, to)` (security invoker, every money KPI); `app.invoice_display_status(…)`, `app.refresh_invoice_status(invoice)`, `app.job_money(job)`, `app.money_locked(org, day)`, `app.check_money_lock(…)`, `app.require_actor_perm(…)`, `app.require_actor_org(org)`, `app.seed_money_defaults(org)`. `app.job_gate_passes` covers gates 10–12; `search_records` returns invoices.
+
+Migration: `20261028000100_money`, with a rollback.

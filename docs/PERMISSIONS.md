@@ -405,3 +405,15 @@ No new permissions; Phase 6 starts using the production ones seeded in Phase 1. 
 - **On-time credits:** visible with `financials:read`; approve or waive with `credits:approve` (Approvals pack: Owner). Credits are created only by the system.
 - **Checklists on a job:** add with `work_orders:manage` or edit rights on the job; tick with those or `daily_logs:create`.
 - **Field screens:** Today and My Projects need `work_orders:read`; Daily Log needs `daily_logs:create`. Painters (Field crew pack) see their crew's jobs but don't post daily logs — the crew lead does.
+
+## Added in Phase 7
+
+One new permission: **`finance:override_lock`** ("Change records in a closed month") — in no pack, so only owners (who hold every permission) have it.
+
+- **Money amounts** (payments, applications, refunds, credits, month closes, and the amount columns of the ledger views) need `financials:read` (Finance — billing / view packs: Office Manager, Bookkeeper, Read-only; Owner). Crew roles (Painter, Project Manager / Crew Lead, Subcontractor) have none and see no amounts anywhere, including the job Overview. Nobody writes money tables directly; the screens call checked database functions.
+- **Invoices:** `/invoices` and A/R aging need `invoices:read`. Create, edit, send, void invoices, draft the final invoice and add credits need `invoices:edit` (Finance — billing).
+- **Payments:** record, change applications, mark cleared / bounced / void and refund need `payments:record` (Finance — billing).
+- **Credits:** approve or reject (and add pre-approved) with `credits:approve` (Approvals pack: Owner). On-time guarantee credits are still created only by the system.
+- **Job costing** (Job → Financial → Job Costing, expenses and receipts) needs `job_costing:read` (Finance — controls: Bookkeeper; Owner). The same permission reads `profile_compensation` hourly costs for costing; it doesn't allow editing them, and the bookkeeper still has no `hr:read`. Receipt files stream through the app only after this check.
+- **Admin → Finance** and **Close month** need `finance:close_month` (Finance — controls: Bookkeeper; Owner). **Reopen a month** and **any change dated in a closed month** need `finance:override_lock` and a written reason (≥ 10 characters, audit-logged). The database enforces the lock, not only the screen.
+- **Gross margin %** on the finance KPIs is owner-only (registry `ownerOnly`).
