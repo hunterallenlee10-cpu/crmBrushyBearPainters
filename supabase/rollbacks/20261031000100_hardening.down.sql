@@ -5,6 +5,7 @@
 -- is_demo flags go with it).
 
 drop function if exists public.job_recovery_scan(uuid, integer);
+drop function if exists public.demo_backdate_stage(uuid, timestamptz);
 drop function if exists public.purge_demo_data(uuid);
 drop function if exists public.demo_data_counts(uuid);
 drop function if exists public.undo_merge(uuid, text);

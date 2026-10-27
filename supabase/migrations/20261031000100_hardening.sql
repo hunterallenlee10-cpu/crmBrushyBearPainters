@@ -1461,6 +1461,31 @@ begin
 end;
 $$;
 
+-- Demo data only (pnpm seed:demo): backdates when a demo job entered its
+-- current stage so "days in stage", attention items and job health look like
+-- a real pipeline. Refuses any job that isn't demo data.
+create or replace function public.demo_backdate_stage(p_job uuid, p_entered_at timestamptz)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if not app.is_trusted() then
+    raise exception 'Only the server can change demo data.' using errcode = '42501';
+  end if;
+  if p_entered_at is null or p_entered_at > now() then
+    raise exception 'The date must be in the past.' using errcode = '22023';
+  end if;
+  perform set_config('app.stage_change', 'on', true);
+  update public.jobs set stage_entered_at = p_entered_at where id = p_job and is_demo;
+  if not found then
+    raise exception 'Only demo jobs can be backdated.' using errcode = 'P0002';
+  end if;
+  perform set_config('app.stage_change', 'off', true);
+end;
+$$;
+
 -- =============================================================================
 -- 9. Gate / lockbox codes for the crew on site today (SPEC §5.1, §13.1)
 -- =============================================================================
@@ -1755,10 +1780,12 @@ grant select, insert, update, delete on public.custom_field_definitions, public.
 -- =============================================================================
 
 revoke execute on function public.merge_customers(text, uuid, uuid, jsonb, text), public.undo_merge(uuid, text),
-  public.purge_demo_data(uuid), public.demo_data_counts(uuid), public.job_recovery_scan(uuid, integer)
+  public.purge_demo_data(uuid), public.demo_data_counts(uuid), public.job_recovery_scan(uuid, integer),
+  public.demo_backdate_stage(uuid, timestamptz)
   from public, anon, authenticated;
 grant execute on function public.merge_customers(text, uuid, uuid, jsonb, text), public.undo_merge(uuid, text),
-  public.purge_demo_data(uuid), public.demo_data_counts(uuid), public.job_recovery_scan(uuid, integer)
+  public.purge_demo_data(uuid), public.demo_data_counts(uuid), public.job_recovery_scan(uuid, integer),
+  public.demo_backdate_stage(uuid, timestamptz)
   to service_role;
 
 revoke execute on function public.bulk_update_apply(uuid), public.bulk_update_revert(uuid, text),

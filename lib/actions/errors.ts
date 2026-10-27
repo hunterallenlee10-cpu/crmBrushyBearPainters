@@ -21,7 +21,7 @@ export type ActionError = {
 
 export type ActionResult<T> = { ok: true; data: T } | { ok: false; error: ActionError };
 
-type DbError = { code?: string | null; message?: string | null };
+export type DbError = { code?: string | null; message?: string | null };
 
 const GENERIC: Record<ActionErrorCode, string> = {
   validation: "Some fields need attention.",

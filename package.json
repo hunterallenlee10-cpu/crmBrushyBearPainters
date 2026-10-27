@@ -23,6 +23,7 @@
     "db:types": "supabase gen types typescript --local --schema public > lib/db/types.ts && prettier --write lib/db/types.ts",
     "supabase": "supabase",
     "seed:owners": "node --env-file-if-exists=.env.local scripts/seed-owners.mts",
+    "seed:demo": "node --experimental-transform-types --conditions=react-server --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --disable-warning=ExperimentalWarning --import ./scripts/lib/register-ts-alias.mjs --env-file-if-exists=.env.local scripts/seed-demo.ts",
     "bench:leads": "bash scripts/bench-leads.sh"
   },
   "dependencies": {

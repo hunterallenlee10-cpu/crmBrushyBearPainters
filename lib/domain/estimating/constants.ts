@@ -276,3 +276,19 @@ export const SAMPLE_BADGE = "Sample – Erik to calibrate";
 /** Badge text for seeded wording nobody has approved yet (SPEC §7.6, §13.4). */
 export const DRAFT_BADGE = "Draft – owner to approve";
 export const LEGAL_DRAFT_BADGE = "Draft – owner/attorney to approve";
+
+/** Sheen picked for a new line when its default product offers several. */
+export const LINE_SHEEN_PREFERENCE: readonly string[] = [
+  "eggshell",
+  "satin",
+  "semi_gloss",
+  "flat",
+  "matte",
+  "gloss",
+];
+/** Work on painted surfaces that gets lead-safe prep in pre-1978 homes (SPEC §7.3). */
+export const LEAD_SAFE_WORK_TYPES: ReadonlySet<string> = new Set([
+  "interior",
+  "exterior",
+  "cabinets",
+]);

@@ -5,6 +5,7 @@ import { defineAction, type ActionContext } from "@/lib/actions/define-action";
 import { ActionFailure, actionError, check, checkOne, mapDbError } from "@/lib/actions/errors";
 import type { Database } from "@/lib/db/types";
 import { repriceVersion, loadPricingContext } from "@/lib/estimating/load";
+import { LEAD_SAFE_WORK_TYPES, LINE_SHEEN_PREFERENCE } from "@/lib/estimating/engine";
 import { quantityFromMeasurement } from "@/lib/estimating/measurement";
 import { sendEstimateVersion } from "@/lib/estimating/send";
 import { logError } from "@/lib/log";
@@ -576,8 +577,8 @@ export const copyAreaToOption = defineAction({
 
 // --- Lines -------------------------------------------------------------------------
 
-const SHEEN_PREFERENCE = ["eggshell", "satin", "semi_gloss", "flat", "matte", "gloss"];
-const LEAD_SAFE_WORK = new Set(["interior", "exterior", "cabinets"]);
+const SHEEN_PREFERENCE = LINE_SHEEN_PREFERENCE;
+const LEAD_SAFE_WORK = LEAD_SAFE_WORK_TYPES;
 
 export const addLine = defineAction({
   name: "estimates.add_line",

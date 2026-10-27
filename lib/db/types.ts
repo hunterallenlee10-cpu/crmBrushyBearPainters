@@ -12454,6 +12454,7 @@ export type Database = {
         Returns: undefined;
       };
       decline_proposal: { Args: { p_reason: string; p_token_hash: string }; Returns: Json };
+      demo_backdate_stage: { Args: { p_entered_at: string; p_job: string }; Returns: undefined };
       demo_data_counts: { Args: { p_org: string }; Returns: Json };
       document_stats: { Args: { p_job?: string }; Returns: Json };
       draft_final_invoice: { Args: { p_job: string }; Returns: string };

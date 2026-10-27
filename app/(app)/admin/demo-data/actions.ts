@@ -3,12 +3,14 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { defineAction } from "@/lib/actions/define-action";
-import { ActionFailure, actionError, mapDbError } from "@/lib/actions/errors";
+import { ActionFailure, actionError, mapDbError, type DbError } from "@/lib/actions/errors";
+import { purgeDemo } from "@/lib/demo/purge";
 
 /**
  * Admin → Demo Data: owners only. Removes every record the demo script tagged
- * `is_demo` (and what hangs off it) through `purge_demo_data()`, run as the
- * service with the owner recorded as the actor. Real records are never touched.
+ * `is_demo` (and what hangs off it, including demo photo files) through
+ * `purgeDemo()`, run as the service with the owner recorded as the actor. Real
+ * records are never touched.
  */
 export const purgeDemoData = defineAction({
   name: "demo.purge",
@@ -18,9 +20,13 @@ export const purgeDemoData = defineAction({
     if (!viewer.isOwner)
       throw new ActionFailure(actionError("forbidden", "Only owners can purge demo data."));
     const db = await service();
-    const { data, error } = await db.rpc("purge_demo_data", { p_org: viewer.orgId });
-    if (error) throw new ActionFailure(mapDbError(error));
+    let counts: Record<string, number>;
+    try {
+      counts = await purgeDemo(db, viewer.orgId);
+    } catch (e) {
+      throw new ActionFailure(mapDbError(e as DbError));
+    }
     revalidatePath("/", "layout");
-    return (data ?? {}) as Record<string, number>;
+    return counts;
   },
 });

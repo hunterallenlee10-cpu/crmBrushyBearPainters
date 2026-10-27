@@ -436,6 +436,17 @@ values (tests.org_id(), 'sms', 'outbound', 'simulated', 'Demo text', (select id 
 with c as (insert into public.crews (org_id, name, is_demo) values (tests.org_id(), 'Demo Crew', true) returning id)
 insert into r select 'd_crew', id from c;
 select tests.assert_eq((select (public.demo_data_counts(tests.org_id()) ->> 'jobs')::int), 1, 'demo records are counted');
+select public.demo_backdate_stage((select id from r where k = 'd_job'), now() - interval '9 days');
+select tests.assert_eq((select (now() - stage_entered_at) > interval '8 days' from public.jobs where id = (select id from r where k = 'd_job')), true,
+  'the demo script can backdate when a demo job entered its stage');
+select tests.assert_raises(format($q$select public.demo_backdate_stage(%L, now() - interval '9 days')$q$, (select id from r where k = 'job_b')),
+  'real jobs can''t be backdated', 'P0002');
+select tests.assert_raises(format($q$select public.demo_backdate_stage(%L, now() + interval '1 day')$q$, (select id from r where k = 'd_job')),
+  'only past dates', '22023');
+select tests.logout();
+select tests.login((select id from u where k = 'owner'));
+select tests.assert_raises(format($q$select public.demo_backdate_stage(%L, now() - interval '2 days')$q$, (select id from r where k = 'd_job')),
+  'people can''t backdate stages', '42501');
 select tests.logout();
 
 select tests.login((select id from u where k = 'owner'));
