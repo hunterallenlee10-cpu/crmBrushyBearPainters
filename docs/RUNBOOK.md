@@ -68,8 +68,24 @@ The website posts quote requests to `POST /api/public/leads` (contract in `docs/
 
 `/api/cron/worker` processes queued events, refreshes job health, auto-closes jobs 3 days after Paid in Full, and runs the attention rules.
 
-1. **Secret:** set `CRON_SECRET` (`openssl rand -hex 32`) in the Vercel env. Vercel Cron sends it as `Authorization: Bearer …` automatically. Without it the route answers `503`.
-2. **Schedule:** `vercel.json` asks for every minute. That needs a Vercel **Pro** plan; on Hobby, cron jobs run at most once a day, so the attention engine would lag. Confirm the plan before launch.
+1. **Secret:** set `CRON_SECRET` (`openssl rand -hex 32`) in the Vercel env. Vercel Cron sends it as `Authorization: Bearer …` automatically; the database job below sends the same value. Without it the route answers `503`.
+2. **Schedule (every minute, from Supabase):** Vercel Hobby only runs cron jobs once a day, so `vercel.json` keeps a daily run as a backup and the database calls the worker every minute with `pg_cron` + `pg_net` (both free on every Supabase plan). Set it up once per hosted project in the SQL editor, replacing the URL and secret:
+
+   ```sql
+   create extension if not exists pg_cron;
+   create extension if not exists pg_net;
+   select vault.create_secret('<CRON_SECRET>', 'worker_cron_secret');
+   select cron.schedule('crm-worker', '* * * * *', $$
+     select net.http_get(
+       url := 'https://<app>/api/cron/worker',
+       headers := jsonb_build_object('Authorization', 'Bearer ' ||
+         (select decrypted_secret from vault.decrypted_secrets where name = 'worker_cron_secret'))
+     );
+   $$);
+   ```
+
+   Check it with `select * from cron.job_run_details order by start_time desc limit 5;`. To stop it: `select cron.unschedule('crm-worker');`. On a Vercel Pro plan you can instead set the `vercel.json` schedule to `* * * * *` and unschedule the database job.
+
 3. **Run it by hand:** `curl -H "Authorization: Bearer $CRON_SECRET" https://<app>/api/cron/worker` returns a JSON summary (events claimed/processed/failed, jobs auto-closed, health updates, attention items opened/updated/resolved).
 4. **Stuck or failing events:** check `events` where `status = 'failed'` (`last_error` says why). Failed events retry up to 5 times with back-off; events stuck in `processing` for 5 minutes are picked up again.
 5. **Attention noise:** turn a rule off or change its thresholds in Admin → Attention Rules; changes apply on the next run.

@@ -433,3 +433,10 @@ Every non-obvious decision, newest at the bottom. Format: date · decision · re
 - **Attention Center:** "Prioritize" ranks up to 2,000 matching items by urgency score on the server (scores depend on the current time, so they can't be a stored sort column). Past 2,000 the page says the ranking is partial and suggests a filter; that's far beyond this company's volume. Snooze presets: 1 hour, tomorrow 8 am, next Monday 8 am (Pacific).
 - **New Job** starts from an existing customer (account, property, contact). Creating a customer inline waits for owner feedback. Accounts get a "New job" button; the New Lead wizard's "Save & Convert" saves the lead and converts it in one go.
 - **Reason:** SPEC §8.5–§8.9. Recorded so the owners can review the choices; open questions are in the Phase 3 report.
+
+## Hosting
+
+### 2026-10-27 · Separate hosting; worker every minute from the database
+
+- **Decision:** Brushy Bear gets its own Supabase organization and project (separate from the owners' other business), and its own Vercel project in the existing Vercel team. Production deploys from `main`. Vercel Hobby only allows daily cron jobs, so `vercel.json` runs the worker once a day as a backup and Supabase `pg_cron` + `pg_net` call `/api/cron/worker` every minute (RUNBOOK "Background worker"). The production database starts empty: migrations plus the real configuration seed, no demo data.
+- **Reason:** Owner request (2026-10-27): "a new project and totally separate", "get this live". Per-minute Vercel cron needs Pro; the database schedule is free and keeps the attention engine current.
