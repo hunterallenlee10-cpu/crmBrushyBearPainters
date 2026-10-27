@@ -1,4 +1,7 @@
 import type { Metadata } from "next";
+import { CustomFieldsCard } from "@/components/custom-fields/custom-fields-card";
+import { loadLayout } from "@/lib/custom-fields/server";
+import { layoutLookup } from "@/lib/domain/custom-fields";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
@@ -95,7 +98,7 @@ export default async function AccountDetailPage({ params }: { params: Params }) 
       supabase
         .from("accounts")
         .select(
-          "id, display_name, account_type, status, owner_id, primary_contact_id, is_referral_champion, tags, notes, created_at, updated_at, owner:profiles!accounts_owner_id_fkey(full_name), territory:territories!accounts_territory_id_fkey(name)",
+          "id, display_name, account_type, status, owner_id, primary_contact_id, is_referral_champion, tags, notes, custom_field_values, created_at, updated_at, owner:profiles!accounts_owner_id_fkey(full_name), territory:territories!accounts_territory_id_fkey(name)",
         )
         .eq("id", id)
         .maybeSingle(),
@@ -160,6 +163,9 @@ export default async function AccountDetailPage({ params }: { params: Params }) 
 
   const readOnly = viewer.impersonating;
   const canUpdate = viewer.can("accounts:update") && !readOnly;
+  const L = layoutLookup(await loadLayout(supabase, "accounts"));
+  /** CSS order from the page layout, or -1 to hide the section. */
+  const place = (key: string) => (L.visible(key) ? L.order(key) : -1);
   const canDelete = viewer.can("accounts:delete") && !readOnly;
   const canCreateJob = viewer.can("jobs:create") && !readOnly;
   const canAddContact = viewer.can("contacts:create") && !readOnly;
@@ -270,6 +276,7 @@ export default async function AccountDetailPage({ params }: { params: Params }) 
         <div className="flex min-w-0 flex-col gap-5 lg:col-span-2">
           {/* Contacts */}
           <Section
+            order={place("contacts")}
             title="Contacts"
             count={contacts.length}
             action={canAddContact ? <ContactDialog mode="add" accountId={account.id} /> : null}
@@ -360,6 +367,7 @@ export default async function AccountDetailPage({ params }: { params: Params }) 
 
           {/* Properties */}
           <Section
+            order={place("properties")}
             title="Properties"
             count={properties.length}
             action={
@@ -500,7 +508,7 @@ export default async function AccountDetailPage({ params }: { params: Params }) 
           </Section>
 
           {/* Related leads */}
-          <Section title="Leads" count={leads.length}>
+          <Section order={place("leads")} title="Leads" count={leads.length}>
             {leads.length === 0 ? (
               <EmptyState icon={UserRoundSearch} title="No leads linked" className="py-8">
                 Leads from this household show up here once they&apos;re linked to the account.
@@ -534,7 +542,7 @@ export default async function AccountDetailPage({ params }: { params: Params }) 
           </Section>
 
           {viewer.can("documents:read") && (
-            <Section title="Documents">
+            <Section order={place("documents")} title="Documents">
               <AccountDocuments
                 accountId={id}
                 canManage={viewer.can("documents:manage") && !viewer.impersonating}
@@ -544,7 +552,7 @@ export default async function AccountDetailPage({ params }: { params: Params }) 
         </div>
 
         <div className="flex min-w-0 flex-col gap-5">
-          <Section title="Details">
+          <Section order={place("details")} title="Details">
             <dl className="flex flex-col gap-2 text-sm">
               <div>
                 <dt className="text-xs text-muted-foreground">Tags</dt>
@@ -573,7 +581,18 @@ export default async function AccountDetailPage({ params }: { params: Params }) 
             </dl>
           </Section>
 
-          <Section title="Timeline">
+          {L.visible("custom_fields") && (
+            <div style={{ order: L.order("custom_fields") }} className="min-w-0">
+              <CustomFieldsCard
+                module="accounts"
+                recordId={account.id}
+                values={account.custom_field_values}
+                canEdit={canUpdate}
+              />
+            </div>
+          )}
+
+          <Section order={place("timeline")} title="Timeline">
             {activity.length === 0 ? (
               <EmptyState icon={Building2} title="Nothing yet" className="py-8">
                 Changes, gate-code views and messages on this account will show up here.
@@ -604,16 +623,24 @@ function Section({
   title,
   count,
   action,
+  order,
   children,
 }: {
   title: string;
   count?: number;
   action?: React.ReactNode;
+  /** Position from the company's page layout (Module Manager). */
+  order?: number;
   children: React.ReactNode;
 }) {
+  if (order === -1) return null;
   const headingId = `section-${title.toLowerCase().replace(/\W+/g, "-")}`;
   return (
-    <section aria-labelledby={headingId} className="min-w-0 rounded-2xl border bg-card p-4 sm:p-5">
+    <section
+      aria-labelledby={headingId}
+      style={order === undefined ? undefined : { order }}
+      className="min-w-0 rounded-2xl border bg-card p-4 sm:p-5"
+    >
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <h2 id={headingId} className="text-base font-semibold">
           {title}

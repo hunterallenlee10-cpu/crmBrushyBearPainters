@@ -203,4 +203,6 @@ export type JobDetailData = {
   viewerId: string;
   readOnly: boolean;
   section: JobSectionId;
+  /** Visible sections in the company's order (Module Manager → Page layout). */
+  sectionOrder?: JobSectionId[];
 };

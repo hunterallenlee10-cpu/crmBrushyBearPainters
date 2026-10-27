@@ -22,11 +22,10 @@ import { formatPacific, pacificDateRangeToUtc } from "@/lib/admin/pacific";
 import { requirePermission } from "@/lib/auth/viewer";
 import { createSupabaseServerClient } from "@/lib/db/server";
 import { AuditFiltersForm } from "./audit-filters";
+import { ExportListButton } from "@/components/lists/export-list-button";
 import { AuditRows, type AuditRowView } from "./audit-rows-client";
 
 export const metadata: Metadata = { title: "Audit Log" };
-
-const EXPORT_NOTE = "Export arrives with Export Controls (Phase 10)";
 
 export default async function AuditLogPage({
   searchParams,
@@ -95,14 +94,20 @@ export default async function AuditLogPage({
         title="Audit Log"
         description="Every change to setup and business records: who, what, when (Pacific time) and from where. Entries can't be edited or deleted."
         actions={
-          <div className="flex flex-col items-start gap-1 sm:items-end">
-            <Button variant="outline" size="sm" disabled aria-describedby="audit-export-note">
-              <Download aria-hidden /> Export CSV
-            </Button>
-            <p id="audit-export-note" className="text-xs text-muted-foreground">
-              {EXPORT_NOTE}
-            </p>
-          </div>
+          viewer.can("data:export") && !viewer.impersonating ? (
+            <ExportListButton list="audit_log" total={rows.length} />
+          ) : (
+            <div className="flex flex-col items-start gap-1 sm:items-end">
+              <Button variant="outline" size="sm" disabled aria-describedby="audit-export-note">
+                <Download aria-hidden /> Export CSV
+              </Button>
+              <p id="audit-export-note" className="text-xs text-muted-foreground">
+                {viewer.impersonating
+                  ? "Exports are off while viewing as another user."
+                  : "Your role can't export data. Ask an owner for export access."}
+              </p>
+            </div>
+          )
         }
       />
 

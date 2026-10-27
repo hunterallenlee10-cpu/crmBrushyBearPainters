@@ -20,7 +20,6 @@ import { logError } from "@/lib/log";
 import { isJobStageId, TERMINAL_STAGES } from "@/lib/domain/stages";
 import { JOB_STATUS_LABELS, type JobPriority, type JobStatus } from "@/lib/domain/jobs/constants";
 import {
-  JOBS_LIST,
   ON_HOLD_CHIP,
   chipsForTab,
   jobsListFor,
@@ -29,6 +28,10 @@ import {
 } from "@/lib/lists/modules/jobs";
 import { filterToOps } from "@/lib/lists/filters";
 import { listOps, parseListState, resolveColumns } from "@/lib/lists/params";
+import { customCells } from "@/components/custom-fields/list-cells";
+import { loadCustomFields } from "@/lib/custom-fields/server";
+import { withCustomFields } from "@/lib/domain/custom-fields";
+
 import { applyOps, loadColumnPrefs, loadSavedViews, withOptions } from "@/lib/lists/server";
 import { formatDate, formatRelative } from "@/lib/format/dates";
 import { jobCountValue, parseJobStatusCounts } from "@/lib/metrics/registry";
@@ -39,7 +42,7 @@ export const metadata: Metadata = { title: "Job List" };
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
 const SELECT =
-  "id, job_number, name, stage, status, priority, work_types, promised_start_date, health_score, lead_source, stage_entered_at, created_at, account:accounts!jobs_account_id_fkey(display_name), owner:profiles!jobs_owner_id_fkey(full_name), poc:profiles!jobs_point_of_contact_id_fkey(full_name), pm:profiles!jobs_project_manager_id_fkey(full_name), job_holds(hold_type, blocks_scheduling, released_at)";
+  "id, job_number, name, stage, status, priority, work_types, promised_start_date, health_score, lead_source, stage_entered_at, created_at, custom_field_values, account:accounts!jobs_account_id_fkey(display_name), owner:profiles!jobs_owner_id_fkey(full_name), poc:profiles!jobs_point_of_contact_id_fkey(full_name), pm:profiles!jobs_project_manager_id_fkey(full_name), job_holds(hold_type, blocks_scheduling, released_at)";
 
 export default async function JobListPage({ searchParams }: { searchParams: SearchParams }) {
   const viewer = await requirePermission("jobs:read");
@@ -47,7 +50,8 @@ export default async function JobListPage({ searchParams }: { searchParams: Sear
   const now = new Date();
   const params = await searchParams;
   const canSeeMoney = viewer.can("financials:read");
-  const mod = jobsListFor(canSeeMoney);
+  const customDefs = await loadCustomFields(supabase, "jobs");
+  const mod = withCustomFields(jobsListFor(canSeeMoney), customDefs);
   const state = parseListState(params, mod);
   const layout =
     (Array.isArray(params.layout) ? params.layout[0] : params.layout) === "cards"
@@ -63,7 +67,8 @@ export default async function JobListPage({ searchParams }: { searchParams: Sear
   if (countsRes.error) logError("jobs.list.counts", countsRes.error);
   const counts = parseJobStatusCounts(countsRes.data);
 
-  const fields = withOptions(JOBS_LIST.fields, options);
+  const fields = withOptions(mod.fields, options);
+  const userNames = new Map(options.users.map((u) => [u.value, u.label]));
   const view = savedViews.find((v) => v.id === state.view);
   const visibleColumns = resolveColumns(mod, view?.config.columns ?? columnPrefs);
   const ctx = { userId: viewer.id, now };
@@ -218,6 +223,7 @@ export default async function JobListPage({ searchParams }: { searchParams: Sear
               {formatRelative(j.created_at, now)}
             </span>
           ),
+          ...customCells(customDefs, j.custom_field_values, userNames),
         },
       },
     ];
@@ -285,6 +291,12 @@ export default async function JobListPage({ searchParams }: { searchParams: Sear
           .map((o) => ({ value: o.value, label: o.label }))}
         userOptions={options.users}
         canAssign={viewer.can("jobs:assign") && !viewer.impersonating}
+        exportList={viewer.can("data:export") && !viewer.impersonating ? "jobs" : undefined}
+        bulkUpdateModule={
+          viewer.can("bulk:update") && viewer.can("jobs:update") && !viewer.impersonating
+            ? "jobs"
+            : undefined
+        }
         emptyState={
           <EmptyState
             icon={BriefcaseBusiness}

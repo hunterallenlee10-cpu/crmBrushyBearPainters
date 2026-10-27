@@ -3,6 +3,8 @@
 import type { ListModuleId } from "@/lib/lists/params";
 
 import * as React from "react";
+import Link from "next/link";
+import { ExportListButton } from "@/components/lists/export-list-button";
 import {
   ArrowDown,
   ArrowUp,
@@ -10,6 +12,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Eye,
+  Layers,
   Loader2,
   Search,
   X,
@@ -83,6 +86,10 @@ export type ListShellProps = {
   chipCounts?: Readonly<Record<string, number>>;
   /** Extra URL params kept on every navigation (e.g. the Jobs list/card toggle). */
   persistParams?: Readonly<Record<string, string>>;
+  /** Shows "Bulk update…" for the selection (Admin → Bulk Update, preview first). */
+  bulkUpdateModule?: "leads" | "jobs" | "accounts" | "contacts";
+  /** Shows "Export CSV" for the filtered list (permission-gated, logged). */
+  exportList?: "leads" | "jobs";
 };
 
 function formatCount(n: number | null): string {
@@ -146,7 +153,7 @@ export function ListShell(props: ListShellProps) {
     go({ sort: col.sortColumn, dir });
   }
 
-  const selectable = Boolean(props.bulkActions);
+  const selectable = Boolean(props.bulkActions || props.bulkUpdateModule);
   const ids = [...selected];
   const clear = () => setSelected(new Set());
   const hasFilters = state.q !== "" || state.chips.length > 0 || state.filter.rules.length > 0;
@@ -227,6 +234,7 @@ export function ListShell(props: ListShellProps) {
           allColumns={props.allColumns}
           visibleIds={props.visibleColumns.map((c) => c.id)}
         />
+        {props.exportList && <ExportListButton list={props.exportList} total={props.total} />}
         {pending && (
           <Loader2 className="size-4 animate-spin text-muted-foreground" aria-label="Loading" />
         )}
@@ -291,6 +299,16 @@ export function ListShell(props: ListShellProps) {
         >
           <span className="text-sm font-medium">{ids.length} selected</span>
           {props.bulkActions?.(ids, clear)}
+          {props.bulkUpdateModule && (
+            <Button variant="outline" size="sm" asChild>
+              <Link
+                href={`/admin/bulk-update/new?module=${props.bulkUpdateModule}&ids=${ids.slice(0, 500).join(",")}`}
+              >
+                <Layers aria-hidden />
+                Bulk update…
+              </Link>
+            </Button>
+          )}
           <Button variant="ghost" size="sm" onClick={clear} className="ml-auto">
             Clear selection
           </Button>

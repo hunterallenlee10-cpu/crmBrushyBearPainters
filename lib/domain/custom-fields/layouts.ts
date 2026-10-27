@@ -26,12 +26,12 @@ export const LAYOUT_SECTIONS: Record<CustomFieldModule, readonly LayoutSection[]
     { key: "punch_list", label: "Punch List" },
     { key: "notes", label: "Notes" },
     { key: "activity", label: "Activity Log" },
-    { key: "custom_fields", label: "More fields (custom)" },
+    { key: "custom_fields", label: "More fields card (on Overview)" },
     { key: "admin", label: "Admin", locked: true },
   ],
   leads: [
     { key: "details", label: "Details", locked: true },
-    { key: "custom_fields", label: "More fields (custom)" },
+    { key: "custom_fields", label: "More fields card (on Details)" },
     { key: "activity", label: "Activity" },
     { key: "notes", label: "Notes" },
     { key: "comments", label: "Comments" },
@@ -40,7 +40,6 @@ export const LAYOUT_SECTIONS: Record<CustomFieldModule, readonly LayoutSection[]
   accounts: [
     { key: "contacts", label: "Contacts" },
     { key: "properties", label: "Properties" },
-    { key: "jobs", label: "Jobs" },
     { key: "leads", label: "Leads" },
     { key: "documents", label: "Documents" },
     { key: "details", label: "Details", locked: true },
@@ -111,4 +110,17 @@ export function moveSection<T>(list: readonly T[], from: number, to: number): T[
   const [item] = next.splice(from, 1);
   next.splice(to, 0, item!);
   return next;
+}
+
+/** Lookup for pages that place sections in a grid: visible? and CSS order. */
+export function layoutLookup(sections: readonly ResolvedSection[]): {
+  visible: (key: string) => boolean;
+  order: (key: string) => number;
+} {
+  const index = new Map(sections.map((s, i) => [s.key, i]));
+  const shown = new Set(sections.filter((s) => s.visible).map((s) => s.key));
+  return {
+    visible: (key) => shown.has(key) || !index.has(key),
+    order: (key) => index.get(key) ?? sections.length,
+  };
 }

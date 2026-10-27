@@ -18,6 +18,8 @@ import type { CommentCategory, NotePriority, TaskPriority } from "./schemas";
 import type { LeadDetailData, PhotoItem, ThreadItem } from "./types";
 import { nameInitials, parseTab, scopeAllows } from "./utils";
 import { LeadDetail } from "./lead-detail";
+import { CustomFieldsCard } from "@/components/custom-fields/custom-fields-card";
+import { loadLayout } from "@/lib/custom-fields/server";
 
 type Params = Promise<{ id: string }>;
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
@@ -41,7 +43,7 @@ const LIMIT = 200;
 const SIGNED_URL_SECONDS = 600;
 
 const LEAD_SELECT =
-  "id, org_id, first_name, last_name, company, mobile, phone, email, street, unit, city, state, zip, out_of_area, territory_id, services, timeline, home_built, year_built, property_type, stories, siding_type, has_hoa, customer_notes, status, disposition, sms_opted_out_at, lost_reason, lead_source, lead_sub_source, lead_set_by, owner_id, created_by, score, grade, temperature, score_factors, scored_at, walkthrough_at, nurture_until, first_contacted_at, speed_to_lead_seconds, intake_channel, created_at, updated_at, last_activity_at, owner:profiles!leads_owner_id_fkey(full_name), set_by:profiles!leads_lead_set_by_fkey(full_name), territory:territories(name)";
+  "id, org_id, first_name, last_name, company, mobile, phone, email, street, unit, city, state, zip, out_of_area, territory_id, services, timeline, home_built, year_built, property_type, stories, siding_type, has_hoa, customer_notes, status, disposition, sms_opted_out_at, lost_reason, lead_source, lead_sub_source, lead_set_by, owner_id, created_by, score, grade, temperature, score_factors, scored_at, custom_field_values, walkthrough_at, nurture_until, first_contacted_at, speed_to_lead_seconds, intake_channel, created_at, updated_at, last_activity_at, owner:profiles!leads_owner_id_fkey(full_name), set_by:profiles!leads_lead_set_by_fkey(full_name), territory:territories(name)";
 
 export default async function LeadDetailPage({
   params,
@@ -238,6 +240,7 @@ export default async function LeadDetailPage({
     : [];
   const name = [l.first_name, l.last_name].filter(Boolean).join(" ");
 
+  const layout = await loadLayout(supabase, "leads");
   const data: LeadDetailData = {
     lead: {
       id: l.id,
@@ -369,7 +372,20 @@ export default async function LeadDetailPage({
   return (
     <>
       <RememberRecent kind="lead" id={l.id} title={name} href={`/leads/${l.id}`} />
-      <LeadDetail data={data} />
+      <LeadDetail
+        data={data}
+        tabOrder={layout.filter((s) => s.visible && s.key !== "custom_fields").map((s) => s.key)}
+        moreFields={
+          layout.some((s) => s.key === "custom_fields" && s.visible) ? (
+            <CustomFieldsCard
+              module="leads"
+              recordId={l.id}
+              values={l.custom_field_values}
+              canEdit={data.can.update && !data.readOnly && l.status !== "converted"}
+            />
+          ) : null
+        }
+      />
     </>
   );
 }

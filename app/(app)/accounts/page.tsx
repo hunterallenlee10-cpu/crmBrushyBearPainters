@@ -8,7 +8,15 @@ import { Badge } from "@/components/ui/badge";
 import { requirePermission } from "@/lib/auth/viewer";
 import { createSupabaseServerClient } from "@/lib/db/server";
 import { loadLeadOptions } from "@/lib/leads/service";
-import { ACCOUNTS_LIST, accountSearchOps, cleanSearchTerm } from "@/lib/lists/modules/accounts";
+import {
+  ACCOUNTS_LIST as BASE_ACCOUNTS_LIST,
+  accountSearchOps,
+  cleanSearchTerm,
+} from "@/lib/lists/modules/accounts";
+import { customCells } from "@/components/custom-fields/list-cells";
+import { loadCustomFields } from "@/lib/custom-fields/server";
+import { withCustomFields } from "@/lib/domain/custom-fields";
+
 import { filterToOps } from "@/lib/lists/filters";
 import { listOps, parseListState, resolveColumns } from "@/lib/lists/params";
 import { applyOps, loadColumnPrefs, loadSavedViews, withOptions } from "@/lib/lists/server";
@@ -28,7 +36,7 @@ export const metadata: Metadata = { title: "Accounts" };
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
 const SELECT =
-  "id, display_name, account_type, status, is_referral_champion, tags, created_at, updated_at, owner:profiles!accounts_owner_id_fkey(full_name), territory:territories!accounts_territory_id_fkey(name), primary_contact:contacts!accounts_primary_contact_fk(first_name, last_name, mobile, phone, email), properties(city, is_primary), leads(count)";
+  "id, display_name, account_type, status, is_referral_champion, tags, created_at, updated_at, custom_field_values, owner:profiles!accounts_owner_id_fkey(full_name), territory:territories!accounts_territory_id_fkey(name), primary_contact:contacts!accounts_primary_contact_fk(first_name, last_name, mobile, phone, email), properties(city, is_primary), leads(count)";
 
 /** Most accounts an address search folds into the name search. */
 const ADDRESS_MATCH_LIMIT = 200;
@@ -37,6 +45,8 @@ export default async function AccountsPage({ searchParams }: { searchParams: Sea
   const viewer = await requirePermission("accounts:read");
   const supabase = await createSupabaseServerClient();
   const now = new Date();
+  const customDefs = await loadCustomFields(supabase, "accounts");
+  const ACCOUNTS_LIST = withCustomFields(BASE_ACCOUNTS_LIST, customDefs);
   const state = parseListState(await searchParams, ACCOUNTS_LIST);
   const term = cleanSearchTerm(state.q);
 
@@ -176,6 +186,7 @@ export default async function AccountsPage({ searchParams }: { searchParams: Sea
             ))}
           </span>
         ) : null,
+        ...customCells(customDefs, a.custom_field_values),
       },
     };
   });
@@ -252,6 +263,11 @@ export default async function AccountsPage({ searchParams }: { searchParams: Sea
         territoryOptions={options.territories}
         userOptions={options.users}
         canAssign={viewer.can("accounts:update") && !viewer.impersonating}
+        bulkUpdateModule={
+          viewer.can("bulk:update") && viewer.can("accounts:update") && !viewer.impersonating
+            ? "accounts"
+            : undefined
+        }
         emptyState={
           <EmptyState
             icon={Building2}

@@ -242,7 +242,7 @@ export const ADMIN_SECTIONS: readonly AdminSection[] = [
     href: "/admin/export-controls",
     group: "Platform",
     phase: 10,
-    requiresAny: ["data:export"],
+    requiresAny: ["audit:read"],
     description: "Who can export, and the export log.",
   },
 ];

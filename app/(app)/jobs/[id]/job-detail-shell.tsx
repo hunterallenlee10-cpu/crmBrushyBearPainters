@@ -37,14 +37,18 @@ export function JobDetailShell({
     documents: data.counts.documents || null,
     photos: data.counts.photos || null,
   };
-  const items: NavItem[] = JOB_SECTIONS.filter((s) => s.id !== "admin" || can.override).map(
-    (s) => ({
+  const order = data.sectionOrder;
+  const sections = order
+    ? order.flatMap((id) => JOB_SECTIONS.filter((s) => s.id === id))
+    : [...JOB_SECTIONS];
+  const items: NavItem[] = sections
+    .filter((s) => s.id !== "admin" || can.override)
+    .map((s) => ({
       id: s.id,
       label: s.label,
       href: sectionHref(job.id, s.id),
       count: counts[s.id] ?? null,
-    }),
-  );
+    }));
   const contactReason = !can.readMessages ? "You don't have access to customer messages." : null;
 
   return (

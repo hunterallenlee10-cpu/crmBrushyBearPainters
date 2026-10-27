@@ -30,6 +30,10 @@ import type {
 import { jobScopeAllows, parseHealthFactors, parseSection } from "./utils";
 import { JobDetailShell } from "./job-detail-shell";
 import { SectionContent } from "./section-content";
+import { CustomFieldsCard } from "@/components/custom-fields/custom-fields-card";
+import { loadLayout } from "@/lib/custom-fields/server";
+import { layoutKey } from "@/lib/domain/custom-fields";
+import { JOB_SECTIONS, type JobSectionId } from "@/lib/domain/jobs/constants";
 
 type Params = Promise<{ id: string }>;
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
@@ -51,7 +55,7 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
 const LIMIT = 100;
 
 const JOB_SELECT =
-  "id, org_id, job_number, name, account_id, property_id, primary_contact_id, lead_id, work_types, stage, stage_entered_at, status, lost_reason, priority, priority_reason, owner_id, point_of_contact_id, project_manager_id, lead_source, lead_sub_source, territory_id, target_season, promised_start_date, actual_start_date, estimated_duration_days, estimated_completion_date, health_score, health_factors, health_checked_at, tags, on_time_guarantee_status, team_user_ids, created_by, created_at, updated_at, lead_created_at, first_contact_at, walkthrough_scheduled_at, walkthrough_completed_at, estimate_sent_at, estimate_accepted_at, contract_signed_at, deposit_paid_at, onboarding_started_at, onboarding_completed_at, ready_to_schedule_at, scheduled_at, work_completed_at, final_walkthrough_at, completed_at, final_invoiced_at, paid_in_full_at, closed_at, lost_at, account:accounts(id, display_name), property:properties(id, street, unit, city, state, zip, year_built, lead_safe_required, property_type, stories, siding_type, has_hoa, hoa_name, hoa_color_approval_required, access_notes, pets, parking, occupancy), contact:contacts!jobs_primary_contact_id_fkey(id, first_name, last_name, mobile, phone, email), owner:profiles!jobs_owner_id_fkey(full_name), poc:profiles!jobs_point_of_contact_id_fkey(full_name), pm:profiles!jobs_project_manager_id_fkey(full_name), territory:territories(name)";
+  "id, org_id, job_number, name, account_id, property_id, primary_contact_id, lead_id, work_types, stage, stage_entered_at, status, lost_reason, priority, priority_reason, owner_id, point_of_contact_id, project_manager_id, lead_source, lead_sub_source, territory_id, target_season, promised_start_date, actual_start_date, estimated_duration_days, estimated_completion_date, health_score, health_factors, health_checked_at, tags, custom_field_values, on_time_guarantee_status, team_user_ids, created_by, created_at, updated_at, lead_created_at, first_contact_at, walkthrough_scheduled_at, walkthrough_completed_at, estimate_sent_at, estimate_accepted_at, contract_signed_at, deposit_paid_at, onboarding_started_at, onboarding_completed_at, ready_to_schedule_at, scheduled_at, work_completed_at, final_walkthrough_at, completed_at, final_invoiced_at, paid_in_full_at, closed_at, lost_at, account:accounts(id, display_name), property:properties(id, street, unit, city, state, zip, year_built, lead_safe_required, property_type, stories, siding_type, has_hoa, hoa_name, hoa_color_approval_required, access_notes, pets, parking, occupancy), contact:contacts!jobs_primary_contact_id_fkey(id, first_name, last_name, mobile, phone, email), owner:profiles!jobs_owner_id_fkey(full_name), poc:profiles!jobs_point_of_contact_id_fkey(full_name), pm:profiles!jobs_project_manager_id_fkey(full_name), territory:territories(name)";
 
 const pick = <T extends string>(list: readonly T[], value: string | null, fallback: T): T =>
   (list as readonly string[]).includes(value ?? "") ? (value as T) : fallback;
@@ -328,6 +332,11 @@ export default async function JobDetailPage({
   });
   const canOverride = viewer.can("job_admin:override");
 
+  const layout = await loadLayout(supabase, "jobs");
+  const sectionOrder: JobSectionId[] = layout
+    .filter((l) => l.visible)
+    .flatMap((l) => JOB_SECTIONS.filter((sec) => layoutKey(sec.id) === l.key).map((sec) => sec.id));
+  const showMoreFields = layout.some((l) => l.key === "custom_fields" && l.visible);
   const data: JobDetailData = {
     job: {
       id: j.id,
@@ -461,7 +470,11 @@ export default async function JobDetailPage({
     viewerId: viewer.id,
     readOnly,
     // Admin follows the (viewed) user's rights; it is read-only while viewing as someone.
-    section: parseSection(sp.section, { canAdmin: canOverride }),
+    section: (() => {
+      const picked = parseSection(sp.section, { canAdmin: canOverride });
+      return sectionOrder.includes(picked) ? picked : "overview";
+    })(),
+    sectionOrder,
   };
 
   return (
@@ -475,6 +488,16 @@ export default async function JobDetailPage({
       <JobDetailShell data={data}>
         <SectionContent
           data={data}
+          moreFields={
+            showMoreFields ? (
+              <CustomFieldsCard
+                module="jobs"
+                recordId={j.id}
+                values={j.custom_field_values}
+                canEdit={data.can.update && !readOnly}
+              />
+            ) : null
+          }
           tab={typeof sp.tab === "string" ? sp.tab : undefined}
           limit={typeof sp.limit === "string" ? Number(sp.limit) || undefined : undefined}
         />

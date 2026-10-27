@@ -1,4 +1,7 @@
 import type { Metadata } from "next";
+import { CustomFieldsCard } from "@/components/custom-fields/custom-fields-card";
+import { loadLayout } from "@/lib/custom-fields/server";
+import { layoutLookup } from "@/lib/domain/custom-fields";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, History, UserRoundSearch } from "lucide-react";
@@ -52,7 +55,7 @@ export default async function ContactDetailPage({ params }: { params: Params }) 
     supabase
       .from("contacts")
       .select(
-        "id, account_id, first_name, last_name, role, mobile, phone, email, preferred_channel, language, sms_opt_in, sms_opt_in_at, sms_opt_in_source, email_opt_in, email_opt_in_at, email_opt_in_source, opted_out_at, do_not_contact, notes, created_at, updated_at, account:accounts!contacts_account_id_fkey(id, display_name, primary_contact_id)",
+        "id, account_id, first_name, last_name, role, mobile, phone, email, preferred_channel, language, sms_opt_in, sms_opt_in_at, sms_opt_in_source, email_opt_in, email_opt_in_at, email_opt_in_source, opted_out_at, do_not_contact, notes, custom_field_values, created_at, updated_at, account:accounts!contacts_account_id_fkey(id, display_name, primary_contact_id)",
       )
       .eq("id", id)
       .maybeSingle(),
@@ -82,6 +85,7 @@ export default async function ContactDetailPage({ params }: { params: Params }) 
   const canEdit = viewer.can("contacts:update") && !readOnly;
   const canDelete = viewer.can("contacts:delete") && !readOnly && !isPrimary;
   const canMakePrimary = viewer.can("accounts:update") && !readOnly && !isPrimary && c.account;
+  const L = layoutLookup(await loadLayout(supabase, "contacts"));
 
   const info: [string, React.ReactNode][] = [
     ["Mobile", c.mobile ? formatPhone(c.mobile) : null],
@@ -158,7 +162,11 @@ export default async function ContactDetailPage({ params }: { params: Params }) 
 
       <div className="grid gap-5 lg:grid-cols-3">
         <div className="flex min-w-0 flex-col gap-5 lg:col-span-2">
-          <section aria-labelledby="contact-info" className="rounded-2xl border bg-card p-4 sm:p-5">
+          <section
+            aria-labelledby="contact-info"
+            style={{ order: L.order("info") }}
+            className="rounded-2xl border bg-card p-4 sm:p-5"
+          >
             <h2 id="contact-info" className="mb-3 text-base font-semibold">
               Contact info
             </h2>
@@ -180,8 +188,20 @@ export default async function ContactDetailPage({ params }: { params: Params }) 
             )}
           </section>
 
+          {L.visible("custom_fields") && (
+            <div style={{ order: L.order("custom_fields") }} className="min-w-0">
+              <CustomFieldsCard
+                module="contacts"
+                recordId={c.id}
+                values={c.custom_field_values}
+                canEdit={canEdit}
+              />
+            </div>
+          )}
           <section
             aria-labelledby="contact-leads"
+            hidden={!L.visible("leads")}
+            style={{ order: L.order("leads") }}
             className="rounded-2xl border bg-card p-4 sm:p-5"
           >
             <h2 id="contact-leads" className="mb-3 text-base font-semibold">
@@ -223,6 +243,7 @@ export default async function ContactDetailPage({ params }: { params: Params }) 
         <div className="flex min-w-0 flex-col gap-5">
           <section
             aria-labelledby="contact-consent"
+            style={{ order: L.order("consent") }}
             className="rounded-2xl border bg-card p-4 sm:p-5"
           >
             <h2 id="contact-consent" className="mb-3 text-base font-semibold">
@@ -241,6 +262,8 @@ export default async function ContactDetailPage({ params }: { params: Params }) 
           </section>
           <section
             aria-labelledby="contact-timeline"
+            hidden={!L.visible("timeline")}
+            style={{ order: L.order("timeline") }}
             className="rounded-2xl border bg-card p-4 sm:p-5"
           >
             <h2 id="contact-timeline" className="mb-3 text-base font-semibold">

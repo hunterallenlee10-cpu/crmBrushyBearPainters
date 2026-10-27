@@ -1,4 +1,7 @@
+import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
 import type { CustomFieldDef, CustomValue, CustomValues } from "@/lib/domain/custom-fields/types";
+
+const TZ = "America/Los_Angeles";
 
 /**
  * Custom field values: parse form input, check a value against its definition
@@ -135,7 +138,10 @@ export function parseCustomInput(
       value = matchOption(def.options, s) ?? s;
       break;
     case "datetime": {
-      const t = Date.parse(s);
+      // A local time from the form (no offset) is Pacific.
+      const t = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$/.test(s)
+        ? fromZonedTime(s, TZ).getTime()
+        : Date.parse(s);
       if (Number.isNaN(t)) return { error: `${def.label}: enter a date and time.` };
       value = new Date(t).toISOString();
       break;
@@ -224,6 +230,8 @@ export function toCustomInput(
   if (value === undefined || value === null) return def.type === "multi_picklist" ? [] : "";
   if (def.type === "currency" && typeof value === "number") return (value / 100).toFixed(2);
   if (def.type === "checkbox") return value === true;
+  if (def.type === "datetime" && typeof value === "string" && !Number.isNaN(Date.parse(value)))
+    return formatInTimeZone(new Date(value), TZ, "yyyy-MM-dd'T'HH:mm");
   if (Array.isArray(value)) return value;
   return String(value);
 }

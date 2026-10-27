@@ -195,6 +195,12 @@ describe("parseCustomInput / format / round trip", () => {
       value: "2026-03-07T18:00:00.000Z",
     });
     expect(parseCustomInput(def({ type: "url" }), "example.com")).toHaveProperty("error");
+    expect(parseCustomInput(def({ type: "datetime" }), "2026-03-07T10:00")).toEqual({
+      value: "2026-03-07T18:00:00.000Z",
+    });
+    expect(toCustomInput(def({ type: "datetime" }), "2026-03-07T18:00:00.000Z")).toBe(
+      "2026-03-07T10:00",
+    );
   });
 
   it("formats values for display", () => {

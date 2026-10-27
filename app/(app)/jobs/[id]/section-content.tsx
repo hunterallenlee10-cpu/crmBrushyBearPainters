@@ -26,10 +26,13 @@ export function SectionContent({
   data,
   tab,
   limit,
+  moreFields,
 }: {
   data: JobDetailData;
   tab?: string;
   limit?: number;
+  /** Server-rendered "More fields" card (custom fields), shown on Overview. */
+  moreFields?: React.ReactNode;
 }) {
   const { job, can, section } = data;
   const title = JOB_SECTIONS.find((s) => s.id === section)?.label ?? "Overview";
@@ -42,7 +45,12 @@ export function SectionContent({
   let body: React.ReactNode;
   switch (section) {
     case "overview":
-      body = <Overview data={data} />;
+      body = (
+        <div className="flex flex-col gap-5">
+          <Overview data={data} />
+          {moreFields}
+        </div>
+      );
       break;
     case "onboarding":
       body = (

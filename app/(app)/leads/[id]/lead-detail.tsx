@@ -49,7 +49,17 @@ import { ConvertedBanner, jobNumberFromThread } from "./converted-banner";
 type DialogName = "edit" | "status" | "book" | "delete" | "convert" | null;
 
 /** Lead Detail (SPEC §8.4): sticky header with actions, then tabs. */
-export function LeadDetail({ data }: { data: LeadDetailData }) {
+export function LeadDetail({
+  data,
+  tabOrder = ["details", "activity", "notes", "comments", "tasks"],
+  moreFields,
+}: {
+  data: LeadDetailData;
+  /** Visible tabs in the company's order (Admin → Module Manager → Page layout). */
+  tabOrder?: readonly string[];
+  /** Server-rendered "More fields" card (custom fields), shown on Details. */
+  moreFields?: React.ReactNode;
+}) {
   const { lead, can } = data;
   const label = React.useMemo(() => makeLabeler(data.options), [data.options]);
   const [tab, setTab] = React.useState<LeadTab>(data.initialTab);
@@ -274,27 +284,44 @@ export function LeadDetail({ data }: { data: LeadDetailData }) {
       <Tabs value={tab} onValueChange={selectTab} className="gap-4">
         <div className="-mx-1 overflow-x-auto px-1 print:hidden">
           <TabsList aria-label="Lead sections">
-            <TabsTrigger value="details">Details</TabsTrigger>
-            <TabsTrigger value="activity">Activity</TabsTrigger>
-            {can.readNotes && (
-              <TabsTrigger value="notes">
-                Notes{data.notes.length > 0 && <Count n={data.notes.length} />}
-              </TabsTrigger>
-            )}
-            {can.readNotes && (
-              <TabsTrigger value="comments">
-                Comments{data.comments.length > 0 && <Count n={data.comments.length} />}
-              </TabsTrigger>
-            )}
-            {can.readTasks && (
-              <TabsTrigger value="tasks">
-                Tasks{openTasks > 0 && <Count n={openTasks} />}
-              </TabsTrigger>
-            )}
+            {tabOrder.map((key) => {
+              if (key === "details")
+                return (
+                  <TabsTrigger key={key} value="details">
+                    Details
+                  </TabsTrigger>
+                );
+              if (key === "activity")
+                return (
+                  <TabsTrigger key={key} value="activity">
+                    Activity
+                  </TabsTrigger>
+                );
+              if (key === "notes" && can.readNotes)
+                return (
+                  <TabsTrigger key={key} value="notes">
+                    Notes{data.notes.length > 0 && <Count n={data.notes.length} />}
+                  </TabsTrigger>
+                );
+              if (key === "comments" && can.readNotes)
+                return (
+                  <TabsTrigger key={key} value="comments">
+                    Comments{data.comments.length > 0 && <Count n={data.comments.length} />}
+                  </TabsTrigger>
+                );
+              if (key === "tasks" && can.readTasks)
+                return (
+                  <TabsTrigger key={key} value="tasks">
+                    Tasks{openTasks > 0 && <Count n={openTasks} />}
+                  </TabsTrigger>
+                );
+              return null;
+            })}
           </TabsList>
         </div>
-        <TabsContent value="details">
+        <TabsContent value="details" className="flex flex-col gap-4">
           <DetailsTab data={data} label={label} />
+          {moreFields}
         </TabsContent>
         <TabsContent value="activity">
           <ActivityTab data={data} label={label} composer={composer} reasonFor={reasonFor} />

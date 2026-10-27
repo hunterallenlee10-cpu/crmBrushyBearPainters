@@ -6,7 +6,14 @@ import { EmptyState } from "@/components/layout/empty-state";
 import { KpiCard } from "@/components/kpi/kpi-card";
 import { requirePermission } from "@/lib/auth/viewer";
 import { createSupabaseServerClient } from "@/lib/db/server";
-import { CONTACTS_LIST, CONTACT_ACCOUNT_OWNER_COLUMN } from "@/lib/lists/modules/contacts";
+import {
+  CONTACTS_LIST as BASE_CONTACTS_LIST,
+  CONTACT_ACCOUNT_OWNER_COLUMN,
+} from "@/lib/lists/modules/contacts";
+import { customCells } from "@/components/custom-fields/list-cells";
+import { loadCustomFields } from "@/lib/custom-fields/server";
+import { withCustomFields } from "@/lib/domain/custom-fields";
+
 import { filterToOps } from "@/lib/lists/filters";
 import { listOps, parseListState, resolveColumns } from "@/lib/lists/params";
 import { applyOps, loadColumnPrefs, loadSavedViews } from "@/lib/lists/server";
@@ -27,7 +34,7 @@ type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
 // `!inner` lets "Mine" filter on the account owner; see CONTACT_ACCOUNT_OWNER_COLUMN.
 const SELECT =
-  "id, first_name, last_name, role, mobile, phone, email, preferred_channel, sms_opt_in, email_opt_in, opted_out_at, do_not_contact, created_at, account_id, account:accounts!contacts_account_id_fkey!inner(display_name, owner_id, primary_contact_id)";
+  "id, first_name, last_name, role, mobile, phone, email, preferred_channel, sms_opt_in, email_opt_in, opted_out_at, do_not_contact, created_at, account_id, custom_field_values, account:accounts!contacts_account_id_fkey!inner(display_name, owner_id, primary_contact_id)";
 
 function percent(part: number, whole: number): string {
   if (whole === 0) return "—";
@@ -38,6 +45,8 @@ export default async function ContactsPage({ searchParams }: { searchParams: Sea
   const viewer = await requirePermission("contacts:read");
   const supabase = await createSupabaseServerClient();
   const now = new Date();
+  const customDefs = await loadCustomFields(supabase, "contacts");
+  const CONTACTS_LIST = withCustomFields(BASE_CONTACTS_LIST, customDefs);
   const state = parseListState(await searchParams, CONTACTS_LIST);
 
   // KPI and tab counts: head-only count queries over every visible contact (RLS).
@@ -145,6 +154,7 @@ export default async function ContactsPage({ searchParams }: { searchParams: Sea
             {formatRelative(c.created_at, now)}
           </span>
         ),
+        ...customCells(customDefs, c.custom_field_values),
       },
     };
   });
@@ -213,6 +223,11 @@ export default async function ContactsPage({ searchParams }: { searchParams: Sea
         rows={rows}
         total={total}
         savedViews={savedViews}
+        bulkUpdateModule={
+          viewer.can("bulk:update") && viewer.can("contacts:update") && !viewer.impersonating
+            ? "contacts"
+            : undefined
+        }
         searchPlaceholder={CONTACTS_LIST.searchPlaceholder}
         emptyState={
           <EmptyState
