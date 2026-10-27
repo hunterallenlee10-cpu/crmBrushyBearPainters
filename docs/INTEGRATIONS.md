@@ -61,6 +61,10 @@ Every workflow, drip, campaign, case and dialer message goes through `lib/messag
 
 **Signed links:** `/u/<token>` (unsubscribe; HMAC with `MESSAGING_LINK_SECRET`, or one derived from the service key) and `/r/<token>` (review request click; random token stored as a SHA-256 hash). Neither needs a login.
 
+## Analytics (Phase 9)
+
+Scheduled report deliveries go through `recordOutbound()` → the email adapter → `integration_outbox` (`simulated`), one per recipient (their profile email), `related_type` `report_schedule`, message type transactional. The email has the totals, the first 20 rows and a link to the report; no attachment until a real email provider is connected. Ask Brushy Bear and the Daily Brief use no AI provider (keyword rules and fixed sentences); the optional AI integration stays disabled.
+
 ## How the lock works
 
 A real provider is used only when **all three** of these hold. `resolveProviderChoice()` in `lib/integrations/core.ts` enforces it; anything short of all three returns the default provider.

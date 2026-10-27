@@ -52,6 +52,9 @@ const shot = (page: Page, name: string) =>
   });
 
 async function axe(page: Page) {
+  // Not mid-hover: a button just clicked is still animating its hover colour.
+  await page.mouse.move(0, 0);
+  await page.waitForTimeout(200);
   const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa"]).analyze();
   expect(
     results.violations
@@ -282,11 +285,16 @@ test("every prebuilt dashboard and the Lead / Jobs dashboards: each chart has Vi
     if (key === "marketing" || key === "seasonality") await shot(page, `dashboard-${key}`);
   }
   // Earlier dashboards' charts get the same CSV through the shared dialog.
-  for (const path of ["/leads", "/jobs"]) {
+  for (const [path, title, empty] of [
+    ["/leads", "Lead Dashboard", "No leads yet"],
+    ["/jobs", "Jobs Dashboard", "No jobs yet"],
+  ] as const) {
     await open(page, path);
+    await expect(page.getByRole("heading", { level: 1, name: title })).toBeVisible();
     const buttons = page.getByRole("button", { name: /^View data/ });
-    const n = await buttons.count();
-    expect(n).toBeGreaterThan(0);
+    // A company with no records shows the empty state instead of charts.
+    await expect(buttons.first().or(page.getByRole("heading", { name: empty }))).toBeVisible();
+    if ((await buttons.count()) === 0) continue;
     await buttons.first().click();
     await expect(
       page.getByRole("dialog").getByRole("button", { name: "Download CSV" }),
@@ -365,10 +373,13 @@ test("report template, builder, Export CSV and a scheduled delivery through the 
   await shot(page, "report-builder");
 
   // Schedule it, then let the worker deliver it now.
-  await page.getByRole("link", { name: "Schedule" }).click();
+  await page.getByRole("link", { name: "Schedule", exact: true }).click();
   await expect(page.getByRole("heading", { level: 1, name: "Schedules" })).toBeVisible();
   await page.getByLabel("How often").selectOption("daily");
-  await page.getByRole("button", { name: "Schedule", exact: true }).click();
+  await page
+    .getByRole("form", { name: "New scheduled delivery" })
+    .getByRole("button", { name: "Schedule", exact: true })
+    .click();
   await expect(page.getByTestId("schedule-row")).toContainText(`E2E leads ${t}`);
   const db = adminClient();
   await db

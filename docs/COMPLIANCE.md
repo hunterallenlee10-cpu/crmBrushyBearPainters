@@ -84,3 +84,9 @@
 - [ ] **Receipts:** expense receipts (photos or PDFs) are stored privately, photos with location and other EXIF removed. Decide how long receipts must be kept for tax purposes (ask your accountant).
 - [ ] **Closed months:** once a month is closed in Admin → Finance, nobody can change payments, refunds, invoices or expenses dated in it except an owner with a written reason (audit-logged). Agree with your bookkeeper when each month gets closed.
 - [ ] **Access to money:** crew roles never see contract amounts, payments or margins. The bookkeeper can read hourly labor cost for job costing (not edit it). Check Admin → Users that only the right people have Finance packs.
+
+## Analytics and exports (Phase 9)
+
+- [ ] **Who can export:** Download CSV needs the "Export data to CSV" permission (`data:export`). Exports contain customer names and addresses; check Admin → Users that only the right people have it. Every export is logged (who, what, filters, row count).
+- [ ] **Scheduled report emails:** they go only to active teammates and carry a preview of the report's rows; decide which reports may be emailed (A/R and margin reports include money). Nothing is actually sent until email is connected.
+- [ ] **Revenue goals and marketing spend** are owner inputs; nothing is pre-filled. Margins are visible only to owners and the bookkeeper.

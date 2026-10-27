@@ -112,3 +112,11 @@ _Phase 8:_ the customer and crew notices on publish, the rain-delay text and the
 | Month closed / reopened (Admin → Finance)                | Summary snapshot saved; records dated in the month locked; event `month.closed` (reopen: `month_close.updated`).                                                                                                                                                          |
 
 _Phase 8:_ the overdue reminders now go out through workflow 14 (the sweep still raises `invoice.overdue` once per threshold); deposit release, invoicing and the Paid in Full move stay built in.
+
+## Analytics (Phase 9)
+
+| Trigger                                                               | What happens                                                                                                                                                                                                                          |
+| --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A report schedule's time comes (worker, Pacific)                      | The worker claims it (moves `next_run_at` first, so it runs once), checks the creator still has `reports:build` and all-records access to the module, runs the report, emails each recipient (outbox, simulated) and logs the export. |
+| Someone downloads a CSV                                               | `log_export()` writes `export_log` and emits `export.created`.                                                                                                                                                                        |
+| Marketing spend, revenue goals, reports, dashboards, schedules change | Audit log plus a change event (`marketing_spend.*`, `revenue_goal.*`, `report.*`, `dashboard.*`, `report_schedule.*`).                                                                                                                |

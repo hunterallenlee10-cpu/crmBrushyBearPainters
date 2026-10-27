@@ -2,6 +2,33 @@
 
 All notable changes, by build phase. See `docs/PLAN.md` for what each phase covers.
 
+## Phase 9 — Analytics & home
+
+### Added
+
+- **Home by role**: owners land on the **Executive Overview** (two KPI rows — pipeline value, projected revenue, estimates sent, close rate, average job value, sales velocity; speed to lead, 24h SLA, daily-update compliance, on-time start, gross margin (owners and the bookkeeper), A/R outstanding — then Pipeline by Stage, Revenue Forecast, Lead Funnel, Exterior Season Backlog, City Performance, Estimator Leaderboard, Lead Source Performance and Mix, and Executive Alerts; a clean empty state while the company has no data); everyone else lands on **My Day** (`/workspace`): greeting, Ready Score with the reasons, today's appointments and jobs, my tasks (overdue / today / upcoming / no date), follow-ups, my Attention items, my pipeline, Team Feed. Settings → Preferences sets the default home.
+- **Analytics hub** (`/analytics`): **Ask Brushy Bear** (keyword → registry metric, period and filters; cites the metric ids, says which permission is missing, suggests the closest report; no AI), **Daily Brief** for any day, **My Business – This Month** and **On Pace** against the revenue goal ("No revenue goal configured" until one is set).
+- **Dashboards**: six prebuilt (Executive, Sales / Estimator, Production, Marketing & Lead Sources, A/R Aging, Seasonality / Exterior Backlog) with date range and work type / city / owner / source filters in the URL; **custom dashboards** from the KPI and chart catalog, shared with the team or private; **favorites**.
+- **Reports**: list with the 10 seeded templates (Sold by month, Leads by source, Estimates sent vs accepted, A/R aging, Jobs missing daily logs, Sold – no deposit, Gross margin by job, Speed to lead, 24h SLA misses, On-time start misses) and saved reports; **builder** over leads, jobs, estimates and invoices (columns, rule filters, group by, totals, chart), Save / Save as / share; Export CSV.
+- **Schedules** (`/analytics/schedules`): email a report daily, weekly or monthly to teammates; the worker records each delivery as a simulated email in the outbox (totals, preview, link), once per run, and notes skips.
+- **My Numbers** (`/my-numbers`): Leads Issued, Walkthroughs Set / Ran, Estimates Sent, Sold ($ and count), Completed, Invoiced / Paid in full, each on its own date field and clickable to its records; owners pick any rep. Commissions: nothing shown yet.
+- **View data + Download CSV on every chart and KPI table** (needs `data:export`, disabled with a reason otherwise; every export logged in `export_log`).
+- **Admin → Marketing Spend** (per month and source; cost per lead and CAC) and **Admin → Revenue Goals** (per month).
+- **Registry**: every SPEC §12.1 KPI with id, label, description, source RPC, date field, filters, unit, caption template and owner-only flag (`metricSpec()`); new sources `analytics_stats`, `analytics_monthly`, `season_backlog`, `my_numbers`, `workspace_summary`, `daily_brief`.
+- **My Projects** empty state with links to today's jobs and the Master Schedule.
+
+### Changed
+
+- `/` no longer shows the placeholder Home; the worker also sweeps report schedules; Admin lists Marketing Spend and Revenue Goals under Finance.
+- Download CSV on the Lead and Jobs dashboards' View data is now on for roles with `data:export` (it was disabled until this phase). List and Audit Log exports still wait for Export Controls (Phase 10).
+- My Day's count cards are a list of links (valid markup for screen readers); the donut chart is no longer focusable inside its hidden picture.
+
+### Tests
+
+- SQL/RLS: 918 assertions across 16 files (Phase 9 adds 143 in `015_analytics.test.sql`: a deterministic March 2026 fixture checked against every `analytics_stats` value — the same block the unit fixture test reads — plus breakdowns, filters, role-hidden money, cross-company isolation, monthly, season backlog, My Numbers, Daily Brief, My Day, the report views, row security on the new tables, `log_export` and the schedule guard; migrations applied, rolled back and re-applied).
+- Unit: 1,300 tests across 90 files (Phase 9 adds the analytics fixture — value and display of every KPI — and the SQL/TS fixture sync, empty-company zeros and "—" with no NaN, permissions and captions, forecast and season, My Numbers, periods and filters, Ask Brushy Bear, Daily Brief, Ready Score, dashboards, report config, templates, grouping and summaries, CSV, schedules and deliveries).
+- E2E + axe on a production build (desktop and phone): full suite 306 passed, 135 skipped (role- or device-specific), 0 failed. New `analytics.spec.ts`: the Executive Overview's KPIs and every widget with View data + CSV (logged), every prebuilt dashboard and the Leads/Jobs dashboards, Ask / Daily Brief / On Pace, a report from a template and from the builder with CSV, a schedule delivered once to the outbox by the worker, a custom dashboard, My Numbers, Marketing Spend and Revenue Goals, the estimator's My Day (no Analytics, CSV disabled), the painter on a phone. Screenshots in `docs/screens/phase-9/`.
+
 ## Phase 8 — Communication & growth
 
 ### Added

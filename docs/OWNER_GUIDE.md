@@ -4,7 +4,7 @@
 
 ## Daily routine
 
-1. **My Day** (Workspace): today's appointments, tasks and new leads.
+1. **Home**: owners open the **Executive Overview** (the whole company at a glance); everyone else opens **My Day** with their Ready Score, today's appointments, tasks and new leads. Switch between them at the top, or change your default in Settings → Preferences.
 2. **Attention**: anything about to break a promise (untouched lead, estimate due, missed daily update). Clear it to zero.
 3. **Follow-up Lists**: hot new leads, tomorrow's walkthroughs to confirm, estimates awaiting reply.
 
@@ -86,6 +86,15 @@
 - **Bear Champions**: happy customers get a code like BEAR-7KQ2 and a link to the website form. Referrals with the code come in by themselves; record a phone referral by hand. When the referred job is paid in full, the reward shows under **Payouts** — record how you paid it.
 - **Reviews**: each review request (2 days after Paid in Full), whether they clicked, and mark when a review shows up. Add your Google review link in Company Settings first.
 - **Settings → Notifications**: choose per event how you hear about it (in-app, email, text). Admin → Notification Settings sets the company defaults.
+
+## Numbers, dashboards and reports _(Phase 9)_
+
+1. **Set it up once:** Admin → **Revenue Goals** (a goal per month; On Pace and the forecast use it) and Admin → **Marketing Spend** (what you spent per month and lead source; this gives cost per lead and cost to win a job). Until you enter them those numbers show "—".
+2. **Ask Brushy Bear** (Analytics): type a question like "sales this month vs last month" or "which lead sources convert best". The answer names the numbers it used; tap through to the dashboard or report.
+3. **Daily Brief**: a one-paragraph summary of any day (new leads, walkthroughs, estimates, sold, payments, what needs attention).
+4. **Dashboards**: six ready-made ones (Executive, Sales, Production, Marketing, A/R, Seasonality). Pick a date range and filter by work type, city, owner or source. Every chart has **View data** (the numbers as a table) and **Download CSV**. Star the ones you use; build your own with **New dashboard**.
+5. **Reports**: start from one of the 10 templates or **New report**, choose columns and filters, group and total, then **Save as** and share it with the team. **Schedule** emails it to teammates daily, weekly or monthly (simulated until email is connected).
+6. **My Numbers**: each person's scoreboard for the month; owners can pick any rep. Commissions will appear once you give us the commission rules.
 
 ## What the CRM promises customers for you
 

@@ -162,6 +162,7 @@ export function DonutChart({
               outerRadius="85%"
               paddingAngle={data.length > 1 ? 1 : 0}
               isAnimationActive={false}
+              rootTabIndex={-1}
             >
               {data.map((d, i) => (
                 <Cell key={d.label} fill={DONUT_COLORS[i % DONUT_COLORS.length]} />

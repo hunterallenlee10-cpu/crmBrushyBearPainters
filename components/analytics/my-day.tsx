@@ -111,34 +111,37 @@ function CountsCard({ card, summary }: { card: CountCard; summary: WorkspaceSumm
         <card.icon className="size-4 text-bb-forest" aria-hidden />
         {card.title}
       </Link>
-      <dl className="grid grid-cols-2 gap-2">
+      <ul className="grid grid-cols-2 gap-2">
         {card.items.map((it) => {
           const m = WORKSPACE_METRICS[it.id];
           const n = workspaceMetricValue(it.id, summary);
           const body = (
             <>
-              <dt className="text-xs text-muted-foreground">{m.label}</dt>
-              <dd className="text-lg font-bold text-bb-ink tabular-nums">
+              <span className="block text-xs text-muted-foreground">{m.label}</span>
+              <span className="block text-lg font-bold text-bb-ink tabular-nums">
                 {n.toLocaleString("en-US")}
-              </dd>
+              </span>
             </>
           );
-          return it.href ? (
-            <Link
-              key={it.id}
-              href={it.href}
-              className="rounded-lg bg-muted/40 px-2 py-1.5 hover:bg-muted"
-              title={m.description}
-            >
-              {body}
-            </Link>
-          ) : (
-            <div key={it.id} className="rounded-lg bg-muted/40 px-2 py-1.5" title={m.description}>
-              {body}
-            </div>
+          return (
+            <li key={it.id}>
+              {it.href ? (
+                <Link
+                  href={it.href}
+                  className="block rounded-lg bg-muted/40 px-2 py-1.5 hover:bg-muted"
+                  title={m.description}
+                >
+                  {body}
+                </Link>
+              ) : (
+                <div className="rounded-lg bg-muted/40 px-2 py-1.5" title={m.description}>
+                  {body}
+                </div>
+              )}
+            </li>
           );
         })}
-      </dl>
+      </ul>
     </section>
   );
 }

@@ -136,6 +136,14 @@ The website posts quote requests to `POST /api/public/leads` (contract in `docs/
 6. **Someone says they keep getting texts:** find them in Messages; a STOP reply opts them out everywhere; or set Do Not Contact on the contact or lead. `contacts.opted_out_at` / `leads.sms_opted_out_at` show when.
 7. **E2E at night:** the test setup turns quiet hours off for the local test company only.
 
+## Analytics, reports and scheduled deliveries _(Phase 9)_
+
+1. **Migrations:** apply `20261030000100_analytics.sql` then `20261030000200_analytics_seed.sql` (both additive; the seed adds the 10 report templates per company and is idempotent). Rollbacks are in `supabase/rollbacks/` (rolling back drops saved reports, dashboards, spend, goals and the export log; owner approval required).
+2. **No new env vars.** Scheduled report emails use the email adapter (outbox, simulated) and `APP_URL` for the link.
+3. **Worker:** every minute the worker also claims due report schedules (`next_run_at` moves forward first, so each run happens once) and records one simulated email per recipient. The JSON summary has `reportSchedules: { sent, skipped, failed }`. A skipped or failed delivery shows its note on Analytics → Schedules.
+4. **Numbers look wrong:** every KPI has a "View data" table with its date field and filters; compare with the matching report. The definitions are in `docs/METRICS.md` and `lib/metrics/registry.ts`; `supabase/tests/015_analytics.test.sql` has a worked example.
+5. **Who exported what:** `select * from export_log order by created_at desc` (Admin → Audit Log lists audited changes; `export_log` itself isn't audited).
+
 ## Purge demo data _(Phase 10)_
 
 Demo data only exists in dev/preview (`DEMO_DATA=true`) and is tagged `is_demo = true`. An owner-only admin action removes it.

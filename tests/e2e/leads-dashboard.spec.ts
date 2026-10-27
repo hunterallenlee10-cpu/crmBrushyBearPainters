@@ -179,7 +179,7 @@ test.describe("Lead Dashboard", () => {
     await expect(page.getByRole("link", { name: `Sample ${tag} 2` })).toHaveCount(0);
   });
 
-  test("View data shows the exact numbers; CSV waits for Phase 10", async ({ page }) => {
+  test("View data shows the exact numbers and offers Download CSV", async ({ page }) => {
     await open(page, "/leads");
     await hydrated(page);
     await page.getByRole("button", { name: "View data: Lead Status Distribution" }).click();
@@ -188,7 +188,8 @@ test.describe("Lead Dashboard", () => {
     const row = dialog.getByRole("row", { name: /Walkthrough Scheduled/ });
     const n = Number(((await row.getByRole("cell").textContent()) ?? "0").replace(/,/g, ""));
     expect(n).toBeGreaterThanOrEqual(1);
-    await expect(dialog.getByRole("button", { name: "Download CSV" })).toBeDisabled();
+    // Phase 9: owners have data:export, so the CSV download is on.
+    await expect(dialog.getByRole("button", { name: "Download CSV" })).toBeEnabled();
     await page.keyboard.press("Escape");
     await expect(dialog).toBeHidden();
   });

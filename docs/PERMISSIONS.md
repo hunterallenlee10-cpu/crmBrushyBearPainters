@@ -428,3 +428,15 @@ Two new permissions: **`cases:read`** (scoped: own = cases you own or created, o
 - **Campaigns & drips** need `campaigns:manage`. **Bear Champions** and **Admin → Referral Program** need `referrals:manage`; **Reviews** needs `reviews:manage`.
 - **Settings → Notifications**: everyone, for themselves only. **Admin → Notification Settings** needs `settings:manage`.
 - Public, no login: `/u/<token>` (unsubscribe, signed) and `/r/<token>` (review link). The inbound message route needs its HMAC secret.
+
+## Added in Phase 9
+
+No new permission keys; Phase 9 uses the Data & Reporting ones from Phase 1.
+
+- **Executive Overview**, the **Analytics hub** (`/analytics`, Ask Brushy Bear, Daily Brief, dashboards) need **`analytics:read`**. Without it `/analytics` is not found and Home shows My Day. Money in KPIs and charts needs `financials:read` ("Amounts hidden for your role" otherwise); gross margin and cost columns need `job_costing:read` (owners and the bookkeeper).
+- **Reports** need **`reports:read`** plus read access to the report's module (`leads:read`, `jobs:read`, `estimates:read`, `invoices:read`); row security decides which rows. **Building, saving, sharing and scheduling** need **`reports:build`**. A scheduled delivery only runs while its creator still has `reports:build` and an **all-records** scope on the module (the worker runs it as the service, so scoped users can't mail rows they couldn't see).
+- **Download CSV** (every View data table, report Export CSV) needs **`data:export`** and is off while impersonating; each export is logged in `export_log` (people read their own; `audit:read` reads everyone's).
+- **Custom dashboards** need `reports:build` to create, edit or delete (only your own); shared ones are visible to everyone with `analytics:read`. Favorites are personal.
+- **My Numbers** needs `leads:read` or `jobs:read`; it shows your own numbers. Owners (role grants all) can pick any rep.
+- **Admin → Marketing Spend** and **Admin → Revenue Goals** need `settings:manage`.
+- **My Day** (`/workspace`): everyone; it only shows what the person can already see.

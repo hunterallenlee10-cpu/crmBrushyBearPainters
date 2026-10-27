@@ -576,3 +576,43 @@ erDiagram
 New functions: `approve_template`, `mark_thread_read`, `emit_domain_event` (service role; fixed list of event types), `claim_workflow_runs`, `claim_drip_enrollments`, `communication_stats(from, to)` (security invoker), `workflow_stats()`, `users_with_permission(org, permission)` (service role), `app.seed_communication_defaults(org)`; triggers for templates, workflows, threads, cases (number, SLA, activity), champions (code), referrals (no double pay), `leads_referral` (`?ref=`), campaigns (status rules), drip enrollments (people may only stop one), notifications (preferences). `number_sequences` gains `case` (`CASE-…`) and `paint_order` kinds; `attention_items.subject_type` gains `case`.
 
 Migrations: `20261029000100_communication` and `20261029000200_communication_seed`, each with a rollback.
+
+## Added in Phase 9 — Analytics & home
+
+```mermaid
+erDiagram
+  reports ||--o{ report_schedules : "emailed on a schedule"
+  reports ||--o| report_run_stats : "run count, last run"
+  profiles ||--o{ dashboards : "custom (private or shared)"
+  profiles ||--o{ analytics_favorites : "favorites"
+  profiles ||--o{ export_log : "every CSV export"
+  reports {
+    text module "leads/jobs/estimates/invoices"
+    jsonb config "columns, filter, group by, totals, chart"
+    boolean is_template "seeded, read-only"
+    text template_key "unique per company"
+    boolean shared
+  }
+  report_schedules {
+    text frequency "daily/weekly/monthly"
+    uuid_array recipient_ids "same company, active"
+    timestamptz next_run_at "claimed by the worker"
+    text last_status "sent/skipped/failed"
+  }
+```
+
+| Table / view                                                         | Purpose                                                                                                                                                                                                                                                                                            |
+| -------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `marketing_spend`                                                    | Spend per month (first of month) and lead source (checked against the `lead_source` picklist), `amount_cents`; unique (company, month, source). Read with `analytics:read` or `settings:manage`; written with `settings:manage`.                                                                   |
+| `revenue_goals`                                                      | Revenue goal per month, `amount_cents`; unique (company, month). Read with `financials:read`; written with `settings:manage`.                                                                                                                                                                      |
+| `export_log`                                                         | Every CSV export: who, `kind` (chart / kpi_table / report / report_schedule), dataset, title, filters, row count. Written only through `log_export()` (needs `data:export`, not while impersonating) and the worker. Not audited (it's a log).                                                     |
+| `reports`                                                            | Saved reports and the 10 templates (`is_template`, `template_key`; templates can't be edited except by the service). Visible: templates, shared, your own (`reports:read`); written by the owner of the report (`reports:build`).                                                                  |
+| `report_run_stats`                                                   | Run count and last run per report (`note_report_run()`). Not audited.                                                                                                                                                                                                                              |
+| `report_schedules`                                                   | Delivery schedule per report: frequency, weekday / day of month (1–28), hour (Pacific), recipients, active, next run, last run / status / note. Only the creator (or an owner) sees and edits one.                                                                                                 |
+| `dashboards`                                                         | Custom dashboards: name, ordered `widgets` (KPI and chart ids from the catalog), `shared`.                                                                                                                                                                                                         |
+| `analytics_favorites`                                                | A person's favorite dashboards and reports (`kind`, `item_key`).                                                                                                                                                                                                                                   |
+| `report_leads`, `report_jobs`, `report_estimates`, `report_invoices` | Security-invoker views the report builder reads: one row per record with derived columns (contract, balance, cost and margin only with the right permission; started late; sales velocity; days completed → paid; missed daily logs in the last 30 days; hours to send and 24h SLA; aging bucket). |
+
+New functions (security invoker unless noted): `analytics_stats(from, to, filters)`, `analytics_monthly(from_month, months, filters)`, `season_backlog(year)`, `my_numbers(user, from, to)`, `workspace_summary()`, `daily_brief(day)`, `log_export(...)` and `note_report_run(id)` (security definer, permission-checked), `user_permission_scopes(user, permissions[])` (service role; the worker's delivery check), `app.seed_analytics_defaults(org)` (idempotent), helpers `app.try_uuid`, `app.job_direct_cost_cents`, `app.work_type_service`, `app.production_days_between`. Event types: `export.created`, plus the change events of the new tables.
+
+Migrations: `20261030000100_analytics` and `20261030000200_analytics_seed`, each with a rollback.

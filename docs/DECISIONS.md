@@ -802,6 +802,63 @@ Every non-obvious decision, newest at the bottom. Format: date · decision · re
 - **Decision:** Messages (`/messages`) and Warranty & Service (`/cases`) are under More; Follow-up Lists (`/follow-ups`) under Leads. Crews read job messages on `/field/messages` (crew lead `messages:read` own). Mention search in the universal search stays a placeholder. Message bodies aren't searched yet.
 - **Reason:** SPEC §8 nav leaves room; kept the top bar short.
 
+## Phase 9 — Analytics & home
+
+### 2026-10-30 · One registry, three new sources, `kpi.*` namespace
+
+- **Decision:** Every Phase 9 number is a registry entry in `lib/metrics/registry.ts`: 46 `kpi.*` metrics (SPEC §12.1) and 11 breakdowns from `analytics_stats(from, to, filters)`, 9 `mine.*` from `my_numbers(user, from, to)`, 21 `myday.*` from `workspace_summary()` and 16 `brief.*` from `daily_brief(day)`, plus `analytics_monthly` and `season_backlog` for the forecast and season charts. Each entry now also carries its date field, the filters it honours and the permission it needs (`requires`); `metricSpec(id)` gives the full sheet (id, label, description, source RPC, date field, filters, unit, caption, owner-only). Values are parsed with zod; a ratio with a zero denominator is `null` and shows "—", never NaN. Older phase metrics keep their ids; overlapping KPIs on the Leads/Jobs dashboards keep using the Phase 2–7 entries.
+- **Reason:** CLAUDE.md "every KPI from the registry"; SPEC §12 asks for id, label, description, source, date field, filters, unit and caption per KPI. One call per screen keeps the work in Postgres (CLAUDE.md "server-side aggregation").
+
+### 2026-10-30 · Analytics filters and marketing spend
+
+- **Decision:** `analytics_stats` takes `{work_type, territory_id, owner_id, source}` (all optional) and every count, sum and breakdown honours them. Money is null for roles without `financials:read`; gross margin needs `job_costing:read` (owners and the bookkeeper). Marketing spend is entered per month and lead source (Admin → Marketing Spend) and prorated by day when the period covers part of a month. Cost per lead and CAC only apply with no work-type, city or owner filter (`spend_applies`); spend isn't split that way, so they show "—" with the reason. CAC = spend ÷ jobs sold (estimate accepted) in the period, from that source when one is picked.
+- **Reason:** SPEC §8.14 filters, §12.1 "cost per lead & CAC". Splitting spend by city or work type would invent an allocation rule the owners haven't given.
+
+### 2026-10-30 · Revenue goals and the forecast
+
+- **Decision:** Goals are per month (Admin → Revenue Goals, `settings:manage`; read with `financials:read`). With none set, every goal line, On Pace and "My Business – This Month" show "No revenue goal configured" with a link for owners. Revenue Forecast = sold value per month for the last six months, this month's run rate (sold so far ÷ day of month × days in month) and a trailing three-month average for the next five months; On Pace compares the run rate to the goal (within ±5% = on pace).
+- **Reason:** SPEC §8.14 "On Pace", §12.1 "projected revenue". No production rates or seasonality factors are assumed (CLAUDE.md "don't invent business facts").
+
+### 2026-10-30 · Exterior season backlog
+
+- **Decision:** The season comes from Company Settings (exterior season start/end; June 1 – September 30 when unset). Capacity per month = production days in the month (Schedule settings, Mon–Fri by default) × active crews; booked = published schedule entries on exterior or deck/fence jobs, in production days; unscheduled = sold, onboarding or ready-to-schedule exterior jobs for that season with nothing scheduled, in crew-days (estimated duration, or open work-order hours ÷ crew-day hours). After September 30 the chart shows next year's season.
+- **Reason:** SPEC §8.14 "Seasonality / Exterior Backlog". Weekdays-only capacity is the Phase 6 production calendar; no extra capacity factors are assumed.
+
+### 2026-10-30 · Reports run on the server, capped at 10,000 rows
+
+- **Decision:** Reports read four security-invoker views (`report_leads`, `report_jobs`, `report_estimates`, `report_invoices`) with the viewer's own client, in 1,000-row chunks (PostgREST's max), up to 10,000 rows; grouping, totals and chart series are computed over every matching row on the server (`lib/domain/reports/summarize.ts`), never on one page. Past 10,000 the page says the results were cut. Money and cost columns the viewer can't see are dropped before the query. The 10 seeded templates (`app.seed_analytics_defaults`, idempotent by `template_key`) can't be edited, only copied; "Save as" makes a personal report that can be shared with the team.
+- **Reason:** SPEC §8.14 "Reports list + builder"; CLAUDE.md "paginate everything". A report bigger than 10,000 rows belongs in a CSV export from the source list, which the owners haven't asked for yet.
+
+### 2026-10-30 · Every chart and KPI table exports CSV, logged
+
+- **Decision:** Each "View data" table has **Download CSV** when the person has `data:export` and isn't impersonating; otherwise the button is disabled with "Your role can't export data. Ask an owner for export access." The file is built in the browser from the rows already on screen, after the server logs it (`log_export()` → `export_log`, event `export.created`); report CSVs come from `/analytics/reports/<id>/csv`, logged the same way. CSV cells starting with `= + - @` (unless a plain number) get a leading apostrophe; files have a BOM and CRLF for Excel.
+- **Reason:** SPEC §8.14 "View data + Download CSV on every chart", §13 data minimization. Building from the on-screen rows guarantees the file matches what the person saw.
+
+### 2026-10-30 · Scheduled report emails go to the outbox, with a link instead of an attachment
+
+- **Decision:** A schedule (daily / weekly on a weekday / monthly on day 1–28, at an hour, Pacific time) emails chosen teammates. The worker claims due schedules with an optimistic update on `next_run_at` (so a run happens once however often the worker fires), runs the report as the service with the company filter, and records one simulated email per recipient through `recordOutbound()` (related to the schedule) with the totals, a 20-row preview and a link. A delivery only runs when the person who scheduled it still has `reports:build` and an **all-records** scope on the report's module; otherwise it's skipped with a note on the Schedules page. The email carries no attachment.
+- **Reason:** CLAUDE.md "never send real messages"; the service role bypasses row security, so the all-scope check stops a scoped user from mailing rows they couldn't see. Attachments wait for a real email provider.
+
+### 2026-10-30 · Home by role; Executive Overview and My Day
+
+- **Decision:** `/` opens the Executive Overview for owners and My Day for everyone else; Settings → Preferences changes a person's default home (the Executive Overview needs `analytics:read`, otherwise My Day shows), and `?view=my_day|executive` switches for one visit. My Day's **Ready Score** starts at 100 and loses points, each capped: overdue tasks (10 each, max 30), critical/high Attention items (10, max 30), new leads not reached (5, max 20), cases past SLA (5, max 10), unread conversations (2, max 10); each factor links to the list. Overdue = due before now; due today = due later today (Pacific). Executive alerts link to the Attention Center filtered by rule (`/attention?type=<rule>`).
+- **Reason:** SPEC §8.2, §8.3. A fixed, explained score is testable and can't be gamed by hidden weights.
+
+### 2026-10-30 · Ask Brushy Bear and the Daily Brief use no AI
+
+- **Decision:** Ask Brushy Bear maps keywords to registry metrics, a period and filters (`lib/domain/analytics/ask.ts`), runs them with the asker's permissions and answers with the numbers, the metric ids it used and the filters. If a question needs a permission the person lacks it says which; if nothing matches it suggests the closest report. The Daily Brief summarizes `daily_brief(day)` in fixed sentences. The optional AI integration stays disconnected.
+- **Reason:** SPEC §8.14 "keyword→metric, no AI"; CLAUDE.md "never call a real external API".
+
+### 2026-10-30 · My Numbers: each card on its own date; no commissions
+
+- **Decision:** My Numbers cards: Leads Issued (leads created with you as owner), Walkthroughs Set (booked in the period), Walkthroughs Ran (held in the period), Estimates Sent (first sent), Sold ($ and count, estimate accepted), Completed (work completed), Invoiced and Paid in full; each card says its date field and opens its records. Owners can pick any rep. Commissions show nothing until the commissions engine exists (Phase 10).
+- **Reason:** SPEC §8.15; commission rules are an owner business fact we don't have.
+
+### 2026-10-30 · Audit exemptions and deviations
+
+- **Decision:** `export_log` and `report_run_stats` have no audit trigger (they are logs themselves; `000_rls_everywhere` exempts them). Dashboards are lists of widget ids (`dashboards.widgets text[]`), not a drag-and-drop layout; a custom dashboard picks KPIs and charts from the catalog in order. Favorites are per person. Deviations/gaps: no drag-to-resize dashboard grid; no PDF of reports; scheduled deliveries have no attachment; Ask doesn't understand free-form comparisons beyond "this vs last month/year"; the walkthrough show rate is completed ÷ (completed + no-show) for walkthrough appointments whose time came in the period.
+- **Reason:** Keep Phase 9 to SPEC §8.14's must-haves; the rest is listed in the Phase 9 report.
+
 ## Hosting
 
 ### 2026-10-27 · Separate hosting; worker every minute from the database
