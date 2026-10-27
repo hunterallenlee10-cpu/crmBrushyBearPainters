@@ -51,7 +51,9 @@ async function versionRow(ctx: ActionContext, versionId: string) {
   const v = check(
     await ctx.supabase
       .from("estimate_versions")
-      .select("id, org_id, status, estimate_id, estimates!inner(id, job_id)")
+      .select(
+        "id, org_id, status, estimate_id, estimates!estimate_versions_estimate_id_fkey!inner(id, job_id)",
+      )
       .eq("id", versionId)
       .maybeSingle(),
   );
@@ -102,7 +104,10 @@ async function afterLineChange(
   } else if (parent.change_order_id) {
     const service = await ctx.service();
     const co = await repriceChangeOrder(service, parent.change_order_id);
-    if (co) refresh(co.jobId);
+    if (co) {
+      refresh(co.jobId);
+      revalidatePath(`/jobs/${co.jobId}/change-orders/${parent.change_order_id}`);
+    }
   }
 }
 
@@ -578,7 +583,16 @@ export const addLine = defineAction({
   name: "estimates.add_line",
   permissions: ["estimates:create"],
   schema: lineAddSchema,
-  handler: async (input, ctx) => {
+  handler: async (raw, ctx) => {
+    const input = {
+      ...raw,
+      version_id: raw.version_id ?? null,
+      change_order_id: raw.change_order_id ?? null,
+      option_id: raw.option_id ?? null,
+      area_id: raw.area_id ?? null,
+      custom_price: raw.custom_price ?? null,
+      custom_cost: raw.custom_cost ?? null,
+    };
     let orgId: string;
     let jobId: string;
     if (input.version_id) {

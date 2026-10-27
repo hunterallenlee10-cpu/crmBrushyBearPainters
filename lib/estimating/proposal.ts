@@ -5,6 +5,8 @@ import type { Database, Json } from "@/lib/db/types";
 import {
   WORK_ORDER_PHASE_LABELS,
   buildPaintOrder,
+  buildProposalSnapshot,
+  priceVersion,
   buildWorkOrders,
   colorSelectionSeeds,
   describeLine,
@@ -24,6 +26,7 @@ import { logError } from "@/lib/log";
 import { ProposalDocument } from "@/lib/pdf/proposal-document";
 import { renderPdf } from "@/lib/pdf/render";
 import { storeGeneratedDocument } from "./documents";
+import { buildVersionInput, loadPricingContext, loadVersionRows } from "./load";
 import {
   buildProposalView,
   selectedOnly,
@@ -80,7 +83,7 @@ function totalsOf(v: unknown): QuoteTotals | null {
     : null;
 }
 
-type JobContext = {
+export type JobContext = {
   job: {
     id: string;
     org_id: string;
@@ -114,7 +117,7 @@ type JobContext = {
   };
 };
 
-async function loadJobContext(service: Db, jobId: string): Promise<JobContext | null> {
+export async function loadJobContext(service: Db, jobId: string): Promise<JobContext | null> {
   const { data: job } = await service
     .from("jobs")
     .select(
@@ -229,17 +232,31 @@ export type EstimateViewData = {
   signatureDocumentId: string | null;
 };
 
-/** The customer view of a sent (or accepted) estimate version. */
+/**
+ * The customer view of a sent (or accepted) estimate version. With
+ * `previewDraft`, a draft is shown as it would be sent today (internal preview).
+ */
 export async function loadEstimateView(
   service: Db,
   versionId: string,
+  opts: { previewDraft?: boolean } = {},
 ): Promise<EstimateViewData | null> {
-  const { data: version } = await service
+  const { data: row } = await service
     .from("estimate_versions")
     .select("*")
     .eq("id", versionId)
     .maybeSingle();
-  if (!version || !isSnapshot(version.proposal)) return null;
+  if (!row) return null;
+  let version = row;
+  if (!isSnapshot(row.proposal)) {
+    if (!opts.previewDraft || row.status !== "draft") return null;
+    const rows = await loadVersionRows(service, versionId);
+    if (!rows) return null;
+    const input = buildVersionInput(rows, await loadPricingContext(service, row.org_id));
+    const snapshot = buildProposalSnapshot(input, priceVersion(input));
+    version = { ...row, proposal: JSON.parse(JSON.stringify(snapshot)) as Json };
+  }
+  if (!isSnapshot(version.proposal)) return null;
   const { data: estimate } = await service
     .from("estimates")
     .select("*")

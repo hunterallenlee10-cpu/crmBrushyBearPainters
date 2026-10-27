@@ -31,6 +31,7 @@ const text = (max: number) =>
     .optional()
     .nullable()
     .transform((v) => {
+      if (v === undefined) return undefined; // left out: keep what's there
       const t = v?.trim();
       return t ? t : null;
     });
@@ -40,12 +41,12 @@ const optionalUuid = z
   .union([uuid, z.literal("")])
   .optional()
   .nullable()
-  .transform((v) => (v ? v : null));
+  .transform((v) => (v === undefined ? undefined : v ? v : null));
 const optionalKey = z
   .union([key, z.literal("")])
   .optional()
   .nullable()
-  .transform((v) => (v ? v : null));
+  .transform((v) => (v === undefined ? undefined : v ? v : null));
 
 /** "$1,234.50" → cents; empty → null. */
 const dollars = (label: string) =>
@@ -54,7 +55,8 @@ const dollars = (label: string) =>
     .optional()
     .nullable()
     .transform((v, ctx) => {
-      if (v === null || v === undefined || v === "") return null;
+      if (v === undefined) return undefined; // left out: keep what's there
+      if (v === null || v === "") return null;
       const cents = typeof v === "number" ? Math.round(v * 100) : dollarsToCents(v);
       if (cents === null) return null;
       if (Number.isNaN(cents) || cents < 0 || cents > 100_000_000) {
@@ -177,16 +179,13 @@ export const lineAddSchema = z
     custom_cost: dollars("Cost"),
     is_credit: z.boolean().optional(),
   })
-  .refine((v) => (v.version_id === null) !== (v.change_order_id === null), {
+  .refine((v) => (v.version_id == null) !== (v.change_order_id == null), {
     message: "Pick an estimate or a change order.",
   })
-  .refine(
-    (v) => v.catalog_item_id !== null || (v.custom_name !== null && v.custom_price !== null),
-    {
-      message: "Pick a catalog item, or enter a name and price.",
-      path: ["catalog_item_id"],
-    },
-  );
+  .refine((v) => v.catalog_item_id != null || (v.custom_name != null && v.custom_price != null), {
+    message: "Pick a catalog item, or enter a name and price.",
+    path: ["catalog_item_id"],
+  });
 
 export const measurementSchema = z
   .object({
@@ -328,7 +327,7 @@ export const catalogItemSchema = z
         message: "Pick the production-rate surface.",
       });
     }
-    if (v.pricing_method === "flat" && v.unit_price === null) {
+    if (v.pricing_method === "flat" && v.unit_price == null) {
       ctx.addIssue({ code: "custom", path: ["unit_price"], message: "Enter the price per unit." });
     }
   });
@@ -343,7 +342,7 @@ export const paintProductSchema = z.object({
   base: text(80),
   sheens: z.array(key).max(6).default([]),
   coverage_sqft_per_gal: z.coerce.number().positive("Coverage must be above 0.").max(2000),
-  cost_per_gal: dollars("Cost per gallon").refine((v) => v !== null, "Enter the cost per gallon."),
+  cost_per_gal: dollars("Cost per gallon").refine((v) => v != null, "Enter the cost per gallon."),
   price_per_gal: dollars("Price per gallon"),
   voc_g_per_l: z
     .union([z.coerce.number().min(0).max(1000), z.literal("")])

@@ -3,16 +3,18 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/db/types";
 import type { Viewer } from "@/lib/auth/viewer";
 import {
-  describeLine,
   discountLimitFor,
   parseDiscountLimits,
   priceVersion,
   type OptionSummary,
-  type Unit,
 } from "@/lib/estimating/engine";
 import { buildVersionInput, loadPricingContext, loadVersionRows } from "@/lib/estimating/load";
 import { productLabel } from "@/lib/estimating/map";
 import { defaultEstimateMessages } from "@/lib/estimating/messages";
+import type { BuilderIssue, BuilderLine } from "../types";
+import { toBuilderLine } from "../line-view";
+
+export type { BuilderIssue, BuilderLine };
 
 type Db = SupabaseClient<Database>;
 
@@ -22,49 +24,6 @@ type Db = SupabaseClient<Database>;
  * catalog; sent versions show what was frozen when they went out.
  */
 
-export type BuilderIssue = { severity: "error" | "warning"; message: string };
-
-export type BuilderLine = {
-  id: string;
-  optionId: string | null;
-  areaId: string | null;
-  isOptional: boolean;
-  kind: "production_rate" | "flat";
-  name: string;
-  unit: Unit;
-  surface: string | null;
-  catalogCode: string | null;
-  quantity: number;
-  sides: number;
-  condition: string;
-  prepLevel: string;
-  coats: number;
-  primer: string;
-  colorChange: string;
-  method: string;
-  access: string;
-  height: string;
-  sheen: string | null;
-  productId: string | null;
-  primerProductId: string | null;
-  leadSafe: boolean;
-  taxable: boolean;
-  isRepairAllowance: boolean;
-  unitPriceCents: number | null;
-  unitCostCents: number | null;
-  overridePriceCents: number | null;
-  overrideReason: string | null;
-  customerNote: string | null;
-  laborHours: number | null;
-  gallons: number | null;
-  primerGallons: number | null;
-  costCents: number | null;
-  computedPriceCents: number | null;
-  priceCents: number | null;
-  description: string;
-  issues: BuilderIssue[];
-};
-
 export type OptionTotals = {
   optionId: string;
   summary: OptionSummary;
@@ -72,7 +31,14 @@ export type OptionTotals = {
 };
 
 export type BuilderData = {
-  job: { id: string; number: string; name: string; leadSafeRequired: boolean; stage: string };
+  job: {
+    id: string;
+    number: string;
+    name: string;
+    leadSafeRequired: boolean;
+    stage: string;
+    workTypes: string[];
+  };
   estimate: { id: string; number: string; title: string | null; status: string };
   version: {
     id: string;
@@ -136,16 +102,6 @@ export type BuilderData = {
   can: { edit: boolean; send: boolean; approve: boolean };
 };
 
-function issuesOf(raw: unknown): BuilderIssue[] {
-  if (!Array.isArray(raw)) return [];
-  return raw.flatMap((i) => {
-    if (!i || typeof i !== "object") return [];
-    const o = i as Record<string, unknown>;
-    if (typeof o.message !== "string") return [];
-    return [{ severity: o.severity === "error" ? "error" : "warning", message: o.message }];
-  });
-}
-
 function storedTotals(raw: unknown): OptionTotals[] {
   if (!raw || typeof raw !== "object") return [];
   const opts = (raw as { options?: unknown }).options;
@@ -173,44 +129,54 @@ export async function loadBuilderData(
   const rows = await loadVersionRows(supabase, versionId);
   if (!rows || rows.estimate.job_id !== jobId) return null;
   const orgId = rows.version.org_id;
-  const [job, versions, catalog, ctx, settingsRow, approval, workTypes] = await Promise.all([
-    supabase
-      .from("jobs")
-      .select(
-        "id, job_number, name, stage, team_user_ids, property:properties(lead_safe_required), contact:contacts!jobs_primary_contact_id_fkey(first_name, last_name, mobile, email)",
-      )
-      .eq("id", jobId)
-      .maybeSingle(),
-    supabase
-      .from("estimate_versions")
-      .select("id, version_no, status, sent_at")
-      .eq("estimate_id", rows.estimate.id)
-      .order("version_no", { ascending: false }),
-    supabase
-      .from("catalog_items")
-      .select(
-        "id, code, name, family, unit, item_type, pricing_method, is_sample, sort_order, price_books!inner(is_default, active)",
-      )
-      .eq("active", true)
-      .eq("price_books.is_default", true)
-      .order("family")
-      .order("sort_order"),
-    loadPricingContext(supabase, orgId),
-    supabase.from("estimate_settings").select("discount_limits").eq("org_id", orgId).maybeSingle(),
-    supabase
-      .from("approval_requests")
-      .select("id, payload")
-      .eq("job_id", jobId)
-      .eq("type", "estimate_discount")
-      .eq("status", "pending")
-      .maybeSingle(),
-    supabase
-      .from("picklist_values")
-      .select("value, label, sort_order, picklists!inner(key)")
-      .eq("picklists.key", "work_type")
-      .eq("active", true)
-      .order("sort_order"),
-  ]);
+  const [job, versions, catalog, ctx, settingsRow, approval, workTypes, company] =
+    await Promise.all([
+      supabase
+        .from("jobs")
+        .select(
+          "id, job_number, name, stage, work_types, team_user_ids, property:properties(lead_safe_required), contact:contacts!jobs_primary_contact_id_fkey(first_name, last_name, mobile, email)",
+        )
+        .eq("id", jobId)
+        .maybeSingle(),
+      supabase
+        .from("estimate_versions")
+        .select("id, version_no, status, sent_at")
+        .eq("estimate_id", rows.estimate.id)
+        .order("version_no", { ascending: false }),
+      supabase
+        .from("catalog_items")
+        .select(
+          "id, code, name, family, unit, item_type, pricing_method, is_sample, sort_order, price_books!inner(is_default, active)",
+        )
+        .eq("active", true)
+        .eq("price_books.is_default", true)
+        .order("family")
+        .order("sort_order"),
+      loadPricingContext(supabase, orgId),
+      supabase
+        .from("estimate_settings")
+        .select("discount_limits")
+        .eq("org_id", orgId)
+        .maybeSingle(),
+      supabase
+        .from("approval_requests")
+        .select("id, payload")
+        .eq("job_id", jobId)
+        .eq("type", "estimate_discount")
+        .eq("status", "pending")
+        .maybeSingle(),
+      supabase
+        .from("picklist_values")
+        .select("value, label, sort_order, picklists!inner(key)")
+        .eq("picklists.key", "work_type")
+        .eq("active", true)
+        .order("sort_order"),
+      supabase
+        .from("company_settings")
+        .select("company_name, phone")
+        .eq("org_id", orgId)
+        .maybeSingle(),
+    ]);
   if (!job.data) return null;
 
   const draft = rows.version.status === "draft";
@@ -219,70 +185,9 @@ export async function loadBuilderData(
   const fresh = new Map(priced.lines.map((l) => [l.line.id, l]));
   const sheenLabels = ctx.lookups.sheenLabels;
 
-  const lines: BuilderLine[] = rows.lines.map((r) => {
-    const f = fresh.get(r.id);
-    const unit = (f?.line.unit ?? r.unit) as Unit;
-    const live = draft && f;
-    return {
-      id: r.id,
-      optionId: r.option_id,
-      areaId: r.area_id,
-      isOptional: r.is_optional,
-      kind: r.kind === "flat" ? "flat" : "production_rate",
-      name: r.name,
-      unit,
-      surface: r.surface,
-      catalogCode: r.catalog_code,
-      quantity: Number(r.quantity),
-      sides: r.sides,
-      condition: r.condition,
-      prepLevel: r.prep_level,
-      coats: r.coats,
-      primer: r.primer,
-      colorChange: r.color_change,
-      method: r.method,
-      access: r.access,
-      height: r.height,
-      sheen: r.sheen,
-      productId: r.paint_product_id,
-      primerProductId: r.primer_product_id,
-      leadSafe: r.lead_safe,
-      taxable: r.taxable,
-      isRepairAllowance: r.is_repair_allowance,
-      unitPriceCents: r.unit_price_cents,
-      unitCostCents: r.unit_cost_cents,
-      overridePriceCents: r.override_price_cents,
-      overrideReason: r.override_reason,
-      customerNote: r.customer_note,
-      laborHours: live
-        ? f.priced.laborHours
-        : r.labor_hours === null
-          ? null
-          : Number(r.labor_hours),
-      gallons: live ? f.priced.gallons : r.gallons === null ? null : Number(r.gallons),
-      primerGallons: live
-        ? f.priced.primerGallons
-        : r.primer_gallons === null
-          ? null
-          : Number(r.primer_gallons),
-      costCents: live ? f.priced.costCents : r.cost_cents,
-      computedPriceCents: live ? f.priced.computedPriceCents : r.computed_price_cents,
-      priceCents: live ? f.priced.priceCents : r.price_cents,
-      description: describeLine({
-        name: r.name,
-        quantity: Number(r.quantity),
-        unit,
-        kind: r.kind === "flat" ? "flat" : "production_rate",
-        coats: r.coats,
-        primer: r.primer === "spot" || r.primer === "full" ? r.primer : "none",
-        sides: r.sides,
-        sheenLabel: r.sheen ? (sheenLabels.get(r.sheen) ?? r.sheen) : null,
-      }),
-      issues: live
-        ? f.priced.issues.map((i) => ({ severity: i.severity, message: i.message }))
-        : issuesOf(r.issues),
-    };
-  });
+  const lines: BuilderLine[] = rows.lines.map((r) =>
+    toBuilderLine(r, draft ? fresh.get(r.id) : undefined, sheenLabels),
+  );
 
   const totals: OptionTotals[] = draft
     ? priced.options.map((o) => ({
@@ -315,8 +220,8 @@ export async function loadBuilderData(
   const messages = defaultEstimateMessages({
     customerFirstName: contact?.first_name ?? null,
     senderName: viewer.name,
-    companyName: "Brushy Bear Painters",
-    companyPhone: null,
+    companyName: company.data?.company_name ?? "",
+    companyPhone: company.data?.phone || null,
     documentNumber: rows.estimate.estimate_number,
     expiresAt: new Date(Date.now() + ctx.settings.expiryDays * 86_400_000),
   });
@@ -328,6 +233,7 @@ export async function loadBuilderData(
       name: job.data.name,
       leadSafeRequired: job.data.property?.lead_safe_required ?? false,
       stage: job.data.stage,
+      workTypes: job.data.work_types,
     },
     estimate: {
       id: rows.estimate.id,

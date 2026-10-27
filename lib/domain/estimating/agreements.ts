@@ -226,3 +226,12 @@ export function sentenceCase(s: string): string {
   const t = s.trim();
   return t ? t[0]!.toUpperCase() + t.slice(1) : t;
 }
+
+/**
+ * What the customer agrees to when they tap Accept & Sign (stored with the
+ * signature). Draft wording — owner/attorney to approve (DECISIONS 2026-10-27).
+ */
+export const ESIGN_CONSENT =
+  "I have read this proposal and its terms. I accept the option and add-ons selected above, and I agree to sign electronically.";
+export const ESIGN_CONSENT_CHANGE_ORDER =
+  "I have read this change order. I accept it and the change to the contract total, and I agree to sign electronically.";

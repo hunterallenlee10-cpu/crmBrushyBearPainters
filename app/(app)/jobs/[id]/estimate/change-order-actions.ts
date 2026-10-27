@@ -17,9 +17,9 @@ import {
  * use the builder's addLine/updateLine/deleteLine actions.
  */
 
-const refresh = (jobId: string) => {
+const refresh = (jobId: string, coId?: string) => {
   revalidatePath(`/jobs/${jobId}`);
-  revalidatePath(`/jobs/${jobId}/change-orders`, "layout");
+  if (coId) revalidatePath(`/jobs/${jobId}/change-orders/${coId}`);
 };
 
 export const createChangeOrder = defineAction({
@@ -66,7 +66,7 @@ export const updateChangeOrder = defineAction({
     if (!row)
       throw new ActionFailure(actionError("not_found", "That change order isn't available."));
     await repriceChangeOrder(await ctx.service(), id);
-    refresh(row.job_id);
+    refresh(row.job_id, id);
     return { id };
   },
 });
@@ -83,7 +83,7 @@ export const sendChangeOrder = defineAction({
     const co = checkOne(
       await ctx.supabase.from("change_orders").select("job_id").eq("id", id).single(),
     );
-    refresh(co.job_id);
+    refresh(co.job_id, id);
     return result;
   },
 });

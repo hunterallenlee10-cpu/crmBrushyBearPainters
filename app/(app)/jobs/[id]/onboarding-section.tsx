@@ -13,8 +13,8 @@ const TABS = ["checklist", "holds", "cases", "tasks"] as const;
 type Tab = (typeof TABS)[number];
 
 /**
- * Onboarding (SPEC §8.5 #2): the requirement checklist arrives in Phase 5;
- * holds work today. Footnote per SPEC §6.4.
+ * Onboarding (SPEC §8.5 #2): the requirement checklist (seeded on acceptance,
+ * verified in Phase 5) and holds. Footnote per SPEC §6.4.
  */
 export function OnboardingSection({
   jobId,
@@ -26,6 +26,8 @@ export function OnboardingSection({
   openTasks,
   tasksHref,
   initialTab,
+  checklist,
+  progress,
 }: {
   jobId: string;
   holds: HoldItem[];
@@ -36,9 +38,16 @@ export function OnboardingSection({
   openTasks: number | null;
   tasksHref: string;
   initialTab: string | undefined;
+  /** The requirement checklist, once the estimate is accepted (rendered on the server). */
+  checklist?: React.ReactNode;
+  progress?: { required: number; cleared: number } | null;
 }) {
   const [tab, setTab] = React.useState<Tab>(
-    (TABS as readonly string[]).includes(initialTab ?? "") ? (initialTab as Tab) : "holds",
+    (TABS as readonly string[]).includes(initialTab ?? "")
+      ? (initialTab as Tab)
+      : checklist
+        ? "checklist"
+        : "holds",
   );
   const active = holds.filter((h) => !h.releasedAt);
   const blocking = active.filter((h) => h.blocksScheduling);
@@ -56,8 +65,8 @@ export function OnboardingSection({
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <Tile
           label="Checklist progress"
-          value="—"
-          caption="Arrives in Phase 5"
+          value={progress ? `${progress.cleared}/${progress.required}` : "—"}
+          caption={progress ? "Required items cleared" : "Starts when the estimate is accepted"}
           icon={ClipboardList}
         />
         <Tile
@@ -95,13 +104,15 @@ export function OnboardingSection({
           </TabsList>
         </div>
         <TabsContent value="checklist">
-          <EmptySection icon={ShieldAlert} title="Onboarding checklist" phase={5}>
-            <p>
-              The checklist (signed contract, deposit, colors, HOA approval, lead-safe plan, paint
-              order, crew, prep instructions) is built from the accepted estimate. Until then, use
-              holds to show what the job is waiting on.
-            </p>
-          </EmptySection>
+          {checklist ?? (
+            <EmptySection icon={ShieldAlert} title="Onboarding checklist">
+              <p>
+                The checklist (signed contract, deposit, colors, HOA approval, lead-safe plan, paint
+                order, crew, prep instructions) is built when the customer accepts the estimate.
+                Until then, use holds to show what the job is waiting on.
+              </p>
+            </EmptySection>
+          )}
         </TabsContent>
         <TabsContent value="holds">
           <HoldsPanel

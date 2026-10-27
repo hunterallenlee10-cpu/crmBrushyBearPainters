@@ -401,6 +401,8 @@ export default async function JobDetailPage({
       delete: writable(viewer.can("jobs:delete") && canUpdate),
       readFinancials: can.readFinancials,
       readEstimates: viewer.can("estimates:read"),
+      readDocuments: viewer.can("documents:read"),
+      readInvoices: viewer.can("invoices:read"),
       editEstimates: writable(viewer.can("estimates:create") && canUpdate),
       sendEstimates: writable(viewer.can("estimates:send") && canUpdate),
       draftChangeOrders: writable(viewer.can("change_orders:draft")),

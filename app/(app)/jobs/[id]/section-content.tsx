@@ -7,15 +7,15 @@ import {
   HardHat,
   ListTodo,
   NotebookPen,
-  Ruler,
-  Wallet,
 } from "lucide-react";
 import { EmptySection } from "@/components/jobs/empty-section";
 import { JOB_SECTIONS } from "@/lib/domain/jobs/constants";
 import type { JobDetailData } from "./types";
 import { sectionHref } from "./utils";
 import { Overview } from "./overview";
-import { OnboardingSection } from "./onboarding-section";
+import { OnboardingWithChecklist } from "./onboarding-checklist";
+import { FinancialSection } from "./financial-section";
+import { EstimateSection } from "./estimate/section";
 import { AdminSection } from "./admin-section";
 import { AppointmentsCard } from "./appointments-card";
 import {
@@ -45,7 +45,7 @@ export function SectionContent({ data, tab }: { data: JobDetailData; tab?: strin
       break;
     case "onboarding":
       body = (
-        <OnboardingSection
+        <OnboardingWithChecklist
           jobId={job.id}
           holds={data.holds}
           holdTypes={data.options.picklists.hold_type}
@@ -83,23 +83,25 @@ export function SectionContent({ data, tab }: { data: JobDetailData; tab?: strin
       break;
     case "estimate":
       body = (
-        <EmptySection icon={Ruler} title="Estimate & scope" phase={4}>
-          <p>
-            Build the estimate room by room, pick colors, and send the proposal for signature. Until
-            then, an owner can record a contract baseline in Admin.
-          </p>
-        </EmptySection>
+        <EstimateSection
+          jobId={job.id}
+          can={{
+            readEstimates: can.readEstimates,
+            editEstimates: can.editEstimates,
+            sendEstimates: can.sendEstimates,
+            draftChangeOrders: can.draftChangeOrders,
+            readDocuments: can.readDocuments,
+          }}
+        />
       );
       break;
     case "financial":
       body = (
-        <EmptySection icon={Wallet} title="Financial" phase={7}>
-          <p>
-            {can.readFinancials
-              ? "Invoices, payments, the money summary and job costing arrive with Money. The contract baseline shows on the Overview."
-              : "Invoices and payments arrive with Money. Your role doesn't include job money."}
-          </p>
-        </EmptySection>
+        <FinancialSection
+          jobId={job.id}
+          canReadInvoices={can.readInvoices}
+          canReadFinancials={can.readFinancials}
+        />
       );
       break;
     case "photos":

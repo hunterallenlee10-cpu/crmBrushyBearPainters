@@ -144,6 +144,8 @@ export type JobPermissions = {
   delete: boolean;
   readFinancials: boolean;
   readEstimates: boolean;
+  readDocuments: boolean;
+  readInvoices: boolean;
   editEstimates: boolean;
   sendEstimates: boolean;
   draftChangeOrders: boolean;
