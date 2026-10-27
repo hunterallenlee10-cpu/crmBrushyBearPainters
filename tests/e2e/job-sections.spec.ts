@@ -405,7 +405,7 @@ test.describe("as the owner", () => {
     await expect(
       page.getByText("Customer-facing. Internal notes and comments stay separate."),
     ).toBeVisible();
-    await expect(page.getByLabel("Template")).toBeDisabled();
+    await expect(page.getByLabel("Start from a template")).toBeEnabled();
     const lead = page.getByRole("listitem").filter({ hasText: `Lead-era text ${t}` });
     await expect(lead.getByText("From the lead")).toBeVisible();
 

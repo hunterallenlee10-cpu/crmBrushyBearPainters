@@ -64,6 +64,29 @@
 1. **Admin → Finance** lists each month with billed, collected and what to tidy up (uncleared payments, unapplied money, draft invoices).
 2. Press **Close month**. Nobody can then change money dated in that month — except you, with a written reason, if something really has to change. **Reopen** a month the same way.
 
+## Messages, workflows and templates _(Phase 8)_
+
+- **Messages** (More → Messages) shows every customer conversation, unread first. Opening one marks it read for everyone; reply from there. Unread for 30 business minutes → Attention.
+- **Admin → Workflows**: the 17 automations, all on. Open one to see its steps, press **Test** to see exactly what it would send for a real job or lead (nothing is sent), or switch it off (say why).
+- **Admin → Messaging & Templates**: every text and email. Edit the wording, preview it with a real job, watch the text counter, then **Approve wording**. Everything starts as "Draft – owner to approve". **Messaging settings**: quiet hours, the STOP line, the email footer, the review and referral delays, the warranty SLA.
+
+## Warranty and service _(Phase 8)_
+
+- A customer calls about peeling trim: **More → Warranty & Service → New case** (or Onboarding → Cases on the job). Pick the job, describe it, choose "Text/Email: We got your request".
+- On the case: book the **warranty visit** (it goes on the calendar as a Warranty Visit), send the visit time, then **Resolved** with what was done. The SLA (2 business days by default) turns the case red on the Attention Center when it's missed.
+
+## Follow-up calls _(Phase 8)_
+
+- **Leads → Follow-up Lists**: eight call lists that fill themselves (hot new leads, tomorrow's walkthroughs, estimates waiting, callbacks, just planning, pre-season exterior, lost 90 days, past customers). Open one: the script is on the side; **Call**, **Text** from a template, pick what happened, **Save & next**. Callbacks come back on the day you pick.
+- Change the scripts, names, cooldowns and outcomes in Admin → Follow-up Lists.
+
+## Campaigns, Bear Champions and reviews _(Phase 8)_
+
+- **More → Campaigns → New campaign**: pick who (contacts, leads, or customers on jobs, with rules), write or pick the message, **Run checks**, **Send a test to me**, then **Schedule** or **Send now**. The checks tell you who's left out and why (no opt-in, opted out, Do Not Contact). The **Drips** tab has the two seasonal drips; **Automations** links to the workflows.
+- **Bear Champions**: happy customers get a code like BEAR-7KQ2 and a link to the website form. Referrals with the code come in by themselves; record a phone referral by hand. When the referred job is paid in full, the reward shows under **Payouts** — record how you paid it.
+- **Reviews**: each review request (2 days after Paid in Full), whether they clicked, and mark when a review shows up. Add your Google review link in Company Settings first.
+- **Settings → Notifications**: choose per event how you hear about it (in-app, email, text). Admin → Notification Settings sets the company defaults.
+
 ## What the CRM promises customers for you
 
 | Promise                      | What the CRM does                                                          |

@@ -730,6 +730,78 @@ Every non-obvious decision, newest at the bottom. Format: date · decision · re
 - **Decision:** Not built in Phase 7: commissions (Phase 10); a customer-facing invoice page or online payments (no payment processor connected); real email attachments (recorded in the outbox only); the Analytics money dashboards (Phase 9); workflow templates on money events (Phase 8).
 - **Reason:** Scope and "no real integrations" rule; listed in the Phase 7 report.
 
+## Phase 8 — Communication & growth
+
+### 2026-10-29 · Workflows are system-defined; the database holds the switch and the run log
+
+- **Decision:** The 17 workflows of SPEC §11.2 are defined once in TypeScript (`lib/domain/workflows/catalog.ts`: triggers, conditions, ordered actions, exit rules, a "Built in" list). The `workflows` table only holds each one's on/off switch (with a required reason to turn off) and `workflow_runs` logs every run. People can't add or edit workflow logic in this build; they change the wording (templates), delays (Messaging settings) and the switch. A turned-off workflow logs a `skipped` run for each event and sends nothing; turning it back on doesn't replay them.
+- **Reason:** SPEC §11.1 "system-defined + toggleable", testable dry runs, and no custom-logic editor before the owners ask for one.
+
+### 2026-10-29 · One run per (workflow, event), inline and from the worker
+
+- **Decision:** A run row is inserted first with the unique key `<workflow>:<event id>`; a second attempt (the inline dispatch right after the action, then the worker picking up the same event) hits the unique index and stops. Waits and quiet-hours deferrals park the run as `waiting` with `resume_at`; the worker resumes due runs every minute (`claim_workflow_runs`, `FOR UPDATE SKIP LOCKED`). A failed step stops the run (status `failed`, visible on Admin → Workflows with Retry). A dry run (Test) uses the same planner with `dryRun: true` and writes nothing.
+- **Reason:** Phase 8 "done when": no message sent twice; delayed steps executed by the worker.
+
+### 2026-10-29 · Customer sends moved behind their workflows
+
+- **Decision:** Earlier phases sent some customer messages directly: publish notices (Phase 6), the rain-delay text, daily updates, overdue reminders (Phase 7) and the on-time credit owner notice. Those sends now happen only through workflows 8, 9, 11, 14 and 10 (the built-in code emits the event and dispatches the workflow inline). Stage moves, holds, invoices and attention rules stay built in and are listed on each workflow page under "Built in". `lib/production/notify.ts` and `lib/money/reminders.ts` were removed.
+- **Reason:** One source per message, so turning a workflow off really stops it and nothing goes out twice (SPEC §11.1).
+
+### 2026-10-29 · Quiet hours and the customer-initiated window
+
+- **Decision:** Quiet hours are 8:00 pm – 8:00 am Pacific by default (Messaging settings), for automated **texts** only. A text due in quiet hours waits until they end (the run or drip step is deferred, the campaign batch waits). If the customer texted us in the last 24 hours (setting) the conversation counts as customer-initiated and replies go out. Emails aren't held. One-to-one texts a person sends by hand aren't held either (unchanged from Phase 3; a case acknowledgment sent from the case page is one of these). The E2E setup turns quiet hours off for the local test company so the suite can run at night; quiet hours are covered by unit tests and the dry run's "as if it were" time.
+- **Reason:** SPEC §11.1, §13.2.
+
+### 2026-10-29 · Consent model for automated and marketing messages
+
+- **Decision:** Do Not Contact blocks every channel. A STOP reply blocks texts (and, as in Phase 2, clears marketing consent). Transactional messages need only an address. Marketing texts need an explicit SMS opt-in; marketing email needs the contact's email opt-in, while leads (no opt-in record) may get marketing email until they unsubscribe. Every marketing text ends with "Reply STOP to opt out." and every marketing email with the company footer and a signed one-click unsubscribe link (`/u/<token>`, HMAC with `MESSAGING_LINK_SECRET`, derived from the service key if unset; the page asks before unsubscribing so link scanners don't). Inbound STOP / UNSUBSCRIBE / START / HELP (stub route, HMAC with `INBOUND_MESSAGES_SECRET`) apply to every contact and lead with that number. Consent is checked again at send time for drips and campaigns.
+- **Reason:** SPEC §13.2; TCPA/CAN-SPAM basics without inventing legal language (the footer's mailing address stays `[MAILING_ADDRESS]`).
+
+### 2026-10-29 · Templates are drafts until an owner approves them; drafts are used while simulated
+
+- **Decision:** 88 SMS and email templates are seeded (`is_system`, "Draft – owner to approve"). Editing a template puts it back to draft; only an owner (with `templates:manage`) can approve. Because nothing really sends in this build, drafts are used by workflows and shown with a Draft badge in every preview and outbox row (`template_status`). When a real provider is connected, only approved wording should go out (to switch on with the integration). Texts are normalized to plain punctuation (GSM-7) so a segment holds 160 characters. Placeholders like `[PHONE]`, `[WARRANTY_TERMS]`, `[HOW_TO_PAY — owner to provide]`, `[REFERRAL_REWARD]` pass through and are flagged.
+- **Reason:** CLAUDE.md "don't invent business facts"; SPEC §11.3.
+
+### 2026-10-29 · Threads per lead or job; reading a thread is shared
+
+- **Decision:** Every message belongs to one `message_threads` row per subject (lead, job, contact or account), created by a trigger on insert; existing messages were backfilled. The thread keeps the summary (last message, last inbound) and a generated `unread` (inbound after the last read). Opening a conversation marks it read for everyone; a person's outbound reply also marks it read. Marking read/unread needs `messages:send` and `messages:read` (`mark_thread_read`). The "Unread customer message" attention rule fires after 30 business minutes.
+- **Reason:** SPEC §5.7, §9.
+
+### 2026-10-29 · Audit-log exemptions for message bodies and logs
+
+- **Decision:** `workflow_runs`, `campaign_recipients` and `message_threads` have no audit trigger (`000_rls_everywhere` exempts them). They are logs or summaries themselves and would copy message text and personal data into the audit log. Their changes still emit events where useful.
+- **Reason:** CLAUDE.md "audit every mutation" weighed against data minimization; the mutations that matter (workflow switch, templates, campaigns, cases, referrals) are audited.
+
+### 2026-10-29 · Cases
+
+- **Decision:** Warranty / service cases (`cases`, numbered `CASE-YYYY-NNNN`) belong to a job or a customer. The SLA due time is N business days (Messaging settings, default 2) using Company Settings hours. A warranty visit is a `warranty_visit` appointment on the job, linked by `appointments.case_id`; a customer-only case has to be linked to a job before a visit is booked. Resolving needs a written resolution. The acknowledgment and visit confirmation use the `case_received` / `case_visit_booked` templates. Crew leads can read cases on jobs they're on (`cases:read` own).
+- **Reason:** SPEC §5.7, §8.16, §9 "Warranty request, SLA 2 business days".
+
+### 2026-10-29 · Follow-up lists: built-in rules, owner-edited names, scripts and cooldowns
+
+- **Decision:** The 8 lists of SPEC §11.4 are rules in `lib/follow-ups/lists.ts`, read with the person's own client (so row security applies) and capped at 300 rows each. Admin → Follow-up Lists edits names, scripts (drafts), cooldowns and the on/off switch, and the dispositions (grouped Positive / Negative / Callback / No Contact / Won; a disposition can set the lead's disposition, require a callback, or set Do Not Contact). After a disposition the record rests on that list for its cooldown or until its callback time. "Call" records a simulated call through the voice adapter (outbox) and offers a `tel:` link on phones.
+- **Reason:** SPEC §8.19, §11.4.
+
+### 2026-10-29 · Campaigns and drips
+
+- **Decision:** A campaign's audience reuses the list rule builder over contacts, leads, or the primary contacts of matching jobs (direct columns only). It's edited while it's a draft; scheduling re-runs the compliance checks on the server (empty message, email subject, unknown fields, job/estimate fields that a campaign can't fill, empty or unreachable audience: errors; placeholders, draft wording, long texts, quiet hours: warnings). When it starts, the worker freezes the audience into `campaign_recipients` with the reason anyone is left out (no consent, opted out, Do Not Contact, no address, duplicate address), then sends 100 per minute through the outbox. A recipient is marked converted if their lead books a walkthrough or converts, or the contact gets a new job, within 90 days. The two seeded drips (exterior pre-season, just-planning nurture) are edited on the Drips tab; turning a drip off ends active enrollments at their next step. Saved segments exist in the schema but the UI keeps the audience on the campaign (gap).
+- **Reason:** SPEC §8.11.
+
+### 2026-10-29 · Bear Champions and reviews
+
+- **Decision:** A champion gets a generated code (`BEAR-XXXX`, prefix in Referral Program settings) when workflow 15 sends the invite or when an owner adds them. A website lead with `?ref=CODE` becomes a referral automatically (database trigger); self-referrals are recorded as not eligible. Referral status (Referred, Walkthrough booked, Sold, Reward payable, Paid, Didn't book, Not eligible) is derived from the lead and job, never stored; the reward amount is copied from Company Settings when the referral comes in (`[REFERRAL_REWARD]` until set). An owner records the payout (method + reference); a paid reward can't be changed. Review requests are made by workflow 15 with a tracked link (`/r/<token>`, stored as a hash) that forwards to Company Settings → Review link; someone marks the review left and its stars.
+- **Reason:** SPEC §5.8, §8.16, §14.
+
+### 2026-10-29 · Notifications
+
+- **Decision:** 14 notification types. The company sets the default per type (in-app, email, text) and whether the in-app alert is required; each person can change their own (Settings → Notifications), except that a required in-app alert stays on. A trigger on `notifications` applies the choice and puts email and text copies in the outbox (simulated). Texts need a mobile number in +1 format on the profile.
+- **Reason:** SPEC §8.18, §8.19.
+
+### 2026-10-29 · Navigation and screen deviations
+
+- **Decision:** Messages (`/messages`) and Warranty & Service (`/cases`) are under More; Follow-up Lists (`/follow-ups`) under Leads. Crews read job messages on `/field/messages` (crew lead `messages:read` own). Mention search in the universal search stays a placeholder. Message bodies aren't searched yet.
+- **Reason:** SPEC §8 nav leaves room; kept the top bar short.
+
 ## Hosting
 
 ### 2026-10-27 · Separate hosting; worker every minute from the database

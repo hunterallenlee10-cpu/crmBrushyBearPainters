@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { test as setup, expect } from "@playwright/test";
 import {
   TEST_USERS,
+  adminClient,
   completeMfa,
   resetTestUsers,
   signInWithMagicLink,
@@ -20,6 +21,21 @@ setup("sign in test users", async ({ browser }, testInfo) => {
   setup.setTimeout(120_000);
   mkdirSync(AUTH_DIR, { recursive: true });
   await resetTestUsers();
+  // Quiet hours would hold automatic texts until 8:00 am whenever the suite
+  // runs at night; turn them off for the local test company (quiet hours are
+  // covered by unit tests and the workflow dry runs).
+  const admin = adminClient();
+  const { data: org } = await admin
+    .from("organizations")
+    .select("id")
+    .eq("slug", "brushy-bear")
+    .single();
+  if (org) {
+    await admin
+      .from("messaging_settings")
+      .update({ quiet_hours_enabled: false })
+      .eq("org_id", org.id);
+  }
   const secrets: Partial<Record<TestRole, string>> = {};
 
   for (const role of Object.keys(TEST_USERS) as TestRole[]) {

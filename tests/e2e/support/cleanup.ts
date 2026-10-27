@@ -24,6 +24,15 @@ async function deleteSubjectRows(type: "lead" | "job" | "account" | "contact", i
   }
   await db.from("attention_items").delete().eq("subject_type", type).in("subject_id", ids);
   await db.from("activity").delete().eq("subject_type", type).in("subject_id", ids);
+  // Phase 8: conversations, call-list outcomes, workflow runs and drip enrollments.
+  for (const table of [
+    "message_threads",
+    "follow_up_attempts",
+    "workflow_runs",
+    "drip_enrollments",
+  ]) {
+    await db.from(table).delete().eq("subject_type", type).in("subject_id", ids);
+  }
 }
 
 /** Jobs and everything hanging off them (appointments, holds, team, history, approvals). */
@@ -61,6 +70,9 @@ export async function deleteJobs(jobIds: string[]) {
     .not("receipt_path", "is", null);
   const receiptPaths = (receipts ?? []).map((r: { receipt_path: string }) => r.receipt_path);
   if (receiptPaths.length) await db.storage.from("receipts").remove(receiptPaths);
+  // Phase 8 rows that would block the delete (a case or referral needs its job or customer).
+  await db.from("cases").delete().in("job_id", jobIds);
+  await db.from("referrals").delete().in("job_id", jobIds);
   // appointments, holds, team, stage history, approvals and financials cascade.
   const { error } = await db.from("jobs").delete().in("id", jobIds);
   if (error) throw error;
@@ -74,6 +86,8 @@ export async function deleteLeadsAndJobs(leadIds: string[]) {
   const jobIds = (jobs ?? []).map((j: { id: string }) => j.id);
   const accountIds = [...new Set((jobs ?? []).map((j: { account_id: string }) => j.account_id))];
   await deleteJobs(jobIds);
+  await db.from("referrals").delete().in("lead_id", leadIds);
+  await db.from("campaign_recipients").delete().in("lead_id", leadIds);
   await db.from("appointments").delete().in("lead_id", leadIds);
   await deleteSubjectRows("lead", leadIds);
   await db
@@ -100,6 +114,20 @@ export async function deleteAccounts(accountIds: string[]) {
   const propIds = (props ?? []).map((p: { id: string }) => p.id);
   await deleteSubjectRows("account", accountIds);
   await deleteSubjectRows("contact", contactIds);
+  await db.from("cases").delete().in("account_id", accountIds);
+  if (contactIds.length) {
+    await db.from("cases").delete().in("contact_id", contactIds);
+    await db.from("campaign_recipients").delete().in("contact_id", contactIds);
+    const { data: champs } = await db
+      .from("referral_champions")
+      .select("id")
+      .in("contact_id", contactIds);
+    const champIds = (champs ?? []).map((c: { id: string }) => c.id);
+    if (champIds.length) {
+      await db.from("referrals").delete().in("champion_id", champIds);
+      await db.from("referral_champions").delete().in("id", champIds);
+    }
+  }
   const { data: docs } = await db
     .from("documents")
     .select("storage_path")

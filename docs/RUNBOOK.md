@@ -126,6 +126,16 @@ The website posts quote requests to `POST /api/public/leads` (contract in `docs/
 - **Receipts bucket:** `receipts` (private, 15 MB, JPEG or PDF, `<org>/<job>/<expense id>.jpg|pdf`), streamed through `/api/files/receipts/<expense id>` after a `job_costing:read` check. Back it up with the other buckets.
 - **Migration for production:** `20261028000100_money.sql` (additive: new tables, views, functions, gates 10–12, receipts bucket; backfills approved On-Time Guarantee credits into `credits` and seeds the overdue-invoice attention rule for every organization, both safe to re-run). Rollback in `supabase/rollbacks/20261028000100_money.down.sql`.
 
+## Messaging, workflows and campaigns _(Phase 8)_
+
+1. **Migrations:** apply `20261029000100_communication.sql` then `20261029000200_communication_seed.sql` (both additive; the seed is idempotent and only adds missing defaults). Rollbacks are in `supabase/rollbacks/`.
+2. **Env:** `MESSAGING_LINK_SECRET` (`openssl rand -hex 32`; signs unsubscribe links; if unset one is derived from the service key, so rotating that key breaks old links) and `INBOUND_MESSAGES_SECRET` (only when an SMS/email provider's inbound webhook is set up; without it the inbound route answers `503`). Both are listed in `.env.example`.
+3. **Worker:** every minute the worker also runs workflows for new events, resumes waiting runs (`claim_workflow_runs`), runs due drip steps (`claim_drip_enrollments`), sends campaign batches (100 per campaign per minute), raises stale-lead, subcontractor-paperwork and referral-payable events, and checks campaign conversions. The JSON summary has `staleLeads`, `subCompliance`, `workflowRuns`, `drips`, `campaigns` and `referrals`.
+4. **A workflow misbehaves:** Admin → Workflows → turn it off (a reason is required); events are logged as skipped and nothing is sent. Failed runs show at the top with the error; fix the cause (usually a template turned off or a missing value) and press **Retry** on the run.
+5. **A campaign is stuck in Sending:** check `campaign_recipients` for `pending` rows; texts wait during quiet hours. Pause or cancel it on the campaign page.
+6. **Someone says they keep getting texts:** find them in Messages; a STOP reply opts them out everywhere; or set Do Not Contact on the contact or lead. `contacts.opted_out_at` / `leads.sms_opted_out_at` show when.
+7. **E2E at night:** the test setup turns quiet hours off for the local test company only.
+
 ## Purge demo data _(Phase 10)_
 
 Demo data only exists in dev/preview (`DEMO_DATA=true`) and is tagged `is_demo = true`. An owner-only admin action removes it.

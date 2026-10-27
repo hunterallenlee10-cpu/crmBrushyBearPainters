@@ -171,6 +171,7 @@ export default async function CasePage({ params }: { params: Promise<{ id: strin
         <div className="flex flex-col gap-4">
           {canManage && (
             <CaseControls
+              key={`${c.status}-${c.priority}-${c.ownerId ?? ""}`}
               id={c.id}
               status={c.status}
               priority={c.priority}

@@ -20,7 +20,7 @@ Source of truth in code: `lib/integrations/registry.ts` (names, env flags, frequ
 
 ## Production messages (Phase 6)
 
-What the production screens record in the outbox (all `simulated`, draft wording – owner to approve; real templates arrive in Phase 8):
+What the production screens record in the outbox (all `simulated`; since Phase 8 these go out through workflows 8, 9 and 11 using the Messaging & Templates wording):
 
 | When                                                        | To                                        | Channel                                                                               | Template key         | `related_type`     |
 | ----------------------------------------------------------- | ----------------------------------------- | ------------------------------------------------------------------------------------- | -------------------- | ------------------ |
@@ -41,6 +41,25 @@ Weather: the Weather page and the weather work rule read `loadWeather()`, which 
 | Payment recorded                        | Accounting (QuickBooks) | `syncPayment` "would sync" preview: amount, method, date, which invoices it pays               | —                  | `payment`          |
 
 All `simulated`; wording is "Draft – owner to approve" and says how to pay with the placeholder `[HOW_TO_PAY — owner to provide]`. Email attachments are recorded in the outbox payload only; the real email providers will attach the stored PDF when connected. Invoices and payments carry `accounting_sync_status = not_connected` (`pending` / `synced` / `error` once QuickBooks is connected) and an `external_id`. Job → Financial → Accounting lists the previews. No payment link is offered (Stripe not connected), so there is no customer invoice page yet.
+
+## Communication & growth (Phase 8)
+
+Every workflow, drip, campaign, case and dialer message goes through `lib/messaging/core.ts` → `recordOutbound()` → the SMS or email adapter → `integration_outbox` (`simulated`), and onto the lead's, job's or contact's conversation (`messages` + `message_threads`). The outbox payload carries `template_key`, `template_status` (draft/approved), `workflow_run_id` and `campaign_id`.
+
+| When                                     | To                                                                               | Channel                                                          | `related_type`                                                       |
+| ---------------------------------------- | -------------------------------------------------------------------------------- | ---------------------------------------------------------------- | -------------------------------------------------------------------- |
+| Workflow send (17 workflows)             | Customer, crew lead or subcontractor                                             | per step: text, email, text-else-email, email-else-text, or both | `lead` / `job` (customer), `crew` (crew lead), the subject otherwise |
+| Workflow notice                          | Staff (in-app `notifications`; email/text copies by their notification settings) | in-app, email, text                                              | `notification`                                                       |
+| Drip step                                | Lead or job customer                                                             | per step                                                         | `lead` / `job`                                                       |
+| Campaign                                 | Contact or lead                                                                  | text or email (marketing)                                        | `campaign`                                                           |
+| Campaign "Send a test to me"             | The person testing                                                               | their profile email or mobile                                    | `campaign`                                                           |
+| Case acknowledgment / visit confirmation | Job's primary contact (or the case contact)                                      | text or email                                                    | `job` / `account`                                                    |
+| Power dialer **Call**                    | —                                                                                | `voice.place_call` through the voice adapter (no call is placed) | `lead` / `job` / `account`                                           |
+| HELP reply to an inbound text            | The sender                                                                       | text                                                             | —                                                                    |
+
+**Inbound (stub):** `POST /api/public/messages/inbound` takes a normalized message `{ channel, from, to?, subject?, body, provider_message_id?, received_at? }` signed like website leads (`X-BB-Signature: t=<unix>,v1=<HMAC-SHA256("<t>.<raw body>")>`, secret `INBOUND_MESSAGES_SECRET`; `503` when unset). Idempotent on `provider_message_id`. When Twilio / an email provider is connected, its webhook adapter verifies the provider's own signature and forwards to this handler.
+
+**Signed links:** `/u/<token>` (unsubscribe; HMAC with `MESSAGING_LINK_SECRET`, or one derived from the service key) and `/r/<token>` (review request click; random token stored as a SHA-256 hash). Neither needs a login.
 
 ## How the lock works
 

@@ -417,3 +417,14 @@ One new permission: **`finance:override_lock`** ("Change records in a closed mon
 - **Job costing** (Job → Financial → Job Costing, expenses and receipts) needs `job_costing:read` (Finance — controls: Bookkeeper; Owner). The same permission reads `profile_compensation` hourly costs for costing; it doesn't allow editing them, and the bookkeeper still has no `hr:read`. Receipt files stream through the app only after this check.
 - **Admin → Finance** and **Close month** need `finance:close_month` (Finance — controls: Bookkeeper; Owner). **Reopen a month** and **any change dated in a closed month** need `finance:override_lock` and a written reason (≥ 10 characters, audit-logged). The database enforces the lock, not only the screen.
 - **Gross margin %** on the finance KPIs is owner-only (registry `ownerOnly`).
+
+## Added in Phase 8
+
+Two new permissions: **`cases:read`** (scoped: own = cases you own or created, or on jobs you're on) and **`cases:manage`** (open, update, resolve cases and book warranty visits; booking also needs `appointments:manage`). Granted through the Core records packs (all: read all + manage; own: read own + manage), Read-only (read all) and Crew lead (read own). Crew leads also get **`messages:read`** (own), so they can read the conversations on their jobs on `/field/messages`.
+
+- **Messages inbox** (`/messages`) needs `messages:read`; row security shows only conversations on leads and jobs the person can see. Replying and marking read/unread need `messages:send`.
+- **Admin → Workflows** (switch, Test, Retry) needs `workflows:manage`. **Admin → Messaging & Templates** and **Messaging settings** need `templates:manage`; **approving wording** needs an owner (role grants all) with `templates:manage`.
+- **Follow-up Lists** and the power dialer need `leads:read` to open and `messages:send` to log outcomes, call and text. **Admin → Follow-up Lists & Dispositions** needs `settings:manage`.
+- **Campaigns & drips** need `campaigns:manage`. **Bear Champions** and **Admin → Referral Program** need `referrals:manage`; **Reviews** needs `reviews:manage`.
+- **Settings → Notifications**: everyone, for themselves only. **Admin → Notification Settings** needs `settings:manage`.
+- Public, no login: `/u/<token>` (unsubscribe, signed) and `/r/<token>` (review link). The inbound message route needs its HMAC secret.

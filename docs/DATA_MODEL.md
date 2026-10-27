@@ -519,3 +519,60 @@ erDiagram
 New functions (all writes are `service_role` only and re-check the actor's permission and company): `create_invoice`, `update_invoice_draft`, `mark_invoice_sent`, `void_invoice`, `record_payment`, `set_payment_applications`, `update_payment_status` (clear / bounce / void), `refund_payment`, `create_credit`, `decide_credit`, `place_job_credits`, `draft_final_invoice`, `close_month`, `reopen_month`, `sweep_invoices`; `public.finance_stats(from, to)` (security invoker, every money KPI); `app.invoice_display_status(…)`, `app.refresh_invoice_status(invoice)`, `app.job_money(job)`, `app.money_locked(org, day)`, `app.check_money_lock(…)`, `app.require_actor_perm(…)`, `app.require_actor_org(org)`, `app.seed_money_defaults(org)`. `app.job_gate_passes` covers gates 10–12; `search_records` returns invoices.
 
 Migration: `20261028000100_money`, with a rollback.
+
+## Added in Phase 8 — Communication & growth
+
+```mermaid
+erDiagram
+  workflows ||--o{ workflow_runs : "runs (one per event)"
+  message_templates ||--o{ campaigns : "starts from"
+  message_threads ||--o{ messages : "conversation"
+  jobs ||--o{ cases : "warranty / service"
+  cases ||--o{ appointments : "warranty visits"
+  contacts ||--o| referral_champions : "Bear Champion"
+  referral_champions ||--o{ referrals : "referred"
+  leads ||--o| referrals : "via ?ref="
+  jobs ||--o| review_requests : "one per job"
+  campaigns ||--o{ campaign_recipients : "frozen audience"
+  drips ||--o{ drip_enrollments : "people in it"
+  follow_up_lists ||--o{ follow_up_attempts : "dispositions"
+  workflow_runs {
+    text idempotency_key "workflow:event (unique)"
+    text status "running/waiting/completed/skipped/failed/canceled"
+    timestamptz resume_at "waits and quiet hours"
+    jsonb steps "what each step did"
+  }
+  message_threads {
+    text subject_type "lead/job/contact/account"
+    boolean unread "generated: inbound after the last read"
+  }
+  cases {
+    text case_number "CASE-YYYY-NNNN"
+    timestamptz sla_due_at "business days"
+  }
+```
+
+| Table / column                                                                      | Purpose                                                                                                                                                                                                |
+| ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `message_templates`                                                                 | SMS and email wording per key and channel, category, transactional or marketing, `status` draft/approved (approved by an owner; editing resets it), `is_system`, `active`. 88 seeded as drafts.        |
+| `workflows`                                                                         | One row per seeded workflow key: `enabled`, `disabled_reason`. The definitions are in code.                                                                                                            |
+| `workflow_runs`                                                                     | Every run: event, subject, status, current step, `resume_at`, step log, error; unique `idempotency_key`. Not audited (it's a log).                                                                     |
+| `message_threads`                                                                   | One per subject; last message summary, last inbound, `read_at` / `read_by`, generated `unread`. `messages.thread_id` is set by a trigger. Not audited.                                                 |
+| `messages` + columns                                                                | `thread_id`, `message_type` (transactional/marketing), `workflow_run_id`, `campaign_id`, `provider_message_id` (inbound idempotency).                                                                  |
+| `cases`                                                                             | Warranty / service cases: job and/or account, contact, type, priority, status, source, SLA due, first response, resolution (required to resolve). `appointments.case_id` links warranty visits.        |
+| `referral_settings`                                                                 | When a reward is payable (paid in full / sold), code prefix, program note and terms (drafts).                                                                                                          |
+| `referral_champions`                                                                | A contact's Bear Champion code (generated, unique, never changes) and status.                                                                                                                          |
+| `referrals`                                                                         | Champion → lead and/or job, source (`ref_link` / `manual`), reward amount copied at the time, payable / paid (method, reference), not-eligible reason. Status is derived.                              |
+| `review_requests`                                                                   | One per job: channel, status (sent/skipped/clicked/reviewed), tracked link token hash, clicks, review left, rating, platform.                                                                          |
+| `segments`                                                                          | Saved audiences (module, match, rules); not used by the screens yet.                                                                                                                                   |
+| `campaigns`                                                                         | Name, channel, audience (module + rules), template, subject, body, status (draft → scheduled → sending → sent; paused, canceled), times, last test. The guard allows content changes only in draft.    |
+| `campaign_recipients`                                                               | The audience frozen at send time: contact or lead, address, status (pending/excluded/sent/failed/deferred), exclusion reason, message and outbox ids, replied / unsubscribed / converted. Not audited. |
+| `drips` + `drip_enrollments`                                                        | Drip steps (delay or date, channel, template) and exit conditions; enrollments with current step, next run, step log, exit reason.                                                                     |
+| `follow_up_lists`, `follow_up_dispositions`, `follow_up_attempts`                   | List names, scripts, cooldowns; dispositions (group, lead disposition, needs a callback, sets Do Not Contact); every logged outcome (immutable).                                                       |
+| `notification_settings`, `notification_preferences`                                 | Company default and each person's choice per notification type (in-app / email / text; required). Applied by a trigger on `notifications`.                                                             |
+| `messaging_settings`                                                                | Quiet hours, customer-initiated window, STOP line, email footer, review / referral delays, case SLA.                                                                                                   |
+| `leads.sms_opted_out_at`, `leads.email_opted_out_at`, `contacts.email_opted_out_at` | STOP and unsubscribe. `rain_delays.notify_customer` (workflow 9 condition).                                                                                                                            |
+
+New functions: `approve_template`, `mark_thread_read`, `emit_domain_event` (service role; fixed list of event types), `claim_workflow_runs`, `claim_drip_enrollments`, `communication_stats(from, to)` (security invoker), `workflow_stats()`, `users_with_permission(org, permission)` (service role), `app.seed_communication_defaults(org)`; triggers for templates, workflows, threads, cases (number, SLA, activity), champions (code), referrals (no double pay), `leads_referral` (`?ref=`), campaigns (status rules), drip enrollments (people may only stop one), notifications (preferences). `number_sequences` gains `case` (`CASE-…`) and `paint_order` kinds; `attention_items.subject_type` gains `case`.
+
+Migrations: `20261029000100_communication` and `20261029000200_communication_seed`, each with a rollback.

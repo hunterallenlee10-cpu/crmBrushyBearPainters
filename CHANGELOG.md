@@ -2,6 +2,36 @@
 
 All notable changes, by build phase. See `docs/PLAN.md` for what each phase covers.
 
+## Phase 8 — Communication & growth
+
+### Added
+
+- **Workflow engine** (`lib/domain/workflows`, pure; `lib/workflows/engine.ts`): triggers and conditions → ordered actions (send, notify, task, attention, hold, set field, enroll in drip, assign owner, calendar, wait, webhook stub), exit rules, one run per (workflow, event), waits and quiet-hours deferrals resumed by the worker, consent and Do Not Contact on every send, transactional vs marketing from the template, run log with every step, failed runs with Retry, and a **Test** dry run against a real record ("as if it were" any time) that writes nothing.
+- **The 17 seeded workflows, all on** (SPEC §11.2): web-lead text-back, walkthrough confirmation and reminders, send-the-estimate task, estimate follow-ups day 2/5/10, welcome after acceptance, deposit and onboarding notices, schedule published (customer + crew + day-before reminder), rain delay, on-time credit for owner approval, daily customer update, final-walkthrough request, final invoice task, overdue reminders, Paid in Full thank-you → review → Bear Champions invite → 1-year check-in, nurture / exterior pre-season drips, subcontractor paperwork. **Admin → Workflows**: list with runs and last run, switch (reason required), steps, "Built in", Test, run log.
+- **Messaging & Templates**: 88 SMS and email templates ("Draft – owner to approve") with merge fields and filters, an editor with live preview (sample or a real job/lead), SMS segment counter, field inserter, owner approval, on/off; **Messaging settings** (quiet hours, customer-initiated window, STOP line, email footer, review and referral delays, case SLA).
+- **Conversations**: every message belongs to a lead's or job's thread with read/unread; **Messages** inbox (Unread · All · Mine, leads/jobs), reply from the inbox through the lead's or job's rules; unread banner and Mark read on the lead and job; Workflow tag on automatic messages; template picker in the lead and job composers; crews read job messages on `/field/messages`. **Inbound stub** `/api/public/messages/inbound` (HMAC): routes replies to the right conversation, STOP / UNSUBSCRIBE / START / HELP.
+- **Warranty & Service cases** (`/cases`): KPIs, filters, new case from a job or customer, SLA in business days, warranty visits as appointments on the job, "We got your request" and visit confirmations, resolve with what was done; Onboarding → Cases tab and Open cases tile; Onboarding Board → Service/Warranty tab and KPI; cases on the Attention Center.
+- **Follow-up Lists** (Leads → Follow-up Lists): 8 live call lists with counts and cooldowns; **power dialer** with the script, Call (voice adapter → outbox), Text from a template, dispositions grouped Positive / Negative / Callback / No Contact / Won, callbacks, auto-advance; **Admin → Follow-up Lists & Dispositions**.
+- **Campaigns & Drips** (`/campaigns`): audience builder on the list rules (contacts, leads, or customers on jobs), message from a template or your own, pre-send compliance checks, test send to yourself, schedule / send now / pause / resume / cancel, recipients with the reason anyone was left out, replies and conversions; the campaign worker; the two seeded drips with an editor and enrollments; Automations tab.
+- **Bear Champions** (`/referrals`): champions with BEAR-XXXX codes and ?ref= links, referrals from the website (automatic) or by hand, derived status, payouts, settings; **Admin → Referral Program**. **Reviews** (`/reviews`): request log, clicks through the tracked `/r/` link, review left and stars.
+- **Notifications**: Settings → Notifications (per event in-app / email / text; required alerts stay on) and Admin → Notification Settings (company defaults); a database trigger applies them to every notification.
+- **Unsubscribe** page `/u/<token>` (signed; asks before unsubscribing; ends marketing email and drips).
+- **Attention rules**: Unread customer message (30 business minutes) and Warranty request (SLA 2 business days).
+- **Metrics** (registry, one `communication_stats` call): unread conversations, open / past-SLA / warranty cases and on-time rate, campaigns, sends, delivery and bounce rate, replies, conversions, queue, unsubscribes and STOPs, active drips, review requests / click rate / review rate / reviews / average rating, champions, referrals, closed, conversion, paid out, payable, workflow runs / failed / waiting.
+
+### Changed
+
+- Customer sends that earlier phases made directly now go through their workflows (one source, can be switched off): publish notices, rain-delay text, daily updates, overdue reminders, the on-time credit notice. Crew notices on publish are still related to the crew.
+- The onboarding prep check accepts the welcome email; request drafts on the checklist come from the templates.
+- Lead texting respects a STOP reply (`leads.sms_opted_out_at`).
+- The E2E setup turns quiet hours off for the local test company (tests run at any hour).
+
+### Tests
+
+- SQL/RLS: 775 assertions across 15 files (Phase 8 adds 84 in `014_communication.test.sql`: the seed (17 workflows on, draft templates, lists, dispositions, drips, quiet hours, attention rules) and its idempotency; who may edit and approve templates and switch workflows; one run per (workflow, event) and claiming waiting runs once; threads, unread and who sees conversations (painters none, crew leads their own jobs); cases (first response, resolution, timeline, scope by role); generated champion codes; `?ref=` referrals, self-referral and unknown codes; payouts; campaigns start as drafts and follow the status rules; people can only stop a drip enrollment; `communication_stats`; cross-company isolation; migrations applied, rolled back and re-applied).
+- Unit: 1,141 tests across 87 files (Phase 8 adds a dry run for every seeded workflow, quiet hours and consent, the merge-field renderer and template validation, seed-sync, drips, follow-up cooldowns and callbacks, referrals, case SLA in business days, inbound routing and keywords, campaign checks and recipient planning, attention rules and the communication metrics).
+- E2E + axe on a production build (desktop and phone): full suite 292 passed, 131 skipped (role- or device-specific), 0 failed. New `communication.spec.ts`: the 17 workflows, a dry run and the switch; a new template previewed, counted and approved; an inbound text → unread conversation → read, STOP and START; composer template picker; a warranty case acknowledged, visit booked and resolved; the power dialer with a callback; **no double sends** (a booked walkthrough confirms once however often the worker runs; publish sends one customer notice; one daily update per log); a campaign built, checked, tested, sent and unsubscribed from; Bear Champions, Reviews and notification settings. Screenshots in `docs/screens/phase-8/`.
+
 ## Phase 7 — Money
 
 ### Added

@@ -62,7 +62,7 @@ export function TemplatePicker({
           })
         }
       >
-        <FileText className="size-4" aria-hidden /> Use
+        <FileText className="size-4" aria-hidden /> Use template
       </Button>
     </div>
   );

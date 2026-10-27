@@ -112,7 +112,7 @@ const SCOPE_TO_RPC: Partial<
   Invoices: "invoices",
 };
 const SCOPE_PHASE: Partial<Record<Scope, string>> = {
-  Mentions: "Mention search arrives with messaging (Phase 8).",
+  Mentions: "Mention search isn't built yet. Your mentions are in Notifications (the bell).",
 };
 
 function SearchDialog() {

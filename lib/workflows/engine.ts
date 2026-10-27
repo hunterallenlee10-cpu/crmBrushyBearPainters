@@ -670,15 +670,17 @@ async function executeSend(
       related:
         customer && ctx.thread
           ? { type: ctx.thread.subjectType, id: ctx.thread.subjectId }
-          : {
-              type: def.subject,
-              id: String(
-                (ctx.merge.subcontractor as { id?: string } | undefined)?.id ??
-                  ctx.jobId ??
-                  ctx.leadId ??
-                  "",
-              ),
-            },
+          : action.to === "crew_lead" && ctx.crewId
+            ? { type: "crew", id: ctx.crewId }
+            : {
+                type: def.subject,
+                id: String(
+                  (ctx.merge.subcontractor as { id?: string } | undefined)?.id ??
+                    ctx.jobId ??
+                    ctx.leadId ??
+                    "",
+                ),
+              },
       thread: customer && ctx.thread ? ctx.thread : undefined,
       templateKey: action.template,
       templateStatus: p.template?.status ?? null,

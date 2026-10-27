@@ -19,6 +19,7 @@ import { adminClient, TEST_USERS } from "./support/users";
  */
 
 const t = randomUUID().slice(0, 6);
+const WORKER_BASE = process.env.E2E_BASE_URL ?? `http://localhost:${process.env.PORT ?? 3000}`;
 const SCREENS = "docs/screens/phase-6";
 mkdirSync(SCREENS, { recursive: true });
 
@@ -346,6 +347,20 @@ test("a conflicting schedule is blocked with a clear reason; Publish sends simul
   expect(crewRows!.length).toBeGreaterThanOrEqual(1);
   expect(crewRows!.every((r) => r.status === "simulated")).toBe(true);
   expect(crewRows!.some((r) => r.recipient === TEST_USERS.painter.email)).toBe(true);
+  // Workflow 8 owns the customer notice: one, however often the worker runs (Phase 8).
+  for (let i = 0; i < 2; i++) {
+    const res = await fetch(`${WORKER_BASE}/api/cron/worker`, {
+      headers: { Authorization: `Bearer ${process.env.CRON_SECRET}` },
+    });
+    expect(res.status).toBe(200);
+  }
+  const { count: notices } = await db
+    .from("messages")
+    .select("id", { count: "exact", head: true })
+    .eq("subject_type", "job")
+    .eq("subject_id", jobs.a)
+    .eq("template_key", "schedule_published");
+  expect(notices).toBe(1);
 });
 
 test("the job's Schedule and Work Orders sections", async ({ page }, info) => {
@@ -507,6 +522,21 @@ test("on a phone: the daily log needs the cleanup check and photo, and works off
   const timeline = page.getByRole("list", { name: "Daily log timeline" });
   await expect(timeline.getByRole("listitem").first()).toContainText("Cleanup done");
   await expect(timeline).toContainText("Customer update sent (simulated)");
+  // One customer update per log that says it sent one (workflow 11; Phase 8).
+  const [{ count: updates }, { count: sentLogs }] = await Promise.all([
+    db
+      .from("messages")
+      .select("id", { count: "exact", head: true })
+      .eq("subject_type", "job")
+      .eq("subject_id", jobs.live)
+      .eq("template_key", "daily_update"),
+    db
+      .from("daily_logs")
+      .select("id", { count: "exact", head: true })
+      .eq("job_id", jobs.live)
+      .eq("customer_update_status", "simulated"),
+  ]);
+  expect(updates).toBe(sentLogs);
   await page.screenshot({ path: `${SCREENS}/job-daily-logs-mobile.png`, fullPage: true });
   await axe(page);
 });

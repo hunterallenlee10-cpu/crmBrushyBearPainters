@@ -41,6 +41,8 @@ export type LoadedContext = RunContext & {
   thread: { subjectType: "lead" | "job"; subjectId: string; contactId: string | null } | null;
   jobId: string | null;
   leadId: string | null;
+  /** The job's crew (or the one a schedule change moved it to). */
+  crewId: string | null;
   /** For the estimate link: the version to mint a fresh proposal link for. */
   estimate: {
     id: string;
@@ -253,6 +255,7 @@ export async function loadRunContext(
   let jobId: string | null = null;
   let leadId: string | null = null;
   let estimate: LoadedContext["estimate"] = null;
+  let crewId: string | null = null;
 
   // Subject-specific rows first (they point at the job or lead).
   switch (subject.type) {
@@ -428,6 +431,7 @@ export async function loadRunContext(
     const owner = part.people.get(job.owner_id ?? "");
     const pm = part.people.get(job.project_manager_id ?? "");
     const crewLead = part.people.get(part.crew?.lead_user_id ?? "");
+    crewId = part.crew?.id ?? null;
     pocName = poc?.full_name ?? null;
     merge.job = {
       id: job.id,
@@ -532,6 +536,7 @@ export async function loadRunContext(
         crew_changes: str(p.crew_changes),
         still_current: str(p.change) === "unscheduled" ? !currentStart : currentStart === startsOn,
       };
+      if (str(p.crew_id)) crewId = str(p.crew_id);
       if (str(p.crew_id) && str(p.crew_id) !== job.crew_id) {
         const { data: c } = await service
           .from("crews")
@@ -633,6 +638,7 @@ export async function loadRunContext(
     jobId,
     leadId,
     estimate,
+    crewId,
   };
 }
 

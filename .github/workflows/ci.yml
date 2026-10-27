@@ -100,6 +100,7 @@ jobs:
             # Test-only values for the local stack (not real secrets).
             echo "LEAD_INTAKE_HMAC_SECRET=ci-test-intake-secret-0123456789abcdef"
             echo "CRON_SECRET=ci-test-cron-secret-0123456789abcdef"
+            echo "INBOUND_MESSAGES_SECRET=ci-test-inbound-secret-0123456789abcdef"
             echo "FIELD_ENCRYPTION_KEY=$(openssl rand -base64 32)"
           } >> "$GITHUB_ENV"
       # NEXT_PUBLIC_* values are inlined at build time, so this job builds with the local stack's URL.

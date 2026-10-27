@@ -103,6 +103,46 @@ Source: `public.finance_stats(from, to)` (one server query, security invoker so 
 
 Job-level figures (contract, billed, left to bill, collected, balance, due) come from `job_ledger` and `computeJobLedger()`; see DATA_MODEL "No stored balances". Fixture tests: `lib/metrics/finance.test.ts`; SQL: `supabase/tests/013_money.test.sql` checks `finance_stats()`.
 
+## Communication & growth (Phase 8)
+
+Source: `public.communication_stats(from, to)` (one server query, security invoker so row security applies), defined in `COMMUNICATION_METRICS` and parsed by `parseCommunicationStats()`. Shown on Admin → Workflows, Warranty & Service, Campaigns, Bear Champions, Reviews and the Onboarding Board's "Open Warranty/Service" tile. Counts "right now" ignore the period; the rest count rows whose date falls in it (90 days on most screens, 365 on Bear Champions and Reviews). `workflow_stats()` gives the per-workflow run counts on Admin → Workflows.
+
+| Id                        | Metric                | What it counts                                                                        | Caption                                    |
+| ------------------------- | --------------------- | ------------------------------------------------------------------------------------- | ------------------------------------------ |
+| `messages.unread`         | Unread conversations  | Customer conversations with a text or email nobody has read yet.                      | Inbound after the last read · right now    |
+| `messages.threads`        | Conversations         | Lead and job conversations you can see.                                               | All conversations · right now              |
+| `cases.open`              | Open cases            | Warranty and service cases not resolved or closed.                                    | Not resolved · right now                   |
+| `cases.overdue`           | Past SLA              | Open cases past their SLA due time (2 business days by default).                      | Open and past SLA · right now              |
+| `cases.warranty_open`     | Open Warranty/Service | Open warranty cases.                                                                  | Warranty cases not resolved · right now    |
+| `cases.on_time_rate`      | Resolved within SLA   | Of the cases resolved in the period, the share resolved by their SLA due time.        | Resolved by SLA ÷ resolved · in the period |
+| `campaigns.total`         | Campaigns             | Campaigns that aren't canceled.                                                       | All campaigns · right now                  |
+| `campaigns.active`        | Active                | Scheduled, sending or paused campaigns.                                               | Scheduled + sending + paused · right now   |
+| `campaigns.sends`         | Sends (90d)           | Campaign messages recorded (simulated) in the period.                                 | Recipients sent · last 90 days             |
+| `campaigns.delivery_rate` | Delivery rate         | Sends that didn't fail, of all attempts. Simulated until a provider reports delivery. | Sent ÷ (sent + failed) · last 90 days      |
+| `campaigns.bounce_rate`   | Bounce rate           | Failed sends, of all attempts.                                                        | Failed ÷ (sent + failed) · last 90 days    |
+| `campaigns.replies`       | Replies (90d)         | Recipients who replied within 14 days of a campaign.                                  | Replied after a send · last 90 days        |
+| `campaigns.conversions`   | Conversions           | Recipients who booked or became a job after a campaign.                               | Converted after a send · last 90 days      |
+| `campaigns.queue`         | Queue                 | Recipients waiting to be sent (scheduled or held for quiet hours).                    | Pending + held · right now                 |
+| `messages.unsubscribes`   | Unsubscribes          | Contacts and leads who unsubscribed from marketing email in the period.               | Email unsubscribes · last 90 days          |
+| `messages.sms_opt_outs`   | SMS opt-outs          | Contacts and leads who replied STOP in the period.                                    | STOP replies · last 90 days                |
+| `drips.active`            | In a drip             | Active drip enrollments.                                                              | Active enrollments · right now             |
+| `reviews.requested`       | Review requests       | Review requests sent in the period.                                                   | Requests sent · in the period              |
+| `reviews.click_rate`      | Click-through         | Requests whose review link was opened.                                                | Clicked ÷ requested · in the period        |
+| `reviews.review_rate`     | Review rate           | Requests that led to a review (marked by the office).                                 | Reviews left ÷ requested · in the period   |
+| `reviews.left`            | Reviews left          | Reviews customers left for requests sent in the period.                               | Marked review left · in the period         |
+| `reviews.avg_rating`      | Average rating        | Average star rating where the office recorded one.                                    | Σ stars ÷ rated reviews · in the period    |
+| `referrals.champions`     | Champions             | Active Bear Champions.                                                                | Active champions · right now               |
+| `referrals.referrals`     | Referrals             | Referrals that came in during the period.                                             | New referrals · in the period              |
+| `referrals.closed`        | Closed deals          | Eligible referrals whose job was sold (all time).                                     | Referred jobs sold · all time              |
+| `referrals.conversion`    | Referral conversion   | Referred jobs sold, of all referrals (all time).                                      | Sold ÷ referrals · all time                |
+| `referrals.paid_out`      | Paid out              | Referral rewards paid to champions (all time).                                        | Σ rewards paid · all time                  |
+| `referrals.payable`       | Ready to pay          | Rewards whose referred job met the program rule and aren't paid yet.                  | Σ payable rewards · right now              |
+| `workflows.runs`          | Workflow runs         | Workflow runs started in the period (dry runs excluded).                              | Runs · in the period                       |
+| `workflows.failed`        | Failed runs           | Runs that stopped on an error in the period.                                          | Failed · in the period                     |
+| `workflows.waiting`       | Waiting               | Runs waiting for a delay, a reminder time or the end of quiet hours.                  | Waiting runs · right now                   |
+
+Fixture tests: `lib/metrics/registry.test.ts` (communication metrics); SQL: `supabase/tests/014_communication.test.sql` checks `communication_stats()`.
+
 ## Minimum set (SPEC §12.1)
 
 Leads created · leads by source · speed to lead (median, p90) · contact rate · walkthrough set rate · walkthrough show rate · estimates sent · 24h SLA % · close rate (count and $) · avg job value · sales velocity · pipeline value · backlog crew-days · projected revenue · revenue sold/completed/collected · gross margin % · labor hours estimated vs actual · daily-update compliance % · on-time start % · rain-delay days · punch items per job · days completed → paid · A/R aging · collection % · review rate · referral conversions · revenue by city/source/estimator · cost per lead & CAC.

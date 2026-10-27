@@ -21,9 +21,15 @@
 
 ## Messaging (SPEC §13.2)
 
-- [ ] Confirm consent requirements for marketing texts and emails (how opt-in is collected and recorded on the website form).
-- [ ] Approve quiet hours (default: no texts before 8 am; overnight texts queue).
-- [ ] Before connecting an SMS provider: complete the carrier registration it requires for business texting.
+- [ ] Confirm consent requirements for marketing texts and emails (how opt-in is collected and recorded on the website form). The CRM sends marketing texts only to contacts with an SMS opt-in, and marketing email to contacts with an email opt-in or leads who haven't unsubscribed.
+- [ ] Approve quiet hours (default 8:00 pm – 8:00 am Pacific in Admin → Messaging & Templates → Messaging settings: automated texts wait; replies within 24 hours of the customer's own text go out).
+- [ ] Before connecting an SMS provider: complete the carrier registration it requires for business texting, and point its inbound webhook at `/api/public/messages/inbound` (signed with `INBOUND_MESSAGES_SECRET`) so STOP / START / HELP keep working.
+- [ ] Approve the opt-out line ("Reply STOP to opt out.") and the marketing email footer; fill in the mailing address (`[MAILING_ADDRESS]`) that marketing email must carry.
+- [ ] Review and approve every template in Admin → Messaging & Templates (all "Draft – owner to approve"). Drafts are used while nothing really sends; when texting and email are connected, only approved wording should go out.
+- [ ] Fill in the placeholders the templates use: `[PHONE]`, `[EMAIL]`, `[HOURS]`, `[WARRANTY_TERMS]`, `[HOW_TO_PAY — owner to provide]`, `[REFERRAL_REWARD]` (Company Settings).
+- [ ] Bear Champions: write the program terms (Admin → Referral Program) and confirm the reward and when it's payable (default: the referred job is paid in full). Check any tax reporting the rewards need.
+- [ ] Reviews: confirm the review request wording follows the review site's rules (no incentives for reviews).
+- What the CRM already does: Do Not Contact blocks every message; a STOP reply blocks texts on every contact and lead with that number and clears marketing consent; marketing texts end with the opt-out line; marketing email has the footer and a one-click unsubscribe link (the page asks before unsubscribing); consent is checked again right before each drip step and campaign message; every automated message is logged on the conversation and in the outbox.
 
 ## Subcontractors
 
