@@ -354,3 +354,61 @@ Every non-obvious decision, newest at the bottom. Format: date · decision · re
 
 - **Decision:** The sub-source rule (required when the source has sub-sources; must belong to the source) lives in `lib/domain/leads/sub-source.ts`. New leads always follow it. Edit lead checks it only when the source or sub-source changes, so a lead saved before the rule, or a website lead without one, can still have its email or address fixed.
 - **Reason:** Blocking an unrelated edit over a field the person didn't touch would be confusing.
+
+## Phase 3 — Jobs core
+
+### 2026-10-26 · advanceJobStage() is enforced by the database
+
+- **Decision:** The `stage` column changes only inside `public.apply_job_stage_change()`, which sets a transaction-local flag the jobs guard checks; even the service role can't update the stage directly. Only the service role may call the function, and only from `lib/jobs/stage.ts` `advanceJobStage()` after its permission and visibility checks. The function re-checks the rules itself: one stage forward when the gate passes, Closed Lost with a lost reason, anything else (skip, back, reopen, a closed gate) needs an owner override with a reason of at least 10 characters by someone holding `job_admin:override`. Every change writes `stage_history` (with a sequence number for exact order), an activity entry and a `job.stage_changed` event, and stamps that stage's milestone the first time.
+- **Reason:** SPEC §6.2 "the only code path that changes stage" and Phase 3 "done when: a gate can't be skipped without owner override + reason". Enforcing it in the database means no future screen or script can bypass it. The gate list in `app.job_gate_passes()` and `lib/domain/jobs/gates.ts` must agree; both are tested.
+
+### 2026-10-26 · Gates for later modules stay closed until those modules exist
+
+- **Decision:** Only the walkthrough gate ("completed with result Measured") and Paid in Full → Closed Won can pass on their own in Phase 3. Every other gate (estimate sent, accepted, deposit invoice, onboarding cleared, schedule published, work orders, punch list, final invoice, balance) says which phase brings its check, and only an owner override moves a job past it. Non-owners can request the override; it goes to Approvals.
+- **Reason:** Faking those checks with milestone dates would let jobs slip past gates silently. Overrides are explicit, reasoned and audit-logged, and each later phase replaces one closed gate with a real check.
+
+### 2026-10-26 · Blocking holds stop scheduling even with an override
+
+- **Decision:** A hold with "blocks scheduling" (default on) stops a job from entering Ready to Schedule or any later stage, override or not, until it's released. Holds never change the stage; they overlay it and set the job's status to On hold.
+- **Reason:** SPEC §6.2 "Holds … block Ready to Schedule / scheduling". An override is for a missing check, not for skipping a known blocker such as an unpaid deposit or a missing HOA approval.
+
+### 2026-10-26 · Contract money is a separate table; baseline until estimates
+
+- **Decision:** Contract amounts live in `job_financials`, readable only with `financials:read` and writable only with `job_admin:override`. Until estimates exist (Phase 4) an owner sets a **contract baseline** in the job's Admin section; dashboards use it. Phase 4 derives the contract from the accepted estimate plus change orders.
+- **Reason:** SPEC §4.2 field masking: crew roles must not read contract amounts even through the database. A separate table is simpler and safer than column-level grants, which break `select *`.
+
+### 2026-10-26 · "Own" jobs include the job team
+
+- **Decision:** A job counts as yours (own scope) if you own or created it, or you're its point of contact, project manager or on its internal team. The list is kept in `jobs.team_user_ids` by triggers so row security stays a fast array check.
+- **Reason:** Crew leads and painters see their assigned jobs (SPEC §4.1) without a join in every policy.
+
+### 2026-10-26 · Lead conversion is one database transaction
+
+- **Decision:** `public.convert_lead_to_job()` (service role, after `convertLeadToJob()` checks `jobs:create` and edit rights on the lead) reuses a matching contact (same mobile, phone or email in the company), its account, and a property with the same street and ZIP; otherwise it creates them ("Smith Residence"). It creates the job at Walkthrough Scheduled named "Lastname – City – Work types", moves the lead's notes, comments, tasks and walkthrough appointment to the job, and links both ways. Messages and activity stay on the lead (messages are append-only) and the job's Messages and Activity sections show them. Lead photos stay on the lead until the Photos module (Phase 5).
+- **Reason:** SPEC §6.1. A single transaction never leaves half a conversion behind (the account create in Phase 2 wasn't atomic).
+
+### 2026-10-26 · Booking a walkthrough creates an appointment and converts
+
+- **Decision:** Booking a walkthrough now creates an `appointments` row (60 minutes, assigned to the lead owner); a trigger keeps `leads.walkthrough_at` in sync. When Company Settings "Convert to job when a walkthrough is booked" is on (default) and the person can create jobs, the lead converts right away. If converting fails the booking still stands and the screen shows why. Existing booked walkthroughs were copied into appointments by the migration.
+- **Reason:** SPEC §6.1 ("automatically when the walkthrough is booked (setting, default ON)") and §5.4.
+
+### 2026-10-26 · Attention engine: pure rules + a sync plan, every minute
+
+- **Decision:** Rules are pure functions (`lib/domain/attention/rules.ts`) over a snapshot of open leads, upcoming walkthroughs, open jobs and pending approvals. A pure planner (`sync.ts`) turns "what should be open" into inserts, escalations (same item, new priority), auto-resolves, snooze wake-ups and "condition cleared" marks. The worker applies it every minute. An item a person resolved stays resolved while the problem persists (no nagging) and can open again after the problem clears. Critical and high items notify their owner. Thresholds are editable in Admin → Attention Rules; SLA numbers come from Company Settings.
+- **Rules in Phase 3:** untouched new lead, aging lead, walkthrough not confirmed, estimate SLA, approval waiting, sold with no deposit, onboarding stalled, ready not scheduled (exteriors only count in season), start date missed. Weather, paint, crew, daily log, punch list, invoice, unread message, warranty and subcontractor rules arrive with their modules.
+- **Reason:** SPEC §9 and CLAUDE.md rule 7 (attention rules are pure, tested functions).
+
+### 2026-10-26 · Background worker route
+
+- **Decision:** `/api/cron/worker` runs every minute (Vercel Cron, `vercel.json`) with `Authorization: Bearer $CRON_SECRET`; without the secret it answers 503, with a wrong one 401. It's exempt from the sign-in redirect for that reason. Each run: claims queued events with `claim_events()` (SKIP LOCKED, retries with back-off, stuck events retried after 5 minutes), notifies the job team of stage changes and owners of approval requests, auto-closes jobs 3 days after Paid in Full, refreshes job health (only writing when it changed) and runs the attention sweep. Other events are marked "skipped" until workflows arrive (Phase 8).
+- **Reason:** SPEC §2 (events outbox + worker route hit by Vercel Cron). Note: per-minute crons need a Vercel Pro plan; on Hobby the schedule must be daily — owners to confirm the plan before deploy.
+
+### 2026-10-26 · Job health counts only checks whose data exists
+
+- **Decision:** Health is computed in `lib/domain/jobs/health.ts` from weighted checks chosen by stage (point of contact, walkthrough/final walkthrough booked, no overdue tasks, stage not stale, contract signed and deposit paid dates, start date on track). Checks for later modules (onboarding, crew, daily logs, photos, balance) are listed as "arrives in Phase N" and never lower the score. Closed jobs have no score.
+- **Reason:** SPEC §6.5. A score that drops for things nobody can fix yet would be noise.
+
+### 2026-10-26 · Admin sections moved
+
+- **Decision:** Notification Settings moves to Phase 8 (with messaging and workflows) and Job Recovery to Phase 10 (hardening); the job's own Admin section covers fixing dates and stages now. Admin → Attention Rules is new in Phase 3.
+- **Reason:** Their data and use cases arrive with those phases.

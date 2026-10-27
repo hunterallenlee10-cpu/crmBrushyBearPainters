@@ -360,3 +360,14 @@ Scope only applies to permissions marked as scoped in the catalog (`lib/permissi
 - **`properties:view_access_codes`** (See gate and lockbox codes). Granted by default through _Core records — everyone's_ (Owner and Office Manager). Codes live encrypted in a separate table (`property_secrets`) that the database only lets holders of this permission read or change. Everyone else sees "Ask the office for the gate code."
 - **Lead, account and contact visibility** follows each record's scope: _Own records_ = the record's owner (the person it's assigned to) or its creator; _Team_ = own records plus anything in the user's territory (`profiles.default_territory_id`); _Everyone's_ = whole company. Notes, comments, tasks, messages and activity follow the record they belong to.
 - **Website intake** (`/api/public/leads`) runs as the system with a signed request, not as a user. Leads it creates are unassigned until someone with `leads:assign` assigns them.
+
+## Added in Phase 3
+
+No new permissions; Phase 3 starts using the job ones seeded in Phase 1.
+
+- **Job visibility:** _Own records_ = the job's owner or creator, its point of contact or project manager, or anyone on its internal team; _Team_ = own plus the user's territory; _Everyone's_ = whole company. Notes, comments, tasks, messages, appointments, holds and stage history follow the job.
+- **Contract amounts** (`job_financials`) need `financials:read` (Owner, Office Manager, Bookkeeper and Read-only by default). Crew roles never see them, enforced by row security.
+- **Stage changes** need `jobs:advance_stage`. Skipping a stage, going back, reopening, or passing a gate whose check doesn't exist yet needs an **owner override** (`job_admin:override`, in the _Approvals & overrides_ pack, held by Owners) with a written reason. Others can request one; it waits in Approvals.
+- **Milestone dates and the contract baseline** are edited only in the job's Admin section (`job_admin:override`).
+- **Holds:** placing and releasing need `jobs:update` on the job. **Team:** adding and removing teammates needs `jobs:assign`.
+- **Attention items:** anyone with `attention:read` sees items for records they can open (or everything with _Everyone's_ scope) and can assign, snooze and resolve them. Rules and thresholds need `settings:manage`.

@@ -41,13 +41,13 @@ Do this once per Supabase project (preview and production). Local dev reads all 
 
 ## Rotating secrets
 
-| Secret                      | Where                         | Steps                                                                      |
-| --------------------------- | ----------------------------- | -------------------------------------------------------------------------- |
-| `SUPABASE_SERVICE_ROLE_KEY` | Vercel env                    | Rotate in Supabase (Settings → API) → update Vercel env → redeploy         |
-| `CRON_SECRET`               | Vercel env                    | Generate new value (`openssl rand -hex 32`) → update Vercel env → redeploy |
-| `LEAD_INTAKE_HMAC_SECRET`   | Vercel env + website repo env | Update both at the same time, then redeploy both                           |
-| `FIELD_ENCRYPTION_KEY`      | Vercel env                    | **Don't rotate casually** — see below                                      |
-| Provider keys (Phase 1+)    | Vercel env                    | Rotate at provider → update env → redeploy                                 |
+| Secret                      | Where                         | Steps                                                                                                              |
+| --------------------------- | ----------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `SUPABASE_SERVICE_ROLE_KEY` | Vercel env                    | Rotate in Supabase (Settings → API) → update Vercel env → redeploy                                                 |
+| `CRON_SECRET`               | Vercel env                    | Generate new value (`openssl rand -hex 32`) → update Vercel env → redeploy (Vercel Cron picks it up automatically) |
+| `LEAD_INTAKE_HMAC_SECRET`   | Vercel env + website repo env | Update both at the same time, then redeploy both                                                                   |
+| `FIELD_ENCRYPTION_KEY`      | Vercel env                    | **Don't rotate casually** — see below                                                                              |
+| Provider keys (Phase 1+)    | Vercel env                    | Rotate at provider → update env → redeploy                                                                         |
 
 ## Website lead intake _(Phase 2)_
 
@@ -63,6 +63,16 @@ The website posts quote requests to `POST /api/public/leads` (contract in `docs/
 - Codes are encrypted in the app (AES-256-GCM) with `FIELD_ENCRYPTION_KEY` (32 random bytes, base64: `openssl rand -base64 32`) before they reach the database.
 - **Losing or changing the key makes saved codes unreadable.** Keep a copy in the owners' password manager. To rotate: export the codes while the old key is set, change the key, re-enter them. A re-encryption script is a Phase 10 hardening item.
 - Without the key set, the app still works; saving a code shows "Gate codes can't be saved until FIELD_ENCRYPTION_KEY is set."
+
+## Background worker _(Phase 3)_
+
+`/api/cron/worker` processes queued events, refreshes job health, auto-closes jobs 3 days after Paid in Full, and runs the attention rules.
+
+1. **Secret:** set `CRON_SECRET` (`openssl rand -hex 32`) in the Vercel env. Vercel Cron sends it as `Authorization: Bearer …` automatically. Without it the route answers `503`.
+2. **Schedule:** `vercel.json` asks for every minute. That needs a Vercel **Pro** plan; on Hobby, cron jobs run at most once a day, so the attention engine would lag. Confirm the plan before launch.
+3. **Run it by hand:** `curl -H "Authorization: Bearer $CRON_SECRET" https://<app>/api/cron/worker` returns a JSON summary (events claimed/processed/failed, jobs auto-closed, health updates, attention items opened/updated/resolved).
+4. **Stuck or failing events:** check `events` where `status = 'failed'` (`last_error` says why). Failed events retry up to 5 times with back-off; events stuck in `processing` for 5 minutes are picked up again.
+5. **Attention noise:** turn a rule off or change its thresholds in Admin → Attention Rules; changes apply on the next run.
 
 ## Month close _(Phase 7)_
 

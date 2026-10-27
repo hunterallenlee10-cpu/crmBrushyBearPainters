@@ -220,3 +220,69 @@ Notes, comments, tasks, messages and activity attach to any record through `subj
 New public RPCs: `search_records(query, scope, limit)` (universal search, runs as the caller), `lead_stats(now)` (Lead Dashboard), `lead_status_counts()` (list tabs), `consume_rate_limit()` (service role). `soft_delete_record()` now also requires edit rights on the record; `list_deleted_records()` / `restore_record()` cover leads, accounts, contacts and properties.
 
 Migrations: `20261026000600_leads_customers`, `…0700_intake_claims`, `…0800_scoped_soft_delete`, `…0900_messages_trusted_delete`, `…1000_lead_list_performance`, each with a rollback in `supabase/rollbacks/`.
+
+## Phase 3 — jobs core
+
+```mermaid
+erDiagram
+  accounts ||--o{ jobs : "customer"
+  properties |o--o{ jobs : "where"
+  contacts |o--o{ jobs : "primary contact"
+  leads |o--o| jobs : "converted from"
+  jobs ||--o| job_financials : "contract money (financials:read)"
+  jobs ||--o{ job_holds : "holds"
+  jobs ||--o{ job_team : "internal team"
+  jobs ||--o{ stage_history : "every stage change"
+  jobs ||--o{ appointments : "walkthroughs, visits"
+  leads ||--o{ appointments : "before conversion"
+  jobs ||--o{ approval_requests : "override requests"
+  jobs ||--o{ attention_items : ""
+  leads ||--o{ attention_items : ""
+
+  jobs {
+    uuid id PK
+    text job_number "BB-YYYY-NNNN"
+    text name "Lastname – City – Work types"
+    text stage "only via apply_job_stage_change()"
+    text status "open / on_hold / won / lost (derived)"
+    text_arr work_types "picklist keys"
+    uuid owner_id FK
+    uuid point_of_contact_id FK
+    uuid project_manager_id FK
+    uuid_arr team_user_ids "derived, for row security"
+    smallint health_score "0-100, with factors"
+    date promised_start_date
+    timestamptz walkthrough_completed_at "milestones (SPEC 6.3)"
+  }
+  stage_history {
+    bigint seq "exact order"
+    text from_stage
+    text to_stage
+    bool override
+    text reason "required for overrides"
+    jsonb gate "gate check snapshot"
+  }
+  attention_items {
+    text rule_key
+    text priority "critical / high / medium / low"
+    text status "pending / in_progress / snoozed / resolved"
+    text dedupe_key "one open item per problem"
+    text resolution "auto / manual"
+  }
+```
+
+| Table               | Purpose                                                                                                                                                              |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `jobs`              | The opportunity (SPEC §5.3): customer, property, work types, stage, derived status, priority, team, dates, milestone timestamps, health. Soft delete.                |
+| `job_financials`    | Contract baseline in cents until estimates (Phase 4). Read needs `financials:read`; write needs `job_admin:override`.                                                |
+| `job_holds`         | Holds with type (picklist), reason, "blocks scheduling", who placed/released. Released holds stay for history. Hold counts on the job are kept by a trigger.         |
+| `job_team`          | Internal team members by role (estimator, point of contact, project manager, office, painter).                                                                       |
+| `stage_history`     | Append-only log of every stage change: from, to, who, override + reason, gate snapshot, approval request.                                                            |
+| `appointments`      | Walkthroughs and visits for a lead or job (SPEC §5.4): type (scheduling work types), start/end, assignees, status, walkthrough result. Keeps `leads.walkthrough_at`. |
+| `approval_requests` | Owner approvals. Phase 3: stage overrides requested by non-owners (one pending per job). Discounts, change orders and credits join later.                            |
+| `attention_items`   | Problems the attention engine found (SPEC §9), with owner, due time, snooze, and auto/manual resolution. One open item per `dedupe_key`.                             |
+| `attention_rules`   | Per-company on/off switch and thresholds for each rule (Admin → Attention Rules).                                                                                    |
+
+New RPCs: `apply_job_stage_change()` and `convert_lead_to_job()` (service role only), `claim_events()` (worker, service role only), `job_stats(from, to, prev_from)` (Jobs Dashboard; money null without `financials:read`), `job_status_counts()` (Job List tabs), `attention_summary()` (Attention Center KPIs and the nav badge). `search_records()` now finds jobs by number and name; soft delete / Deleted Records / open work counts cover jobs. Notes, comments, tasks and messages accept `subject_type = 'job'`.
+
+Migrations: `20261026001100_jobs_core`, `20261026001200_worker`, each with a rollback.
