@@ -254,7 +254,15 @@ describe("registry shape", () => {
         "schedule_board",
         "finance_stats",
         "communication_stats",
+        "analytics_stats",
+        "my_numbers",
+        "workspace_summary",
+        "daily_brief",
       ]).toContain(m.source);
+      if (id.startsWith("kpi.")) expect(m.source).toBe("analytics_stats");
+      if (id.startsWith("mine.")) expect(m.source).toBe("my_numbers");
+      if (id.startsWith("myday.")) expect(m.source).toBe("workspace_summary");
+      if (id.startsWith("brief.")) expect(m.source).toBe("daily_brief");
       if (id.startsWith("finance.")) expect(m.source).toBe("finance_stats");
       if (id.startsWith("production.")) expect(m.source).toBe("production_stats");
       if (id.startsWith("schedule.")) expect(m.source).toBe("schedule_board");

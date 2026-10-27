@@ -10,6 +10,8 @@ import { formatDuration } from "@/lib/domain/leads/speed-to-lead";
 import { JOB_STAGES, type JobStageId } from "@/lib/domain/stages";
 import { formatBytes } from "@/lib/domain/photos";
 import { BOARD_LANES, type BoardLane } from "@/lib/domain/onboarding/board";
+import { ATTENTION_RULES, type AttentionRuleKey } from "@/lib/domain/attention/rules";
+import type { Permission } from "@/lib/permissions";
 
 /**
  * Metrics registry (SPEC §12.1, CLAUDE.md): every KPI is defined here once and
@@ -86,6 +88,10 @@ export type MetricSources = {
   schedule_board: ScheduleBoardStats;
   finance_stats: FinanceStats;
   communication_stats: CommunicationStats;
+  analytics_stats: AnalyticsStats;
+  my_numbers: MyNumbers;
+  workspace_summary: WorkspaceSummary;
+  daily_brief: DailyBrief;
 };
 export type MetricSource = keyof MetricSources;
 
@@ -109,6 +115,25 @@ export type MetricDefinition<S extends MetricSource = MetricSource> = {
   /** Only owners may see it (SPEC §12.1). */
   ownerOnly: boolean;
   compute: (data: MetricSources[S]) => number | null;
+  /**
+   * The date column the period filters on ("leads.created_at"); null for a
+   * right-now or all-time figure. Defaults to the source's (SOURCE_INFO).
+   */
+  dateField?: string | null;
+  /** Filters this metric supports besides the date range. Defaults to the source's. */
+  filters?: readonly MetricFilter[];
+  /** Permissions needed to see the number (cards show "—", Ask refuses). */
+  requires?: readonly Permission[];
+};
+
+/** Filters a metric can take besides the date range (SPEC §12.1). */
+export const METRIC_FILTERS = ["work_type", "city", "owner", "source"] as const;
+export type MetricFilter = (typeof METRIC_FILTERS)[number];
+export const METRIC_FILTER_LABELS: Record<MetricFilter, string> = {
+  work_type: "Work type",
+  city: "City",
+  owner: "Owner",
+  source: "Lead source",
 };
 
 /** Safe ratio: null when there is nothing to divide by; clamped to 0–1. */
@@ -2296,7 +2321,2002 @@ export function communicationMetricValue(
   };
 }
 
+// ===========================================================================
+// ANALYTICS (Phase 9): every SPEC §12.1 KPI, with filters
+// ===========================================================================
+//
+// Source: `public.analytics_stats(p_from, p_to, p_filters)` (supabase/
+// migrations/20261030000100_analytics.sql), one round trip, row security
+// applied. The period is [from, to) in Pacific days; filters are work type,
+// city (territory), owner and lead source. Money is null without
+// financials:read, costs without job_costing:read. Each metric names the
+// date column the period filters on and the filters it honours. The fixture
+// values in lib/metrics/fixtures/analytics.ts are asserted in SQL by
+// supabase/tests/015_analytics.test.sql and computed here by the unit tests.
+
+const nCount = z.number().nonnegative().catch(0);
+const nullableCents = z.number().nullable().catch(null);
+const nullableNumber = z.number().nonnegative().nullable().catch(null);
+
+const stageRowSchema = z.object({ stage: z.string(), jobs: nCount, value_cents: nullableCents });
+const cityRowSchema = z.object({
+  territory_id: z.string().nullable().catch(null),
+  city: z.string().catch("Unknown"),
+  service_area: z.boolean().catch(false),
+  leads: nCount,
+  sold_jobs: nCount,
+  sold_cents: nullableCents,
+});
+const estimatorRowSchema = z.object({
+  user_id: z.string().nullable().catch(null),
+  name: z.string().catch("Unassigned"),
+  sent: nCount,
+  cohort_accepted: nCount,
+  accepted: nCount,
+  accepted_value_cents: nCount,
+});
+const sourceRowSchema = z.object({
+  source: z.string().nullable().catch(null),
+  leads: nCount,
+  converted: nCount,
+  sold_jobs: nCount,
+  sold_cents: nullableCents,
+  spend_cents: nCount,
+});
+const nullableAging = z
+  .object({ current: nCount, d1_30: nCount, d31_60: nCount, d61_90: nCount, d90_plus: nCount })
+  .nullable()
+  .catch(null);
+
+export const analyticsStatsSchema = z.object({
+  can_see_money: z.boolean().catch(false),
+  can_see_costs: z.boolean().catch(false),
+  period_days: nCount,
+  elapsed_days: nCount,
+  filters_applied: z.boolean().catch(false),
+  spend_applies: z.boolean().catch(true),
+  leads_created: nCount,
+  leads_contacted: nCount,
+  leads_walkthrough: nCount,
+  leads_converted: nCount,
+  speed_measured: nCount,
+  speed_median_seconds: nullableNumber,
+  speed_p90_seconds: nullableNumber,
+  walkthroughs_due: nCount,
+  walkthroughs_completed: nCount,
+  estimates_sent: nCount,
+  estimates_sent_value_cents: nCount,
+  sla_hours: z.number().positive().catch(24),
+  sla_measured: nCount,
+  sla_met: nCount,
+  cohort_accepted: nCount,
+  cohort_accepted_value_cents: nCount,
+  accepted: nCount,
+  accepted_value_cents: nCount,
+  open_estimates: nCount,
+  open_estimates_value_cents: nCount,
+  sold_jobs: nCount,
+  sold_cents: nullableCents,
+  velocity_days_avg: nullableNumber,
+  sold_not_started_jobs: nCount,
+  sold_not_started_cents: nullableCents,
+  completed_jobs: nCount,
+  completed_cents: nullableCents,
+  collected_cents: nullableCents,
+  billed_cents: nullableCents,
+  billed_collected_cents: nullableCents,
+  margin_jobs: nullableNumber,
+  margin_revenue_cents: nullableCents,
+  margin_cost_cents: nullableCents,
+  labor_budgeted_hours: nCount,
+  labor_actual_hours: nCount,
+  punch_items: nCount,
+  daily_due: nCount,
+  daily_logged: nCount,
+  on_time_met: nCount,
+  on_time_missed: nCount,
+  rain_delay_days: nCount,
+  paid_jobs: nCount,
+  days_completed_to_paid_avg: nullableNumber,
+  ar_outstanding_cents: nullableCents,
+  overdue_cents: nullableCents,
+  aging: nullableAging,
+  reviews_requested: nCount,
+  reviews_left: nCount,
+  referrals: nCount,
+  referrals_sold: nCount,
+  backlog_hours: nCount,
+  crew_day_hours: z.number().positive().catch(8),
+  backlog_by_work_type: z
+    .array(z.object({ work_type: z.string().catch("other"), hours: nCount }))
+    .catch([]),
+  spend_cents: nCount,
+  cac_jobs: nCount,
+  by_stage: z.array(stageRowSchema).catch([]),
+  funnel: z
+    .object({
+      leads: nCount,
+      contacted: nCount,
+      walkthrough: nCount,
+      estimate: nCount,
+      sold: nCount,
+    })
+    .catch({ leads: 0, contacted: 0, walkthrough: 0, estimate: 0, sold: 0 }),
+  by_city: z.array(cityRowSchema).catch([]),
+  by_estimator: z.array(estimatorRowSchema).catch([]),
+  by_source: z.array(sourceRowSchema).catch([]),
+  alerts: z.record(z.string(), nCount).catch({}),
+  expiring_estimates: nCount,
+  approvals_pending: nCount,
+  dq_leads_unassigned: nCount,
+  dq_jobs_no_poc: nCount,
+  dq_jobs_no_property: nCount,
+  dq_contacts_unreachable: nCount,
+});
+export type AnalyticsStats = z.infer<typeof analyticsStatsSchema>;
+export const EMPTY_ANALYTICS_STATS: AnalyticsStats = analyticsStatsSchema.parse({});
+
+/** Parses `analytics_stats`; anything malformed reads as zero / empty, never a crash. */
+export function parseAnalyticsStats(raw: unknown): AnalyticsStats {
+  const parsed = analyticsStatsSchema.safeParse(raw ?? {});
+  return parsed.success ? parsed.data : EMPTY_ANALYTICS_STATS;
+}
+
+const ALL_FILTERS: readonly MetricFilter[] = METRIC_FILTERS;
+const MONEY: readonly Permission[] = ["financials:read"];
+const COSTS: readonly Permission[] = ["job_costing:read"];
+
+export type AnalyticsMetricDefinition = MetricDefinition<"analytics_stats"> & {
+  dateField: string | null;
+  filters: readonly MetricFilter[];
+  requires: readonly Permission[];
+  /** Caption with live numbers; the static `caption` may use {period}. */
+  detail?: (s: AnalyticsStats, words: PeriodWords) => string;
+  /** Words people use for it in "Ask Brushy Bear" (lowercase). */
+  keywords: readonly string[];
+};
+
+function kpi(
+  def: Omit<AnalyticsMetricDefinition, "source" | "ownerOnly" | "filters" | "requires"> & {
+    ownerOnly?: boolean;
+    filters?: readonly MetricFilter[];
+    requires?: readonly Permission[];
+  },
+): AnalyticsMetricDefinition {
+  return {
+    ownerOnly: false,
+    filters: ALL_FILTERS,
+    requires: [],
+    ...def,
+    source: "analytics_stats",
+  };
+}
+
+const n = (v: number) => Math.round(v).toLocaleString("en-US");
+
+/** MTD sold + run-rate for the rest of the period; the sold figure once the period is over. */
+export function projectedRevenue(s: AnalyticsStats): number | null {
+  if (s.sold_cents === null) return null;
+  if (s.period_days <= 0) return null;
+  if (s.elapsed_days >= s.period_days) return s.sold_cents;
+  if (s.elapsed_days <= 0) return null;
+  return Math.round((s.sold_cents / s.elapsed_days) * s.period_days);
+}
+
+export const ANALYTICS_METRICS = {
+  // Leads ------------------------------------------------------------------
+  "kpi.leads_created": kpi({
+    id: "kpi.leads_created",
+    label: "Leads created",
+    description: "Leads that came in during the period, from any source.",
+    unit: "count",
+    dateField: "leads.created_at",
+    caption: "Leads created {period}",
+    keywords: ["leads", "lead count", "new leads", "how many leads"],
+    compute: (s) => s.leads_created,
+  }),
+  "kpi.speed_to_lead_median": kpi({
+    id: "kpi.speed_to_lead_median",
+    label: "Speed to Lead",
+    description:
+      "Median time from a lead arriving to a person first reaching them, counted in business hours.",
+    unit: "duration",
+    dateField: "leads.created_at",
+    caption: "Median, business hours · leads created {period}",
+    detail: (s, w) =>
+      s.speed_measured
+        ? `Median of ${n(s.speed_measured)} leads reached · p90 ${formatMetricValue("duration", s.speed_p90_seconds)} · ${w.period}`
+        : `No leads reached ${w.period} yet`,
+    keywords: ["speed to lead", "response time", "first contact", "how fast"],
+    compute: (s) => s.speed_median_seconds,
+  }),
+  "kpi.speed_to_lead_p90": kpi({
+    id: "kpi.speed_to_lead_p90",
+    label: "Speed to Lead (p90)",
+    description: "9 in 10 leads were reached within this time (business hours).",
+    unit: "duration",
+    dateField: "leads.created_at",
+    caption: "90th percentile, business hours · leads created {period}",
+    keywords: ["p90", "slowest"],
+    compute: (s) => s.speed_p90_seconds,
+  }),
+  "kpi.contact_rate": kpi({
+    id: "kpi.contact_rate",
+    label: "Contact rate",
+    description: "Share of the period's leads a person has reached at least once.",
+    unit: "percent",
+    dateField: "leads.created_at",
+    caption: "Leads contacted ÷ leads created {period}",
+    detail: (s, w) =>
+      `${n(s.leads_contacted)} of ${n(s.leads_created)} leads contacted · ${w.period}`,
+    keywords: ["contact rate", "contacted"],
+    compute: (s) => ratio(s.leads_contacted, s.leads_created),
+  }),
+  "kpi.walkthrough_set_rate": kpi({
+    id: "kpi.walkthrough_set_rate",
+    label: "Walkthrough set rate",
+    description: "Share of the period's leads that got a walkthrough booked.",
+    unit: "percent",
+    dateField: "leads.created_at",
+    caption: "Leads with a walkthrough booked ÷ leads created {period}",
+    detail: (s, w) =>
+      `${n(s.leads_walkthrough)} of ${n(s.leads_created)} leads booked a walkthrough · ${w.period}`,
+    keywords: ["walkthrough rate", "walkthroughs booked", "set rate"],
+    compute: (s) => ratio(s.leads_walkthrough, s.leads_created),
+  }),
+  "kpi.walkthrough_show_rate": kpi({
+    id: "kpi.walkthrough_show_rate",
+    label: "Walkthrough show rate",
+    description:
+      "Of walkthroughs whose time came in the period, the share completed (no-shows are the rest).",
+    unit: "percent",
+    dateField: "appointments.starts_at",
+    caption: "Completed ÷ (completed + no-shows) · walkthroughs {period}",
+    detail: (s, w) =>
+      `${n(s.walkthroughs_completed)} of ${n(s.walkthroughs_due)} walkthroughs happened · ${w.period}`,
+    keywords: ["show rate", "no show", "no-show"],
+    compute: (s) => ratio(s.walkthroughs_completed, s.walkthroughs_due),
+  }),
+  // Estimates & sales -------------------------------------------------------
+  "kpi.estimates_sent": kpi({
+    id: "kpi.estimates_sent",
+    label: "Estimates Sent",
+    description: "Estimates sent to the customer for the first time in the period.",
+    unit: "count",
+    dateField: "estimate_versions.sent_at (first send)",
+    caption: "First sent {period}",
+    detail: (s, w) =>
+      `${n(s.estimates_sent)} sent ${w.period} · ${formatMoney(s.estimates_sent_value_cents)} quoted`,
+    keywords: ["estimates sent", "estimates", "quotes", "proposals sent"],
+    compute: (s) => s.estimates_sent,
+  }),
+  "kpi.sla_24h": kpi({
+    id: "kpi.sla_24h",
+    label: "24h Estimate SLA",
+    description:
+      "Share of estimates sent within the estimate SLA (Company Settings, 24 hours by default) after the walkthrough was completed.",
+    unit: "percent",
+    dateField: "estimate_versions.sent_at (first send)",
+    caption: "Sent within the SLA ÷ estimates with a completed walkthrough · first sent {period}",
+    detail: (s, w) =>
+      `${n(s.sla_met)} of ${n(s.sla_measured)} sent within ${n(s.sla_hours)}h · ${w.period}`,
+    keywords: ["sla", "24h", "24 hour", "estimate sla", "written estimate"],
+    compute: (s) => ratio(s.sla_met, s.sla_measured),
+  }),
+  "kpi.close_rate": kpi({
+    id: "kpi.close_rate",
+    label: "Close Rate",
+    description: "Accepted ÷ sent, same cohort: estimates first sent in the period.",
+    unit: "percent",
+    dateField: "estimate_versions.sent_at (first send)",
+    caption: "Accepted ÷ sent · estimates first sent {period}",
+    detail: (s, w) =>
+      `${n(s.cohort_accepted)} accepted ÷ ${n(s.estimates_sent)} sent · first sent ${w.period}`,
+    keywords: ["close rate", "closing rate", "win rate", "conversion"],
+    compute: (s) => ratio(s.cohort_accepted, s.estimates_sent),
+  }),
+  "kpi.close_rate_value": kpi({
+    id: "kpi.close_rate_value",
+    label: "Close Rate ($)",
+    description: "Accepted value ÷ sent value, same cohort.",
+    unit: "percent",
+    dateField: "estimate_versions.sent_at (first send)",
+    caption: "Accepted $ ÷ sent $ · estimates first sent {period}",
+    keywords: ["close rate dollars", "dollar close rate"],
+    compute: (s) => ratio(s.cohort_accepted_value_cents, s.estimates_sent_value_cents),
+  }),
+  "kpi.avg_job_value": kpi({
+    id: "kpi.avg_job_value",
+    label: "Avg Job Value",
+    description: "Accepted estimate value ÷ estimates accepted in the period.",
+    unit: "money",
+    dateField: "estimates.accepted_at",
+    caption: "Accepted $ ÷ estimates accepted {period}",
+    detail: (s, w) =>
+      `${formatMoney(s.accepted_value_cents)} ÷ ${n(s.accepted)} accepted · ${w.period}`,
+    keywords: ["average job", "avg job", "job value", "average ticket", "job size"],
+    compute: (s) => (s.accepted === 0 ? null : Math.round(s.accepted_value_cents / s.accepted)),
+  }),
+  "kpi.sales_velocity": kpi({
+    id: "kpi.sales_velocity",
+    label: "Sales Velocity",
+    description: "Average days from the lead arriving to the estimate being accepted.",
+    unit: "days",
+    dateField: "jobs.estimate_accepted_at",
+    caption: "Average days lead → sold · jobs sold {period}",
+    detail: (s, w) =>
+      s.sold_jobs
+        ? `Average of ${n(s.sold_jobs)} jobs sold ${w.period}`
+        : `No jobs sold ${w.period} yet`,
+    keywords: ["velocity", "days to close", "how long to sell", "sales cycle"],
+    compute: (s) => s.velocity_days_avg,
+  }),
+  "kpi.sold_jobs": kpi({
+    id: "kpi.sold_jobs",
+    label: "Jobs sold",
+    description: "Jobs whose estimate was accepted in the period.",
+    unit: "count",
+    dateField: "jobs.estimate_accepted_at",
+    caption: "Estimate accepted {period}",
+    keywords: ["jobs sold", "sold jobs", "how many sold", "deals"],
+    compute: (s) => s.sold_jobs,
+  }),
+  "kpi.pipeline_value": kpi({
+    id: "kpi.pipeline_value",
+    label: "Open Pipeline Value",
+    description:
+      "Open estimates (sent or viewed, not answered) plus the contract value of jobs sold but not started.",
+    unit: "money",
+    requires: MONEY,
+    dateField: null,
+    caption: "Open estimates + sold, not started · right now",
+    detail: (s) =>
+      `${n(s.open_estimates)} open estimates ${formatMoney(s.open_estimates_value_cents)} + ${n(s.sold_not_started_jobs)} sold ${formatMoney(s.sold_not_started_cents)} · right now`,
+    keywords: ["pipeline", "open pipeline", "pipeline value", "backlog value"],
+    compute: (s) =>
+      s.sold_not_started_cents === null
+        ? null
+        : s.open_estimates_value_cents + s.sold_not_started_cents,
+  }),
+  "kpi.pipeline_open_estimates": kpi({
+    id: "kpi.pipeline_open_estimates",
+    label: "Open estimates",
+    description: "Value of estimates sent and waiting on the customer.",
+    unit: "money",
+    dateField: null,
+    caption: "Sent or viewed, not answered · right now",
+    detail: (s) => `${n(s.open_estimates)} estimates waiting on the customer · right now`,
+    keywords: ["open estimates", "waiting estimates", "outstanding estimates"],
+    compute: (s) => s.open_estimates_value_cents,
+  }),
+  "kpi.pipeline_sold_not_started": kpi({
+    id: "kpi.pipeline_sold_not_started",
+    label: "Sold, not started",
+    description: "Contract value of jobs sold and not yet in production.",
+    unit: "money",
+    requires: MONEY,
+    dateField: null,
+    caption: "Sold → Scheduled · right now",
+    detail: (s) => `${n(s.sold_not_started_jobs)} jobs sold, not started · right now`,
+    keywords: ["sold not started", "booked work"],
+    compute: (s) => s.sold_not_started_cents,
+  }),
+  "kpi.projected_revenue": kpi({
+    id: "kpi.projected_revenue",
+    label: "Projected Revenue",
+    description:
+      "Sold so far in the period plus the same daily pace for the days left (run-rate). Once the period is over it is what sold.",
+    unit: "money",
+    requires: MONEY,
+    dateField: "jobs.estimate_accepted_at",
+    caption: "Sold {period} + run-rate for the days left",
+    detail: (s, w) =>
+      s.sold_cents === null
+        ? "Amounts hidden for your role"
+        : `${formatMoney(s.sold_cents)} sold in ${n(s.elapsed_days)} of ${n(s.period_days)} days · ${w.period}`,
+    keywords: ["projected", "projection", "forecast", "run rate", "on pace"],
+    compute: projectedRevenue,
+  }),
+  // Revenue -----------------------------------------------------------------
+  "kpi.revenue_sold": kpi({
+    id: "kpi.revenue_sold",
+    label: "Revenue sold",
+    description: "Contract value of jobs whose estimate was accepted in the period.",
+    unit: "money",
+    requires: MONEY,
+    dateField: "jobs.estimate_accepted_at",
+    caption: "Contracts accepted {period}",
+    detail: (s, w) => `${n(s.sold_jobs)} jobs sold ${w.period}`,
+    keywords: ["sales", "sold", "revenue", "how are sales", "bookings", "sold revenue"],
+    compute: (s) => s.sold_cents,
+  }),
+  "kpi.revenue_completed": kpi({
+    id: "kpi.revenue_completed",
+    label: "Revenue completed",
+    description: "Contract value of jobs that reached Completed in the period.",
+    unit: "money",
+    requires: MONEY,
+    dateField: "jobs.completed_at",
+    caption: "Jobs completed {period}",
+    detail: (s, w) => `${n(s.completed_jobs)} jobs completed ${w.period}`,
+    keywords: ["completed revenue", "revenue completed", "finished jobs revenue"],
+    compute: (s) => s.completed_cents,
+  }),
+  "kpi.revenue_collected": kpi({
+    id: "kpi.revenue_collected",
+    label: "Collected",
+    description:
+      "Payments received in the period and applied to invoices (bounced, void, refunded and unapplied money never counts).",
+    unit: "money",
+    requires: MONEY,
+    dateField: "payments.received_on",
+    caption: "Applied payments received {period}",
+    keywords: ["collect", "collected", "payments", "cash in", "money in"],
+    compute: (s) => s.collected_cents,
+  }),
+  "kpi.completed_jobs": kpi({
+    id: "kpi.completed_jobs",
+    label: "Jobs completed",
+    description: "Jobs that reached Completed in the period.",
+    unit: "count",
+    dateField: "jobs.completed_at",
+    caption: "Reached Completed {period}",
+    keywords: ["jobs completed", "finished jobs", "completed jobs"],
+    compute: (s) => s.completed_jobs,
+  }),
+  "kpi.gross_margin_completed": kpi({
+    id: "kpi.gross_margin_completed",
+    label: "Gross Margin % (completed)",
+    description:
+      "Jobs completed in the period: (contract − labor − materials − subcontractors − expenses) ÷ contract.",
+    unit: "percent",
+    ownerOnly: true,
+    requires: COSTS,
+    dateField: "jobs.completed_at",
+    caption: "Gross profit ÷ revenue · jobs completed {period}",
+    detail: (s, w) =>
+      s.margin_revenue_cents === null
+        ? "Owners and the bookkeeper only"
+        : `${formatMoney(s.margin_revenue_cents - (s.margin_cost_cents ?? 0))} profit on ${formatMoney(s.margin_revenue_cents)} · ${w.period}`,
+    keywords: ["margin", "gross margin", "profit"],
+    compute: (s) =>
+      s.can_see_costs && s.margin_revenue_cents !== null && s.margin_revenue_cents > 0
+        ? (s.margin_revenue_cents - (s.margin_cost_cents ?? 0)) / s.margin_revenue_cents
+        : null,
+  }),
+  // Production --------------------------------------------------------------
+  "kpi.labor_hours_estimated": kpi({
+    id: "kpi.labor_hours_estimated",
+    label: "Labor hours estimated",
+    description: "Budgeted work-order hours on jobs completed in the period.",
+    unit: "hours",
+    dateField: "jobs.completed_at",
+    caption: "Budgeted hours · jobs completed {period}",
+    keywords: ["estimated hours", "budgeted hours"],
+    compute: (s) => s.labor_budgeted_hours,
+  }),
+  "kpi.labor_hours_actual": kpi({
+    id: "kpi.labor_hours_actual",
+    label: "Labor hours actual",
+    description: "Hours logged on jobs completed in the period.",
+    unit: "hours",
+    dateField: "jobs.completed_at",
+    caption: "Logged hours · jobs completed {period}",
+    keywords: ["actual hours", "hours logged", "labor hours"],
+    compute: (s) => s.labor_actual_hours,
+  }),
+  "kpi.labor_hours_variance": kpi({
+    id: "kpi.labor_hours_variance",
+    label: "Actual vs estimated hours",
+    description: "Hours logged ÷ hours budgeted × 100 (over 100 means over budget).",
+    unit: "number",
+    dateField: "jobs.completed_at",
+    caption: "Actual ÷ estimated × 100 · jobs completed {period}",
+    keywords: ["labor variance", "over budget", "hours vs estimate"],
+    compute: (s) =>
+      s.labor_budgeted_hours > 0
+        ? Math.round((s.labor_actual_hours / s.labor_budgeted_hours) * 100)
+        : null,
+  }),
+  "kpi.daily_update_compliance": kpi({
+    id: "kpi.daily_update_compliance",
+    label: "Daily Update Compliance",
+    description:
+      "Production days with a daily log ÷ production days due in the period (a day is due after the cutoff, 7 pm Pacific by default; rain days don't count).",
+    unit: "percent",
+    dateField: "schedule_entries.starts_on – ends_on (production days)",
+    caption: "Days logged ÷ production days due {period}",
+    detail: (s, w) =>
+      `${n(s.daily_logged)} of ${n(s.daily_due)} production days logged · ${w.period}`,
+    keywords: ["daily update", "daily log", "photo update", "compliance"],
+    compute: (s) => ratio(s.daily_logged, s.daily_due),
+  }),
+  "kpi.on_time_start": kpi({
+    id: "kpi.on_time_start",
+    label: "On-Time Start",
+    description:
+      "Jobs that started on or before their guaranteed start date ÷ jobs that started in the period. Rain delays don't count against it.",
+    unit: "percent",
+    dateField: "jobs.actual_start_date",
+    caption: "Started on time ÷ started {period} · weather excluded",
+    detail: (s, w) =>
+      `${n(s.on_time_met)} of ${n(s.on_time_met + s.on_time_missed)} started on time · ${w.period}`,
+    keywords: ["on time", "on-time", "start date", "late start", "guarantee"],
+    compute: (s) => ratio(s.on_time_met, s.on_time_met + s.on_time_missed),
+  }),
+  "kpi.rain_delay_days": kpi({
+    id: "kpi.rain_delay_days",
+    label: "Rain-delay days",
+    description: "Job days marked as rain delays in the period.",
+    unit: "count",
+    dateField: "rain_delays.delay_date",
+    caption: "Marked rain days {period}",
+    keywords: ["rain", "weather delay", "rain delay"],
+    compute: (s) => s.rain_delay_days,
+  }),
+  "kpi.punch_per_job": kpi({
+    id: "kpi.punch_per_job",
+    label: "Punch items per job",
+    description: "Punch items ÷ jobs completed in the period.",
+    unit: "number",
+    dateField: "jobs.completed_at",
+    caption: "Average punch items · jobs completed {period}",
+    keywords: ["punch", "punch list", "touch-ups", "touch ups"],
+    compute: (s) => (s.completed_jobs > 0 ? s.punch_items / s.completed_jobs : null),
+  }),
+  "kpi.backlog_crew_days": kpi({
+    id: "kpi.backlog_crew_days",
+    label: "Backlog",
+    description:
+      "Open work-order hours on Ready, Scheduled and In Progress jobs ÷ the crew-day hours in Schedule Admin.",
+    unit: "days",
+    dateField: null,
+    caption: "Crew-days of work not yet done · right now",
+    detail: (s) =>
+      `${formatMetricValue("hours", s.backlog_hours)} ÷ ${formatMetricValue("hours", s.crew_day_hours)} crew day · right now`,
+    keywords: ["backlog", "crew days", "booked work", "how busy"],
+    compute: (s) => s.backlog_hours / s.crew_day_hours,
+  }),
+  // Money -------------------------------------------------------------------
+  "kpi.days_completed_to_paid": kpi({
+    id: "kpi.days_completed_to_paid",
+    label: "Days completed → paid",
+    description:
+      "Average days from Completed to Paid in Full, for jobs paid in full in the period.",
+    unit: "days",
+    requires: MONEY,
+    dateField: "jobs.paid_in_full_at",
+    caption: "Average · jobs paid in full {period}",
+    keywords: ["days to pay", "days to paid", "how long to get paid"],
+    compute: (s) => (s.can_see_money ? s.days_completed_to_paid_avg : null),
+  }),
+  "kpi.ar_outstanding": kpi({
+    id: "kpi.ar_outstanding",
+    label: "AR Outstanding",
+    description: "What customers owe on sent invoices.",
+    unit: "money",
+    requires: MONEY,
+    dateField: null,
+    caption: "Sent invoices, balance owed · right now",
+    detail: (s) => `${formatMoney(s.overdue_cents)} of it past due · right now`,
+    keywords: ["ar", "a/r", "receivables", "owed", "outstanding", "unpaid"],
+    compute: (s) => s.ar_outstanding_cents,
+  }),
+  "kpi.ar_overdue": kpi({
+    id: "kpi.ar_overdue",
+    label: "Overdue",
+    description: "Balance owed on sent invoices past their due date.",
+    unit: "money",
+    requires: MONEY,
+    dateField: null,
+    caption: "Past due · right now",
+    keywords: ["overdue", "past due", "late invoices"],
+    compute: (s) => s.overdue_cents,
+  }),
+  "kpi.collection_rate": kpi({
+    id: "kpi.collection_rate",
+    label: "Collection %",
+    description: "Of the invoices issued in the period, the share already paid.",
+    unit: "percent",
+    requires: MONEY,
+    dateField: "invoices.issue_date",
+    caption: "Collected ÷ billed · invoices issued {period}",
+    detail: (s, w) =>
+      `${formatMoney(s.billed_collected_cents)} of ${formatMoney(s.billed_cents)} billed ${w.period}`,
+    keywords: ["collection rate", "collection percent"],
+    compute: (s) =>
+      s.billed_cents === null || s.billed_collected_cents === null
+        ? null
+        : ratio(s.billed_collected_cents, s.billed_cents),
+  }),
+  // Growth ------------------------------------------------------------------
+  "kpi.reviews_requested": kpi({
+    id: "kpi.reviews_requested",
+    label: "Review requests",
+    description: "Review requests sent in the period (skipped ones left out).",
+    unit: "count",
+    dateField: "review_requests.sent_at",
+    caption: "Requests sent {period}",
+    keywords: ["review requests"],
+    compute: (s) => s.reviews_requested,
+  }),
+  "kpi.review_rate": kpi({
+    id: "kpi.review_rate",
+    label: "Review rate",
+    description: "Review requests that led to a review (marked by the office).",
+    unit: "percent",
+    dateField: "review_requests.sent_at",
+    caption: "Reviews left ÷ requests sent {period}",
+    detail: (s, w) => `${n(s.reviews_left)} of ${n(s.reviews_requested)} requests · ${w.period}`,
+    keywords: ["review", "reviews", "review rate", "google reviews"],
+    compute: (s) => ratio(s.reviews_left, s.reviews_requested),
+  }),
+  "kpi.referrals": kpi({
+    id: "kpi.referrals",
+    label: "Referrals",
+    description: "Bear Champion referrals that came in during the period.",
+    unit: "count",
+    dateField: "referrals.created_at",
+    caption: "New referrals {period}",
+    keywords: ["referrals", "referred", "champions"],
+    compute: (s) => s.referrals,
+  }),
+  "kpi.referral_conversions": kpi({
+    id: "kpi.referral_conversions",
+    label: "Referral conversions",
+    description: "Referrals from the period whose job was sold (eligible referrals only).",
+    unit: "count",
+    dateField: "referrals.created_at",
+    caption: "Referred jobs sold · referrals from {period}",
+    detail: (s, w) => `${n(s.referrals_sold)} of ${n(s.referrals)} referrals sold · ${w.period}`,
+    keywords: ["referral conversions", "referrals sold"],
+    compute: (s) => s.referrals_sold,
+  }),
+  // Marketing ---------------------------------------------------------------
+  "kpi.marketing_spend": kpi({
+    id: "kpi.marketing_spend",
+    label: "Marketing spend",
+    description:
+      "Monthly spend per lead source from Admin → Marketing Spend, prorated by day for partial months.",
+    unit: "money",
+    filters: ["source"],
+    dateField: "marketing_spend.month (prorated by day)",
+    caption: "Spend entered for {period}",
+    keywords: ["spend", "marketing spend", "ad spend", "advertising"],
+    compute: (s) => s.spend_cents,
+  }),
+  "kpi.cost_per_lead": kpi({
+    id: "kpi.cost_per_lead",
+    label: "Cost per lead",
+    description:
+      "Marketing spend ÷ leads created. Spend isn't split by work type, city or owner, so those filters show “—”.",
+    unit: "money",
+    filters: ["source"],
+    dateField: "leads.created_at",
+    caption: "Spend ÷ leads created {period}",
+    detail: (s, w) =>
+      !s.spend_applies
+        ? "Spend isn't split by work type, city or owner"
+        : s.spend_cents === 0
+          ? "No spend entered (Admin → Marketing Spend)"
+          : `${formatMoney(s.spend_cents)} ÷ ${n(s.leads_created)} leads · ${w.period}`,
+    keywords: ["cost per lead", "cpl", "lead cost"],
+    compute: (s) =>
+      !s.spend_applies || s.spend_cents === 0 || s.leads_created === 0
+        ? null
+        : Math.round(s.spend_cents / s.leads_created),
+  }),
+  "kpi.cac": kpi({
+    id: "kpi.cac",
+    label: "Customer acquisition cost",
+    description: "Marketing spend ÷ jobs sold (from that source when a source is picked).",
+    unit: "money",
+    filters: ["source"],
+    dateField: "jobs.estimate_accepted_at",
+    caption: "Spend ÷ jobs sold {period}",
+    detail: (s, w) =>
+      !s.spend_applies
+        ? "Spend isn't split by work type, city or owner"
+        : s.spend_cents === 0
+          ? "No spend entered (Admin → Marketing Spend)"
+          : `${formatMoney(s.spend_cents)} ÷ ${n(s.cac_jobs)} jobs sold · ${w.period}`,
+    keywords: ["cac", "acquisition cost", "cost per customer", "cost per job"],
+    compute: (s) =>
+      !s.spend_applies || s.spend_cents === 0 || s.cac_jobs === 0
+        ? null
+        : Math.round(s.spend_cents / s.cac_jobs),
+  }),
+  // Right-now counts & data quality ----------------------------------------
+  "kpi.expiring_estimates": kpi({
+    id: "kpi.expiring_estimates",
+    label: "Expiring estimates",
+    description: "Sent estimates that expire within 5 days without an answer.",
+    unit: "count",
+    filters: [],
+    dateField: null,
+    caption: "Expire within 5 days · right now",
+    keywords: ["expiring", "expire"],
+    compute: (s) => s.expiring_estimates,
+  }),
+  "kpi.dq_leads_unassigned": kpi({
+    id: "kpi.dq_leads_unassigned",
+    label: "Leads with no owner",
+    description: "Open leads nobody owns.",
+    unit: "count",
+    dateField: null,
+    caption: "Open leads, no owner · right now",
+    keywords: ["unassigned", "no owner", "data quality", "data issues"],
+    compute: (s) => s.dq_leads_unassigned,
+  }),
+  "kpi.dq_jobs_no_poc": kpi({
+    id: "kpi.dq_jobs_no_poc",
+    label: "Jobs with no point of contact",
+    description: "Open jobs without the one point of contact every customer is promised.",
+    unit: "count",
+    dateField: null,
+    caption: "Open jobs, no point of contact · right now",
+    keywords: ["point of contact", "data quality", "data issues"],
+    compute: (s) => s.dq_jobs_no_poc,
+  }),
+  "kpi.dq_jobs_no_property": kpi({
+    id: "kpi.dq_jobs_no_property",
+    label: "Jobs with no property",
+    description: "Open jobs not linked to a property (no address for the crew).",
+    unit: "count",
+    dateField: null,
+    caption: "Open jobs, no property · right now",
+    keywords: ["no property", "no address", "data quality", "data issues"],
+    compute: (s) => s.dq_jobs_no_property,
+  }),
+  "kpi.dq_contacts_unreachable": kpi({
+    id: "kpi.dq_contacts_unreachable",
+    label: "Contacts we can't reach",
+    description: "Contacts with no mobile, phone or email.",
+    unit: "count",
+    filters: [],
+    dateField: null,
+    caption: "No phone or email · right now",
+    keywords: ["unreachable", "no phone", "no email", "data quality", "data issues"],
+    compute: (s) => s.dq_contacts_unreachable,
+  }),
+} as const satisfies Record<string, AnalyticsMetricDefinition>;
+export type AnalyticsMetricId = keyof typeof ANALYTICS_METRICS;
+
+/** Data-quality metrics, in the order "Ask" and the Daily Brief list them. */
+export const DATA_QUALITY_METRIC_IDS = [
+  "kpi.dq_leads_unassigned",
+  "kpi.dq_jobs_no_poc",
+  "kpi.dq_jobs_no_property",
+  "kpi.dq_contacts_unreachable",
+] as const satisfies readonly AnalyticsMetricId[];
+
+export type AnalyticsMetricValue = MetricValue & {
+  id: AnalyticsMetricId;
+  /** The viewer may not see this number (shown as "—"). */
+  hidden: boolean;
+};
+
+/** Default words for captions when the caller doesn't pass the period's. */
+export const DEFAULT_PERIOD_WORDS: PeriodWords = {
+  period: "in the period",
+  prior: "the prior period",
+  start: "the start of the period",
+};
+
+/** One §12.1 metric: value, display and caption (live numbers when it has them). */
+export function analyticsMetricValue(
+  id: AnalyticsMetricId,
+  stats: AnalyticsStats,
+  words: PeriodWords = DEFAULT_PERIOD_WORDS,
+): AnalyticsMetricValue {
+  const m: AnalyticsMetricDefinition = ANALYTICS_METRICS[id];
+  const hidden =
+    (m.requires.includes("financials:read") && !stats.can_see_money) ||
+    (m.requires.includes("job_costing:read") && !stats.can_see_costs);
+  const raw = hidden ? null : m.compute(stats);
+  const value = raw === null || !Number.isFinite(raw) ? null : raw;
+  return {
+    id,
+    label: m.label,
+    caption: hidden
+      ? m.ownerOnly
+        ? "Owners and the bookkeeper only"
+        : "Amounts hidden for your role"
+      : m.detail
+        ? m.detail(stats, words)
+        : fillWords(m.caption, words),
+    unit: m.unit,
+    value,
+    display: formatMetricValue(m.unit, value),
+    hidden,
+  };
+}
+
+/** The formula caption with the period filled in (no live numbers). */
+export function analyticsFormula(id: AnalyticsMetricId, words: PeriodWords): string {
+  return fillWords(ANALYTICS_METRICS[id].caption, words);
+}
+
+// ---------------------------------------------------------------------------
+// Analytics breakdowns: the rows behind each Executive Overview / dashboard
+// chart and its "View data" table. Defined once here, like the metrics.
+// ---------------------------------------------------------------------------
+
+export type BreakdownDefinition = {
+  id: string;
+  label: string;
+  description: string;
+  /** RPC the rows come from. */
+  source: "analytics_stats" | "analytics_monthly" | "season_backlog";
+  dateField: string | null;
+  filters: readonly MetricFilter[];
+  caption: string;
+  requires: readonly Permission[];
+  keywords: readonly string[];
+};
+
+export const ANALYTICS_BREAKDOWNS = {
+  "kpi.pipeline_by_stage": {
+    id: "kpi.pipeline_by_stage",
+    label: "Pipeline by Stage",
+    description: "Open jobs (not Closed Won or Lost) by current stage: count and contract value.",
+    source: "analytics_stats",
+    dateField: null,
+    filters: ALL_FILTERS,
+    caption: "Open jobs by stage · count and value · right now",
+    requires: [],
+    keywords: ["pipeline by stage", "stages", "where are jobs"],
+  },
+  "kpi.revenue_forecast": {
+    id: "kpi.revenue_forecast",
+    label: "Revenue Forecast",
+    description:
+      "Sold value by month: actual, run-rate projection for this month and the next ones (average of the last 3 full months), and the goal from Admin → Revenue Goals.",
+    source: "analytics_monthly",
+    dateField: "jobs.estimate_accepted_at",
+    filters: ALL_FILTERS,
+    caption: "Sold by month · actual vs run-rate vs goal",
+    requires: MONEY,
+    keywords: ["forecast", "revenue forecast", "goal", "projection by month"],
+  },
+  "kpi.lead_funnel": {
+    id: "kpi.lead_funnel",
+    label: "Lead Funnel",
+    description:
+      "Leads created in the period and how many reached each step: contacted, walkthrough, estimate sent, sold.",
+    source: "analytics_stats",
+    dateField: "leads.created_at",
+    filters: ALL_FILTERS,
+    caption: "Leads created {period} · each step as % of the step before",
+    requires: [],
+    keywords: ["funnel", "lead funnel", "conversion funnel"],
+  },
+  "kpi.season_backlog": {
+    id: "kpi.season_backlog",
+    label: "Exterior Season Backlog",
+    description:
+      "Exterior and deck crew-days on the published schedule vs crew capacity (active crews × production days) for each month of the exterior season, plus sold exterior work not scheduled yet.",
+    source: "season_backlog",
+    dateField: "schedule_entries.starts_on / ends_on",
+    filters: [],
+    caption: "Booked crew-days vs capacity · exterior season",
+    requires: [],
+    keywords: ["season", "exterior backlog", "summer", "capacity", "seasonality"],
+  },
+  "kpi.city_performance": {
+    id: "kpi.city_performance",
+    label: "City Performance",
+    description:
+      "Leads created and jobs sold in the period by service-area city, ranked by sold value (then jobs, then leads).",
+    source: "analytics_stats",
+    dateField: "leads.created_at / jobs.estimate_accepted_at",
+    filters: ALL_FILTERS,
+    caption: "Leads and jobs sold {period} by city · heat ranking",
+    requires: [],
+    keywords: [
+      "city",
+      "cities",
+      "bellevue",
+      "kirkland",
+      "redmond",
+      "sammamish",
+      "issaquah",
+      "by city",
+    ],
+  },
+  "kpi.estimator_leaderboard": {
+    id: "kpi.estimator_leaderboard",
+    label: "Estimator Leaderboard",
+    description:
+      "Per estimator: value and number of estimates accepted in the period, and close rate (accepted ÷ sent, estimates first sent in the period).",
+    source: "analytics_stats",
+    dateField: "estimates.accepted_at / first send",
+    filters: ["work_type", "city", "source"],
+    caption: "Sold $, jobs and close rate {period}",
+    requires: [],
+    keywords: ["estimator", "leaderboard", "sales rep", "who sold", "by estimator"],
+  },
+  "kpi.lead_source_performance": {
+    id: "kpi.lead_source_performance",
+    label: "Lead Source Performance",
+    description:
+      "Per lead source: leads created, converted, conversion %, jobs sold and revenue in the period, and cost per lead when spend is entered.",
+    source: "analytics_stats",
+    dateField: "leads.created_at / jobs.estimate_accepted_at",
+    filters: ALL_FILTERS,
+    caption: "Leads, conversion, revenue and cost per lead by source {period}",
+    requires: [],
+    keywords: [
+      "source",
+      "sources",
+      "lead source",
+      "marketing",
+      "where leads come from",
+      "by source",
+    ],
+  },
+  "kpi.lead_source_mix": {
+    id: "kpi.lead_source_mix",
+    label: "Lead Source Mix",
+    description: "Share of the period's leads from each source.",
+    source: "analytics_stats",
+    dateField: "leads.created_at",
+    filters: ALL_FILTERS,
+    caption: "Share of leads created {period}",
+    requires: [],
+    keywords: ["source mix", "mix"],
+  },
+  "kpi.ar_aging": {
+    id: "kpi.ar_aging",
+    label: "A/R Aging",
+    description: "Balance owed on sent invoices by how far past due they are.",
+    source: "analytics_stats",
+    dateField: null,
+    filters: ALL_FILTERS,
+    caption: "Owed by days past due · right now",
+    requires: MONEY,
+    keywords: ["aging", "a/r aging", "ar aging"],
+  },
+  "kpi.backlog_by_work_type": {
+    id: "kpi.backlog_by_work_type",
+    label: "Backlog by Work Type",
+    description:
+      "Open work-order hours on Ready, Scheduled and In Progress jobs, as crew-days, by the job's first work type.",
+    source: "analytics_stats",
+    dateField: null,
+    filters: ALL_FILTERS,
+    caption: "Crew-days not yet done · right now",
+    requires: [],
+    keywords: ["backlog by work type"],
+  },
+  "kpi.executive_alerts": {
+    id: "kpi.executive_alerts",
+    label: "Executive Alerts",
+    description:
+      "Open Attention items by rule (untouched and aging leads, stalled jobs, approvals, overdue invoices, missed daily updates, weather risk, expiring estimates, subcontractor paperwork). Not filtered.",
+    source: "analytics_stats",
+    dateField: null,
+    filters: [],
+    caption: "Open Attention items · right now · each opens the Attention queue",
+    requires: [],
+    keywords: ["alerts", "attention", "problems", "what needs attention"],
+  },
+} as const satisfies Record<string, BreakdownDefinition>;
+export type AnalyticsBreakdownId = keyof typeof ANALYTICS_BREAKDOWNS;
+
+export function breakdownCaption(id: AnalyticsBreakdownId, words: PeriodWords): string {
+  return fillWords(ANALYTICS_BREAKDOWNS[id].caption, words);
+}
+
+export type StageValueRow = {
+  stage: JobStageId;
+  label: string;
+  color: string;
+  jobs: number;
+  valueCents: number | null;
+};
+
+/** Pipeline by Stage: every open stage in order, zeros included. */
+export function pipelineByStage(s: AnalyticsStats): StageValueRow[] {
+  const byStage = new Map(s.by_stage.map((r) => [r.stage, r]));
+  return JOB_STAGES.filter((st) => st.id !== "closed_won" && st.id !== "closed_lost").map((st) => {
+    const r = byStage.get(st.id);
+    return {
+      stage: st.id,
+      label: st.label,
+      color: st.color,
+      jobs: r?.jobs ?? 0,
+      valueCents: s.can_see_money ? (r?.value_cents ?? 0) : null,
+    };
+  });
+}
+
+export type FunnelRow = {
+  key: "leads" | "contacted" | "walkthrough" | "estimate" | "sold";
+  label: string;
+  count: number;
+  ofTotal: number | null;
+  fromPrevious: number | null;
+};
+
+/** Lead Funnel: leads → contacted → walkthrough → estimate → sold. */
+export function analyticsFunnel(s: AnalyticsStats): FunnelRow[] {
+  const steps: { key: FunnelRow["key"]; label: string; count: number }[] = [
+    { key: "leads", label: "Leads", count: s.funnel.leads },
+    { key: "contacted", label: "Contacted", count: s.funnel.contacted },
+    { key: "walkthrough", label: "Walkthrough", count: s.funnel.walkthrough },
+    { key: "estimate", label: "Estimate sent", count: s.funnel.estimate },
+    { key: "sold", label: "Sold", count: s.funnel.sold },
+  ];
+  return steps.map((st, i) => ({
+    ...st,
+    ofTotal: ratio(st.count, s.funnel.leads),
+    fromPrevious: i === 0 ? null : ratio(st.count, steps[i - 1]!.count),
+  }));
+}
+
+export type CityPerformanceRow = {
+  territoryId: string | null;
+  city: string;
+  serviceArea: boolean;
+  leads: number;
+  soldJobs: number;
+  soldCents: number | null;
+  /** 1 = hottest; null when the city had no activity. */
+  rank: number | null;
+  /** 0–1 relative to the hottest city (bar length / heat color). */
+  heat: number;
+};
+
+/** City Performance with a heat ranking: sold $ (if visible), then jobs, then leads. */
+export function cityPerformance(s: AnalyticsStats): CityPerformanceRow[] {
+  const score = (r: z.infer<typeof cityRowSchema>) => [
+    s.can_see_money ? (r.sold_cents ?? 0) : 0,
+    r.sold_jobs,
+    r.leads,
+  ];
+  const active = s.by_city.filter((r) => r.leads > 0 || r.sold_jobs > 0);
+  const ranked = [...active].sort((a, b) => {
+    const [a1, a2, a3] = score(a);
+    const [b1, b2, b3] = score(b);
+    return b1! - a1! || b2! - a2! || b3! - a3! || a.city.localeCompare(b.city);
+  });
+  const rankOf = new Map(ranked.map((r, i) => [r, i + 1]));
+  const top = ranked[0];
+  const topValue = top
+    ? s.can_see_money && (top.sold_cents ?? 0) > 0
+      ? (top.sold_cents ?? 0)
+      : top.sold_jobs > 0
+        ? top.sold_jobs
+        : top.leads
+    : 0;
+  return s.by_city.map((r) => {
+    const v =
+      s.can_see_money && top && (top.sold_cents ?? 0) > 0
+        ? (r.sold_cents ?? 0)
+        : top && top.sold_jobs > 0
+          ? r.sold_jobs
+          : r.leads;
+    return {
+      territoryId: r.territory_id,
+      city: r.city,
+      serviceArea: r.service_area,
+      leads: r.leads,
+      soldJobs: r.sold_jobs,
+      soldCents: s.can_see_money ? (r.sold_cents ?? 0) : null,
+      rank: rankOf.get(r) ?? null,
+      heat: topValue > 0 ? Math.min(1, Math.max(0, v / topValue)) : 0,
+    };
+  });
+}
+
+export type EstimatorRow = {
+  userId: string | null;
+  name: string;
+  soldCents: number;
+  jobs: number;
+  sent: number;
+  closeRate: number | null;
+};
+
+/** Estimator Leaderboard: sold $ (accepted estimate value), jobs, close rate. */
+export function estimatorLeaderboard(s: AnalyticsStats): EstimatorRow[] {
+  return s.by_estimator.map((r) => ({
+    userId: r.user_id,
+    name: r.name,
+    soldCents: r.accepted_value_cents,
+    jobs: r.accepted,
+    sent: r.sent,
+    closeRate: ratio(r.cohort_accepted, r.sent),
+  }));
+}
+
+export type SourcePerformanceRow = {
+  source: string | null;
+  label: string;
+  leads: number;
+  converted: number;
+  conversion: number | null;
+  soldJobs: number;
+  soldCents: number | null;
+  spendCents: number;
+  costPerLead: number | null;
+  /** Share of all leads in the period (the donut). */
+  share: number | null;
+};
+
+/** Lead Source Performance (+ the Source Mix donut's shares). */
+export function leadSourcePerformance(
+  s: AnalyticsStats,
+  labels: Readonly<Record<string, string>> = {},
+): SourcePerformanceRow[] {
+  return s.by_source.map((r) => {
+    const converted = Math.min(r.converted, r.leads);
+    return {
+      source: r.source,
+      label: r.source ? (labels[r.source] ?? r.source.replaceAll("_", " ")) : "No source",
+      leads: r.leads,
+      converted,
+      conversion: ratio(converted, r.leads),
+      soldJobs: r.sold_jobs,
+      soldCents: s.can_see_money ? (r.sold_cents ?? 0) : null,
+      spendCents: r.spend_cents,
+      costPerLead:
+        s.spend_applies && r.spend_cents > 0 && r.leads > 0
+          ? Math.round(r.spend_cents / r.leads)
+          : null,
+      share: ratio(r.leads, s.leads_created),
+    };
+  });
+}
+
+export type AgingBucketRow = { key: string; label: string; cents: number | null };
+
+/** A/R aging buckets in order (null amounts without financials:read). */
+export function analyticsAging(s: AnalyticsStats): AgingBucketRow[] {
+  const a = s.aging;
+  const rows: [string, string, number | undefined][] = [
+    ["current", "Current", a?.current],
+    ["d1_30", "1–30 days", a?.d1_30],
+    ["d31_60", "31–60 days", a?.d31_60],
+    ["d61_90", "61–90 days", a?.d61_90],
+    ["d90_plus", "90+ days", a?.d90_plus],
+  ];
+  return rows.map(([key, label, cents]) => ({
+    key,
+    label,
+    cents: s.can_see_money ? (cents ?? 0) : null,
+  }));
+}
+
+export type WorkTypeBacklogRow = { workType: string; hours: number; crewDays: number };
+
+export function backlogByWorkType(s: AnalyticsStats): WorkTypeBacklogRow[] {
+  return s.backlog_by_work_type.map((r) => ({
+    workType: r.work_type,
+    hours: r.hours,
+    crewDays: Math.round((r.hours / s.crew_day_hours) * 10) / 10,
+  }));
+}
+
+/** Executive Alerts (SPEC §8.2): label, open count, and the Attention filter it opens. */
+export const EXECUTIVE_ALERTS = [
+  { key: "untouched_lead", label: "Untouched new leads" },
+  { key: "aging_lead", label: "Aging leads" },
+  { key: "onboarding_stalled", label: "Stalled in onboarding" },
+  { key: "ready_not_scheduled", label: "Ready, not scheduled" },
+  { key: "start_date_missed", label: "Start dates missed" },
+  { key: "approval_pending", label: "Approvals needed" },
+  { key: "overdue_invoice", label: "Overdue invoices" },
+  { key: "missed_daily_update", label: "Missed daily updates" },
+  { key: "weather_risk", label: "Weather-risk exteriors (next 7 days)" },
+  { key: "estimate_expiring", label: "Expiring estimates" },
+  { key: "sub_compliance_expiring", label: "Subcontractor paperwork expiring" },
+] as const satisfies readonly { key: AttentionRuleKey; label: string }[];
+
+export type AlertRow = { key: AttentionRuleKey; label: string; open: number; href: string };
+
+export function executiveAlerts(s: AnalyticsStats): AlertRow[] {
+  return EXECUTIVE_ALERTS.map((a) => ({
+    key: a.key,
+    label: a.label,
+    open: s.alerts[a.key] ?? 0,
+    href: `/attention?type=${a.key}`,
+  }));
+}
+
+/** Rule labels for alerts outside the list (kept in step with the attention catalog). */
+export function attentionRuleLabel(key: AttentionRuleKey): string {
+  return ATTENTION_RULES[key].label;
+}
+
+// --- Revenue Forecast (analytics_monthly) ----------------------------------
+
+const monthRowSchema = z.object({
+  month: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  sold_jobs: nCount,
+  sold_cents: nullableCents,
+  completed_jobs: nCount,
+  completed_cents: nullableCents,
+  collected_cents: nullableCents,
+  goal_cents: nullableCents,
+});
+export const analyticsMonthlySchema = z.object({
+  can_see_money: z.boolean().catch(false),
+  months: z.array(monthRowSchema).catch([]),
+});
+export type AnalyticsMonthly = z.infer<typeof analyticsMonthlySchema>;
+export const EMPTY_ANALYTICS_MONTHLY: AnalyticsMonthly = { can_see_money: false, months: [] };
+
+export function parseAnalyticsMonthly(raw: unknown): AnalyticsMonthly {
+  const parsed = analyticsMonthlySchema.safeParse(raw ?? {});
+  return parsed.success ? parsed.data : EMPTY_ANALYTICS_MONTHLY;
+}
+
+export type ForecastRow = {
+  month: string;
+  label: string;
+  /** Sold value that month (null in the future, or without financials:read). */
+  actualCents: number | null;
+  /** Run-rate projection for the current month and future months. */
+  projectedCents: number | null;
+  goalCents: number | null;
+  kind: "past" | "current" | "future";
+};
+
+/** "Mar 2026" from "2026-03-01". */
+export const monthLabel = (iso: string) =>
+  `${MONTHS[Number(iso.slice(5, 7)) - 1]} ${iso.slice(0, 4)}`;
+
+/**
+ * Revenue Forecast rows. `today` is the Pacific day (YYYY-MM-DD) and
+ * `dayOfMonth` / `daysInMonth` describe it. The current month projects its
+ * month-to-date pace; future months use the average of the last 3 full
+ * months (null when there are none).
+ */
+export function revenueForecast(
+  m: AnalyticsMonthly,
+  today: string,
+  dayOfMonth: number,
+  daysInMonth: number,
+): ForecastRow[] {
+  const current = `${today.slice(0, 7)}-01`;
+  const past = m.months.filter((r) => r.month < current);
+  const lastThree = past.slice(-3).filter((r) => r.sold_cents !== null);
+  const trailing =
+    lastThree.length > 0
+      ? Math.round(lastThree.reduce((t, r) => t + (r.sold_cents ?? 0), 0) / lastThree.length)
+      : null;
+  return m.months.map((r) => {
+    const kind: ForecastRow["kind"] =
+      r.month < current ? "past" : r.month === current ? "current" : "future";
+    const money = m.can_see_money;
+    let projected: number | null = null;
+    if (money && kind === "current" && r.sold_cents !== null && dayOfMonth > 0) {
+      projected = Math.round((r.sold_cents / dayOfMonth) * daysInMonth);
+    } else if (money && kind === "future") {
+      projected = trailing;
+    }
+    return {
+      month: r.month,
+      label: monthLabel(r.month),
+      actualCents: money && kind !== "future" ? (r.sold_cents ?? 0) : null,
+      projectedCents: projected,
+      goalCents: money ? r.goal_cents : null,
+      kind,
+    };
+  });
+}
+
+/** True when no month in the series has a goal (the "No revenue goal configured" state). */
+export function hasRevenueGoal(rows: readonly ForecastRow[]): boolean {
+  return rows.some((r) => r.goalCents !== null);
+}
+
+// --- Exterior Season Backlog (season_backlog) --------------------------------
+
+export const seasonBacklogSchema = z.object({
+  season_start: z.string().catch(""),
+  season_end: z.string().catch(""),
+  crews: nCount,
+  months: z
+    .array(
+      z.object({
+        month: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+        capacity_crew_days: nCount,
+        booked_crew_days: nCount,
+      }),
+    )
+    .catch([]),
+  unscheduled_jobs: nCount,
+  unscheduled_crew_days: nCount,
+});
+export type SeasonBacklog = z.infer<typeof seasonBacklogSchema>;
+export const EMPTY_SEASON_BACKLOG: SeasonBacklog = seasonBacklogSchema.parse({});
+
+export function parseSeasonBacklog(raw: unknown): SeasonBacklog {
+  const parsed = seasonBacklogSchema.safeParse(raw ?? {});
+  return parsed.success ? parsed.data : EMPTY_SEASON_BACKLOG;
+}
+
+export type SeasonMonthRow = {
+  month: string;
+  label: string;
+  booked: number;
+  capacity: number;
+  /** Booked ÷ capacity (0–1; null with no capacity). */
+  utilization: number | null;
+};
+
+export function seasonBacklogRows(s: SeasonBacklog): SeasonMonthRow[] {
+  return s.months.map((r) => ({
+    month: r.month,
+    label: monthLabel(r.month),
+    booked: r.booked_crew_days,
+    capacity: r.capacity_crew_days,
+    utilization: ratio(r.booked_crew_days, r.capacity_crew_days),
+  }));
+}
+
+export function seasonTotals(s: SeasonBacklog): {
+  booked: number;
+  capacity: number;
+  utilization: number | null;
+  unscheduledJobs: number;
+  unscheduledCrewDays: number;
+} {
+  const booked = s.months.reduce((t, r) => t + r.booked_crew_days, 0);
+  const capacity = s.months.reduce((t, r) => t + r.capacity_crew_days, 0);
+  return {
+    booked,
+    capacity,
+    utilization: ratio(booked, capacity),
+    unscheduledJobs: s.unscheduled_jobs,
+    unscheduledCrewDays: s.unscheduled_crew_days,
+  };
+}
+
+// ===========================================================================
+// MY NUMBERS (Phase 9): SPEC §8.15 — one person's scoreboard
+// ===========================================================================
+//
+// Source: `public.my_numbers(p_user, p_from, p_to)`. Each card filters on its
+// own date field (the page says so). Row security applies: a rep reads their
+// own records; owners can pick any rep.
+
+export const myNumbersSchema = z.object({
+  leads_issued: nCount,
+  walkthroughs_set: nCount,
+  walkthroughs_ran: nCount,
+  estimates_sent: nCount,
+  sold_count: nCount,
+  sold_cents: nCount,
+  completed: nCount,
+  invoiced: nCount,
+  paid: nCount,
+});
+export type MyNumbers = z.infer<typeof myNumbersSchema>;
+export const EMPTY_MY_NUMBERS: MyNumbers = myNumbersSchema.parse({});
+
+export function parseMyNumbers(raw: unknown): MyNumbers {
+  const parsed = myNumbersSchema.safeParse(raw ?? {});
+  return parsed.success ? parsed.data : EMPTY_MY_NUMBERS;
+}
+
+function mine(
+  def: Omit<MetricDefinition<"my_numbers">, "source" | "ownerOnly" | "filters"> & {
+    dateField: string;
+  },
+): MetricDefinition<"my_numbers"> & { dateField: string } {
+  return { ownerOnly: false, filters: ["owner"], ...def, source: "my_numbers" };
+}
+
+export const MY_NUMBERS_METRICS = {
+  "mine.leads_issued": mine({
+    id: "mine.leads_issued",
+    label: "Leads Issued",
+    description: "Leads assigned to you that came in during the period.",
+    unit: "count",
+    dateField: "leads.created_at",
+    caption: "Your leads, by date created",
+    compute: (s) => s.leads_issued,
+  }),
+  "mine.walkthroughs_set": mine({
+    id: "mine.walkthroughs_set",
+    label: "Walkthroughs Set",
+    description: "Walkthroughs you booked during the period.",
+    unit: "count",
+    dateField: "appointments.created_at",
+    caption: "Booked by you, by date booked",
+    compute: (s) => s.walkthroughs_set,
+  }),
+  "mine.walkthroughs_ran": mine({
+    id: "mine.walkthroughs_ran",
+    label: "Walkthroughs Ran",
+    description: "Walkthroughs you were on that were completed during the period.",
+    unit: "count",
+    dateField: "appointments.completed_at",
+    caption: "Completed, by date completed",
+    compute: (s) => s.walkthroughs_ran,
+  }),
+  "mine.estimates_sent": mine({
+    id: "mine.estimates_sent",
+    label: "Estimates Sent",
+    description: "Your estimates first sent during the period.",
+    unit: "count",
+    dateField: "estimate_versions.sent_at (first send)",
+    caption: "By date first sent",
+    compute: (s) => s.estimates_sent,
+  }),
+  "mine.sold_count": mine({
+    id: "mine.sold_count",
+    label: "Sold",
+    description: "Your estimates accepted during the period.",
+    unit: "count",
+    dateField: "estimates.accepted_at",
+    caption: "By date accepted",
+    compute: (s) => s.sold_count,
+  }),
+  "mine.sold_value": mine({
+    id: "mine.sold_value",
+    label: "Sold ($)",
+    description: "Accepted value of your estimates accepted during the period.",
+    unit: "money",
+    dateField: "estimates.accepted_at",
+    caption: "Accepted estimate totals, by date accepted",
+    compute: (s) => s.sold_cents,
+  }),
+  "mine.completed": mine({
+    id: "mine.completed",
+    label: "Completed",
+    description: "Your jobs that reached Completed during the period.",
+    unit: "count",
+    dateField: "jobs.completed_at",
+    caption: "By date completed",
+    compute: (s) => s.completed,
+  }),
+  "mine.invoiced": mine({
+    id: "mine.invoiced",
+    label: "Invoiced",
+    description: "Your jobs whose final invoice was sent during the period.",
+    unit: "count",
+    dateField: "jobs.final_invoiced_at",
+    caption: "By date the final invoice was sent",
+    compute: (s) => s.invoiced,
+  }),
+  "mine.paid": mine({
+    id: "mine.paid",
+    label: "Paid in full",
+    description: "Your jobs paid in full during the period.",
+    unit: "count",
+    dateField: "jobs.paid_in_full_at",
+    caption: "By date paid in full",
+    compute: (s) => s.paid,
+  }),
+} as const satisfies Record<string, MetricDefinition<"my_numbers"> & { dateField: string }>;
+export type MyNumbersMetricId = keyof typeof MY_NUMBERS_METRICS;
+
+export function myNumbersValue(id: MyNumbersMetricId, s: MyNumbers): MetricValue {
+  const m: MetricDefinition<"my_numbers"> = MY_NUMBERS_METRICS[id];
+  const raw = m.compute(s);
+  const value = raw === null || !Number.isFinite(raw) ? null : raw;
+  return {
+    id,
+    label: m.label,
+    caption: m.caption,
+    unit: m.unit,
+    value,
+    display: formatMetricValue(m.unit, value),
+  };
+}
+
+// ===========================================================================
+// MY DAY (Phase 9): SPEC §8.3 Workspace counts
+// ===========================================================================
+//
+// Source: `public.workspace_summary()` — the signed-in person's counts for
+// today (Pacific), row security applied.
+
+export const workspaceSummarySchema = z.object({
+  tasks_due_today: nCount,
+  tasks_overdue: nCount,
+  tasks_upcoming: nCount,
+  tasks_no_due: nCount,
+  appointments_today: nCount,
+  jobs_active: nCount,
+  jobs_need_action: nCount,
+  jobs_at_risk: nCount,
+  leads_new: nCount,
+  leads_awaiting_contact: nCount,
+  leads_follow_ups_today: nCount,
+  leads_converted_today: nCount,
+  cases_open: nCount,
+  cases_overdue: nCount,
+  unread_email: nCount,
+  unread_sms: nCount,
+  mentions_unread: nCount,
+  notifications_unread: nCount,
+  attention_open: nCount,
+  attention_urgent: nCount,
+  attention_by_category: z.record(z.string(), nCount).catch({}),
+  approvals_pending: nCount,
+  estimates_awaiting_reply: nCount,
+});
+export type WorkspaceSummary = z.infer<typeof workspaceSummarySchema>;
+export const EMPTY_WORKSPACE_SUMMARY: WorkspaceSummary = workspaceSummarySchema.parse({});
+
+export function parseWorkspaceSummary(raw: unknown): WorkspaceSummary {
+  const parsed = workspaceSummarySchema.safeParse(raw ?? {});
+  return parsed.success ? parsed.data : EMPTY_WORKSPACE_SUMMARY;
+}
+
+function myDay(
+  def: Omit<MetricDefinition<"workspace_summary">, "source" | "ownerOnly" | "unit">,
+): MetricDefinition<"workspace_summary"> {
+  return { ownerOnly: false, unit: "count", filters: [], ...def, source: "workspace_summary" };
+}
+
+export const WORKSPACE_METRICS = {
+  "myday.tasks_due_today": myDay({
+    id: "myday.tasks_due_today",
+    label: "Due today",
+    description: "Your open tasks due today (Pacific).",
+    dateField: "tasks.due_at (today)",
+    caption: "Open tasks due today",
+    compute: (s) => s.tasks_due_today,
+  }),
+  "myday.tasks_overdue": myDay({
+    id: "myday.tasks_overdue",
+    label: "Overdue",
+    description: "Your open tasks due before today.",
+    dateField: "tasks.due_at",
+    caption: "Open tasks due before today",
+    compute: (s) => s.tasks_overdue,
+  }),
+  "myday.tasks_upcoming": myDay({
+    id: "myday.tasks_upcoming",
+    label: "Upcoming",
+    description: "Your open tasks due after today.",
+    dateField: "tasks.due_at",
+    caption: "Due after today",
+    compute: (s) => s.tasks_upcoming,
+  }),
+  "myday.tasks_no_due": myDay({
+    id: "myday.tasks_no_due",
+    label: "No due date",
+    description: "Your open tasks with no due date.",
+    dateField: null,
+    caption: "No due date",
+    compute: (s) => s.tasks_no_due,
+  }),
+  "myday.appointments_today": myDay({
+    id: "myday.appointments_today",
+    label: "Appointments today",
+    description: "Appointments you're on today (canceled and rescheduled ones left out).",
+    dateField: "appointments.starts_at (today)",
+    caption: "On your calendar today",
+    compute: (s) => s.appointments_today,
+  }),
+  "myday.jobs_active": myDay({
+    id: "myday.jobs_active",
+    label: "Active jobs",
+    description: "Open jobs you're on (owner, point of contact, project manager, team or crew).",
+    dateField: null,
+    caption: "Open jobs you're on",
+    compute: (s) => s.jobs_active,
+  }),
+  "myday.jobs_need_action": myDay({
+    id: "myday.jobs_need_action",
+    label: "Need action",
+    description: "Your jobs with an open Attention item you own.",
+    dateField: null,
+    caption: "Jobs with your open Attention items",
+    compute: (s) => s.jobs_need_action,
+  }),
+  "myday.jobs_at_risk": myDay({
+    id: "myday.jobs_at_risk",
+    label: "At risk",
+    description: "Your open jobs with a health score under 60.",
+    dateField: null,
+    caption: "Health under 60",
+    compute: (s) => s.jobs_at_risk,
+  }),
+  "myday.leads_new": myDay({
+    id: "myday.leads_new",
+    label: "New today",
+    description: "Leads assigned to you that came in today.",
+    dateField: "leads.created_at (today)",
+    caption: "Your leads created today",
+    compute: (s) => s.leads_new,
+  }),
+  "myday.leads_awaiting_contact": myDay({
+    id: "myday.leads_awaiting_contact",
+    label: "Awaiting contact",
+    description: "Your new leads nobody has called, texted or emailed yet.",
+    dateField: null,
+    caption: "Not reached yet",
+    compute: (s) => s.leads_awaiting_contact,
+  }),
+  "myday.leads_follow_ups_today": myDay({
+    id: "myday.leads_follow_ups_today",
+    label: "Follow-ups today",
+    description: "Your lead tasks due today.",
+    dateField: "tasks.due_at (today)",
+    caption: "Lead tasks due today",
+    compute: (s) => s.leads_follow_ups_today,
+  }),
+  "myday.leads_converted_today": myDay({
+    id: "myday.leads_converted_today",
+    label: "Converted today",
+    description: "Your leads converted to a job today.",
+    dateField: "leads.converted_at (today)",
+    caption: "Became a job today",
+    compute: (s) => s.leads_converted_today,
+  }),
+  "myday.cases_open": myDay({
+    id: "myday.cases_open",
+    label: "Open cases",
+    description: "Warranty and service cases you own that aren't resolved.",
+    dateField: null,
+    caption: "Yours, not resolved",
+    compute: (s) => s.cases_open,
+  }),
+  "myday.cases_overdue": myDay({
+    id: "myday.cases_overdue",
+    label: "Past SLA",
+    description: "Your open cases past their SLA.",
+    dateField: null,
+    caption: "Yours, past SLA",
+    compute: (s) => s.cases_overdue,
+  }),
+  "myday.unread_email": myDay({
+    id: "myday.unread_email",
+    label: "Unread email",
+    description: "Customer conversations you can see whose last message is an unread email.",
+    dateField: null,
+    caption: "Conversations, email",
+    compute: (s) => s.unread_email,
+  }),
+  "myday.unread_sms": myDay({
+    id: "myday.unread_sms",
+    label: "Unread texts",
+    description: "Customer conversations you can see whose last message is an unread text.",
+    dateField: null,
+    caption: "Conversations, text",
+    compute: (s) => s.unread_sms,
+  }),
+  "myday.mentions_unread": myDay({
+    id: "myday.mentions_unread",
+    label: "Mentions",
+    description: "Unread @mentions of you.",
+    dateField: null,
+    caption: "Unread @mentions",
+    compute: (s) => s.mentions_unread,
+  }),
+  "myday.notifications_unread": myDay({
+    id: "myday.notifications_unread",
+    label: "Notifications",
+    description: "Your unread notifications.",
+    dateField: null,
+    caption: "Unread",
+    compute: (s) => s.notifications_unread,
+  }),
+  "myday.attention_open": myDay({
+    id: "myday.attention_open",
+    label: "Needs my attention",
+    description: "Open Attention items you own.",
+    dateField: null,
+    caption: "Yours, open",
+    compute: (s) => s.attention_open,
+  }),
+  "myday.approvals_pending": myDay({
+    id: "myday.approvals_pending",
+    label: "Approvals",
+    description:
+      "Requests waiting for a decision: all of them if you approve, otherwise your own requests.",
+    dateField: null,
+    caption: "Waiting for a decision",
+    compute: (s) => s.approvals_pending,
+  }),
+  "myday.estimates_awaiting_reply": myDay({
+    id: "myday.estimates_awaiting_reply",
+    label: "Awaiting reply",
+    description: "Your estimates sent and not answered yet.",
+    dateField: null,
+    caption: "Your estimates waiting on the customer",
+    compute: (s) => s.estimates_awaiting_reply,
+  }),
+} as const satisfies Record<string, MetricDefinition<"workspace_summary">>;
+export type WorkspaceMetricId = keyof typeof WORKSPACE_METRICS;
+
+export function workspaceMetricValue(id: WorkspaceMetricId, s: WorkspaceSummary): number {
+  const m: MetricDefinition<"workspace_summary"> = WORKSPACE_METRICS[id];
+  return m.compute(s) ?? 0;
+}
+
+// ===========================================================================
+// DAILY BRIEF (Phase 9): SPEC §8.14 — what changed on a day
+// ===========================================================================
+
+export const dailyBriefSchema = z.object({
+  day: z.string().catch(""),
+  can_see_money: z.boolean().catch(false),
+  leads_created: nCount,
+  walkthroughs_completed: nCount,
+  estimates_sent: nCount,
+  estimates_accepted: nCount,
+  accepted_value_cents: nCount,
+  jobs_started: nCount,
+  jobs_completed: nCount,
+  daily_logs: nCount,
+  invoices_sent: nullableNumber,
+  collected_cents: nullableCents,
+  reviews_left: nCount,
+  attention_now: nCount,
+  attention_open: nCount,
+  overdue_invoices: nullableNumber,
+  approvals_pending: nCount,
+  unread_conversations: nCount,
+  ready_to_schedule: nCount,
+});
+export type DailyBrief = z.infer<typeof dailyBriefSchema>;
+export const EMPTY_DAILY_BRIEF: DailyBrief = dailyBriefSchema.parse({});
+
+export function parseDailyBrief(raw: unknown): DailyBrief {
+  const parsed = dailyBriefSchema.safeParse(raw ?? {});
+  return parsed.success ? parsed.data : EMPTY_DAILY_BRIEF;
+}
+
+function brief(
+  def: Omit<MetricDefinition<"daily_brief">, "source" | "ownerOnly" | "filters">,
+): MetricDefinition<"daily_brief"> {
+  return { ownerOnly: false, filters: [], ...def, source: "daily_brief" };
+}
+
+export const DAILY_BRIEF_METRICS = {
+  "brief.leads_created": brief({
+    id: "brief.leads_created",
+    label: "New leads",
+    description: "Leads that came in that day.",
+    unit: "count",
+    dateField: "leads.created_at",
+    caption: "Created that day",
+    compute: (s) => s.leads_created,
+  }),
+  "brief.walkthroughs_completed": brief({
+    id: "brief.walkthroughs_completed",
+    label: "Walkthroughs done",
+    description: "Walkthroughs completed that day.",
+    unit: "count",
+    dateField: "appointments.completed_at",
+    caption: "Completed that day",
+    compute: (s) => s.walkthroughs_completed,
+  }),
+  "brief.estimates_sent": brief({
+    id: "brief.estimates_sent",
+    label: "Estimates sent",
+    description: "Estimate versions sent that day.",
+    unit: "count",
+    dateField: "estimate_versions.sent_at",
+    caption: "Sent that day",
+    compute: (s) => s.estimates_sent,
+  }),
+  "brief.estimates_accepted": brief({
+    id: "brief.estimates_accepted",
+    label: "Estimates accepted",
+    description: "Estimates accepted that day.",
+    unit: "count",
+    dateField: "estimates.accepted_at",
+    caption: "Accepted that day",
+    compute: (s) => s.estimates_accepted,
+  }),
+  "brief.accepted_value": brief({
+    id: "brief.accepted_value",
+    label: "Accepted value",
+    description: "Total of the estimates accepted that day.",
+    unit: "money",
+    dateField: "estimates.accepted_at",
+    caption: "Accepted that day",
+    compute: (s) => s.accepted_value_cents,
+  }),
+  "brief.jobs_started": brief({
+    id: "brief.jobs_started",
+    label: "Jobs started",
+    description: "Jobs whose actual start was that day.",
+    unit: "count",
+    dateField: "jobs.actual_start_date",
+    caption: "Started that day",
+    compute: (s) => s.jobs_started,
+  }),
+  "brief.jobs_completed": brief({
+    id: "brief.jobs_completed",
+    label: "Jobs completed",
+    description: "Jobs that reached Completed that day.",
+    unit: "count",
+    dateField: "jobs.completed_at",
+    caption: "Completed that day",
+    compute: (s) => s.jobs_completed,
+  }),
+  "brief.daily_logs": brief({
+    id: "brief.daily_logs",
+    label: "Daily logs",
+    description: "Daily logs for that day.",
+    unit: "count",
+    dateField: "daily_logs.log_date",
+    caption: "Logged for that day",
+    compute: (s) => s.daily_logs,
+  }),
+  "brief.invoices_sent": brief({
+    id: "brief.invoices_sent",
+    label: "Invoices sent",
+    description: "Invoices sent that day.",
+    unit: "count",
+    dateField: "invoices.sent_at",
+    caption: "Sent that day",
+    requires: MONEY,
+    compute: (s) => s.invoices_sent,
+  }),
+  "brief.collected": brief({
+    id: "brief.collected",
+    label: "Collected",
+    description: "Payments received that day and applied to invoices.",
+    unit: "money",
+    dateField: "payments.received_on",
+    caption: "Received that day",
+    requires: MONEY,
+    compute: (s) => s.collected_cents,
+  }),
+  "brief.reviews_left": brief({
+    id: "brief.reviews_left",
+    label: "Reviews left",
+    description: "Reviews customers left that day.",
+    unit: "count",
+    dateField: "review_requests.review_left_at",
+    caption: "Left that day",
+    compute: (s) => s.reviews_left,
+  }),
+  "brief.attention_now": brief({
+    id: "brief.attention_now",
+    label: "Needs attention now",
+    description: "Critical and high Attention items still pending, right now.",
+    unit: "count",
+    dateField: null,
+    caption: "Right now",
+    compute: (s) => s.attention_now,
+  }),
+  "brief.overdue_invoices": brief({
+    id: "brief.overdue_invoices",
+    label: "Overdue invoices",
+    description: "Sent invoices past due with money owed, right now.",
+    unit: "count",
+    dateField: null,
+    caption: "Right now",
+    requires: MONEY,
+    compute: (s) => s.overdue_invoices,
+  }),
+  "brief.approvals_pending": brief({
+    id: "brief.approvals_pending",
+    label: "Approvals waiting",
+    description: "Requests waiting for an owner, right now.",
+    unit: "count",
+    dateField: null,
+    caption: "Right now",
+    compute: (s) => s.approvals_pending,
+  }),
+  "brief.unread_conversations": brief({
+    id: "brief.unread_conversations",
+    label: "Unread conversations",
+    description: "Customer conversations with an unread message, right now.",
+    unit: "count",
+    dateField: null,
+    caption: "Right now",
+    compute: (s) => s.unread_conversations,
+  }),
+  "brief.ready_to_schedule": brief({
+    id: "brief.ready_to_schedule",
+    label: "Ready to schedule",
+    description: "Jobs waiting for dates, right now.",
+    unit: "count",
+    dateField: null,
+    caption: "Right now",
+    compute: (s) => s.ready_to_schedule,
+  }),
+} as const satisfies Record<string, MetricDefinition<"daily_brief">>;
+export type DailyBriefMetricId = keyof typeof DAILY_BRIEF_METRICS;
+
+export function dailyBriefValue(id: DailyBriefMetricId, s: DailyBrief): MetricValue {
+  const m: MetricDefinition<"daily_brief"> = DAILY_BRIEF_METRICS[id];
+  const raw = m.compute(s);
+  const value = raw === null || !Number.isFinite(raw) ? null : raw;
+  return {
+    id,
+    label: m.label,
+    caption: m.caption,
+    unit: m.unit,
+    value,
+    display: formatMetricValue(m.unit, value),
+  };
+}
+
+// ===========================================================================
+// Where each source comes from (SPEC §12.1 "source RPC, date field, filters")
+// ===========================================================================
+
+export type SourceInfo = {
+  /** Postgres function (or server builder) the payload comes from. */
+  rpc: string;
+  /** Default date column for the source's metrics (null: right now / all time). */
+  dateField: string | null;
+  /** Filters the source supports. */
+  filters: readonly MetricFilter[];
+};
+
+export const SOURCE_INFO: Record<MetricSource, SourceInfo> = {
+  lead_stats: { rpc: "lead_stats()", dateField: null, filters: [] },
+  job_stats: {
+    rpc: "job_stats(from, to, prev_from)",
+    dateField: "jobs.estimate_accepted_at / closed_at",
+    filters: [],
+  },
+  job_status_counts: { rpc: "job_status_counts()", dateField: null, filters: [] },
+  attention_summary: { rpc: "attention_summary()", dateField: null, filters: [] },
+  approval_counts: {
+    rpc: "approval_requests (count: exact, head)",
+    dateField: "approval_requests.decided_at (30 days)",
+    filters: [],
+  },
+  estimate_stats: {
+    rpc: "estimate_stats(from, to)",
+    dateField: "estimate_versions.sent_at (first send)",
+    filters: [],
+  },
+  document_stats: { rpc: "document_stats(job)", dateField: null, filters: [] },
+  onboarding_board: {
+    rpc: "lib/onboarding/board.ts (all board jobs)",
+    dateField: null,
+    filters: [],
+  },
+  production_stats: {
+    rpc: "production_stats()",
+    dateField: "rolling 7 / 30 / 90 days",
+    filters: [],
+  },
+  schedule_board: { rpc: "lib/production/board.ts (bars in view)", dateField: null, filters: [] },
+  finance_stats: { rpc: "finance_stats(from, to)", dateField: "per metric", filters: [] },
+  communication_stats: {
+    rpc: "communication_stats(from, to)",
+    dateField: "per metric (default last 90 days)",
+    filters: [],
+  },
+  analytics_stats: {
+    rpc: "analytics_stats(from, to, filters)",
+    dateField: "per metric",
+    filters: ALL_FILTERS,
+  },
+  my_numbers: { rpc: "my_numbers(user, from, to)", dateField: "per card", filters: ["owner"] },
+  workspace_summary: { rpc: "workspace_summary()", dateField: "today (Pacific)", filters: [] },
+  daily_brief: { rpc: "daily_brief(day)", dateField: "that Pacific day", filters: [] },
+};
+
+export type MetricSpec = {
+  id: string;
+  label: string;
+  description: string;
+  source: MetricSource;
+  rpc: string;
+  dateField: string | null;
+  filters: readonly MetricFilter[];
+  unit: MetricUnit;
+  caption: string;
+  ownerOnly: boolean;
+  requires: readonly Permission[];
+};
+
 export const METRICS = {
+  ...ANALYTICS_METRICS,
+  ...MY_NUMBERS_METRICS,
+  ...WORKSPACE_METRICS,
+  ...DAILY_BRIEF_METRICS,
   ...COMMUNICATION_METRICS,
   ...FINANCE_METRICS,
   ...PRODUCTION_METRICS,
@@ -2317,4 +4337,32 @@ export type AnyMetricDefinition = { [S in MetricSource]: MetricDefinition<S> }[M
 
 export function getMetric(id: MetricId): AnyMetricDefinition {
   return METRICS[id];
+}
+
+/**
+ * Everything SPEC §12.1 asks the registry to say about a metric: id, label,
+ * description, source RPC, the date field it filters on, supported filters,
+ * unit, formula caption template and owner-only flag (+ permissions).
+ */
+export function metricSpec(id: MetricId): MetricSpec {
+  const m = getMetric(id);
+  const info = SOURCE_INFO[m.source];
+  return {
+    id: m.id,
+    label: m.label,
+    description: m.description,
+    source: m.source,
+    rpc: info.rpc,
+    dateField: m.dateField === undefined ? info.dateField : m.dateField,
+    filters: m.filters ?? info.filters,
+    unit: m.unit,
+    caption: m.caption,
+    ownerOnly: m.ownerOnly,
+    requires: m.requires ?? [],
+  };
+}
+
+/** Every metric id (for the catalog and coverage tests). */
+export function allMetricIds(): MetricId[] {
+  return Object.keys(METRICS) as MetricId[];
 }
