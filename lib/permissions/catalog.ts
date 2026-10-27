@@ -69,6 +69,12 @@ export const PERMISSIONS = [
   { key: "estimates:create", label: "Build estimates", category: "sales", scoped: false },
   { key: "estimates:send", label: "Send estimates", category: "sales", scoped: false },
   {
+    key: "catalog:manage",
+    label: "Edit the price book, paint catalog and production rates",
+    category: "sales",
+    scoped: false,
+  },
+  {
     key: "estimates:approve_discount",
     label: "Approve discounts over the limit",
     category: "sales",
@@ -113,6 +119,12 @@ export const PERMISSIONS = [
     scoped: false,
   },
   { key: "punch_list:manage", label: "Manage punch lists", category: "production", scoped: false },
+  {
+    key: "change_orders:draft",
+    label: "Start change orders from the field",
+    category: "production",
+    scoped: false,
+  },
   { key: "time_entries:create", label: "Clock hours", category: "production", scoped: false },
   { key: "time_entries:approve", label: "Approve hours", category: "production", scoped: false },
   {

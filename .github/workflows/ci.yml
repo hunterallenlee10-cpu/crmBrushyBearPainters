@@ -31,6 +31,7 @@ jobs:
       - run: pnpm format:check
       - run: pnpm typecheck
       - run: pnpm test
+      - run: pnpm test:coverage
       - run: pnpm build
       - name: Service-role key must never reach the browser bundle
         run: |
