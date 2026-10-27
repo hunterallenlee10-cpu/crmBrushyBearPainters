@@ -182,17 +182,13 @@ export const bookAppointmentSchema = z.object({
 });
 export type BookAppointmentInput = z.input<typeof bookAppointmentSchema>;
 
-export const appointmentStatusSchema = z
-  .object({
-    id: z.uuid(),
-    status: z.enum(APPOINTMENT_STATUSES),
-    result: z.enum(WALKTHROUGH_RESULTS).optional().nullable(),
-    note: optionalText(500),
-  })
-  .refine((v) => v.status !== "completed" || v.result !== undefined, {
-    message: "Pick the walkthrough result.",
-    path: ["result"],
-  });
+export const appointmentStatusSchema = z.object({
+  id: z.uuid(),
+  status: z.enum(APPOINTMENT_STATUSES),
+  /** Required (by the action) when completing a walkthrough. */
+  result: z.enum(WALKTHROUGH_RESULTS).optional().nullable(),
+  note: optionalText(500),
+});
 export type AppointmentStatusInput = z.input<typeof appointmentStatusSchema>;
 
 export const deleteJobSchema = z.object({

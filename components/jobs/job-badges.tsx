@@ -43,7 +43,7 @@ export function HoldPill({
       title={blocks ? "Blocks scheduling" : "Doesn't block scheduling"}
     >
       <CirclePause className="size-3" aria-hidden />
-      {label} Hold
+      {label.replace(/\s+hold$/i, "").trim() || label} Hold
     </Badge>
   );
 }

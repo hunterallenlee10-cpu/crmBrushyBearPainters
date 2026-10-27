@@ -130,6 +130,11 @@ export type TransitionCheck = {
 
 const READY_ORDER = stageOrder("ready_to_schedule");
 
+/** "HOA" → "HOA hold"; picklist labels that already say "Hold" stay as they are. */
+function holdName(label: string): string {
+  return /\bhold$/i.test(label.trim()) ? label.trim() : `${label.trim()} hold`;
+}
+
 /**
  * Can a job move from `from` to `to`? Mirrors public.apply_job_stage_change():
  * - one stage forward when the gate passes;
@@ -169,7 +174,7 @@ export function checkTransition(
   const blockedByHolds = !isTerminal(to) && toOrder >= READY_ORDER && ctx.blockingHolds.length > 0;
   if (blockedByHolds) {
     reasons.push(
-      `Release the ${ctx.blockingHolds.join(", ")} hold${ctx.blockingHolds.length > 1 ? "s" : ""} first. Holds stop scheduling even with an override.`,
+      `Release the ${ctx.blockingHolds.map(holdName).join(", ")} first. Holds stop scheduling even with an override.`,
     );
   }
 
