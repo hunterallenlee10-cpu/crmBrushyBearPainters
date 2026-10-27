@@ -434,6 +434,63 @@ Every non-obvious decision, newest at the bottom. Format: date · decision · re
 - **New Job** starts from an existing customer (account, property, contact). Creating a customer inline waits for owner feedback. Accounts get a "New job" button; the New Lead wizard's "Save & Convert" saves the lead and converts it in one go.
 - **Reason:** SPEC §8.5–§8.9. Recorded so the owners can review the choices; open questions are in the Phase 3 report.
 
+## Phase 4 — Estimating
+
+### 2026-10-27 · Pricing engine: per line, margin pricing, fixed quote order
+
+- **Decision:** `lib/domain/estimating/*` (re-exported by `lib/estimating/engine.ts`) prices each line on its own. Production-rate lines: labor hours = quantity ÷ units-per-hour × height × access × coat factor (+ prep hours × prep factor, + lead-safe %), paint gallons from coverage × coats (+ waste), rounded up to containers per line (3+ quarts buy a gallon, 4+ gallons buy a 5-gallon pail, only sizes the product comes in); cost = labor + paint + sundries; price = cost ÷ (1 − target margin). Flat lines are quantity × unit price. The option total runs in one order: lines + chosen add-ons + RRP supplies → job minimum → discount → tax → total → deposit. Change orders use the same line math with no minimum, discount or deposit, and credits make lines (and totals) negative.
+- **Reason:** SPEC §7.3–7.4. Rounding per line matches how paint is bought for each surface/color; one fixed order keeps the PDF, the proposal page and the database totals identical. The engine is pure and 100% covered (`pnpm test:coverage` enforces it in CI).
+
+### 2026-10-27 · Discount approvals use the effective discount
+
+- **Decision:** The builder compares what the customer would pay with the computed (pre-override, pre-discount) price, per option and with every add-on. The worst case is the version's effective discount %. Sending is blocked when it's above the sender's limit (per-user limit, else role limit from Estimate Setup, else 0%; people with `estimates:approve_discount` have none) unless an owner approved at least that much. Requests go to Approvals as `estimate_discount`.
+- **Reason:** SPEC §7.4 / §8.5. Price overrides and discounts both lower the price, so one number catches both.
+
+### 2026-10-27 · Sent versions are frozen; the proposal is a snapshot
+
+- **Decision:** Sending stores a customer snapshot (`estimate_versions.proposal`) and freezes the version (guards refuse edits to sent content). Changes mean "New version", which copies the version as a draft; sending it replaces the old link (the old token is revoked and shows "There's a newer version"). Drafts are re-priced live with today's catalog; sent versions show their stored numbers.
+- **Reason:** What the customer signs must never change underneath them; a price-book edit can't move a sent number.
+
+### 2026-10-27 · Proposal links: hashed tokens, one accept transaction
+
+- **Decision:** Links carry a 256-bit random token; only its SHA-256 is stored. The page is public (`/p/[token]`), rate limited per address (views 120/10 min, accept 10/10 min per address and 8 per link, PDF 30/10 min). If the limiter itself errors it lets the request through (a customer shouldn't be blocked by our outage). Accepting runs `accept_estimate()` in one transaction: signature (typed name, drawn PNG + hash, IP, user agent, consent text, time), version and estimate accepted, job financials, deposit invoice (draft), a Deposit Hold, onboarding requirements, paint-order and work-order drafts and the color schedule. Then `completeAcceptance()` renders the signed proposal + contract PDF into the private `documents` bucket and moves the job Walkthrough Complete → Estimate Sent → Sold → Onboarding through the normal gates. It is idempotent; the worker re-runs it on `estimate.accepted` if the first try failed.
+- **Reason:** SPEC §7.5. A partial acceptance (signed but no invoice) would be worse than a retry.
+
+### 2026-10-27 · Deposit invoice is drafted, untaxed, and Phase 7 sends it
+
+- **Decision:** The deposit invoice is `deposit %` of the accepted total (tax included in the total; the deposit line itself isn't taxed again), created as a draft. With a 0% deposit no invoice is made and the Sold gate passes on acceptance. A Deposit Hold blocks scheduling until the deposit is paid (Phase 7).
+- **Reason:** Sending invoices and taking payments arrive with Money (Phase 7); the gate only needs the invoice to exist.
+
+### 2026-10-27 · Contract amount = accepted estimate + signed change orders
+
+- **Decision:** `job_financials.contract_cents` is a generated column: accepted estimate total + signed change orders, or the Admin baseline when nothing is accepted. Dashboards, lists and job health read it. Change orders marked "bill separately" (the default) get a draft change-order invoice when signed.
+- **Reason:** SPEC §7.7. One stored truth for the contract, derived, never typed in.
+
+### 2026-10-27 · Sample numbers are flagged in the database
+
+- **Decision:** Every seeded price-book item, paint product, production rate and the Estimate Setup row is `is_sample = true` ("Sample – Erik to calibrate"). Saving a row clears the flag (the database never lets anyone set it back); saving the Estimate Setup pricing records who calibrated it and when. Tax starts at 0% and "not confirmed with our accountant". The builder, Price Book and Estimate Setup show Sample badges until then.
+- **Reason:** CLAUDE.md "Don't invent business facts". The builder is usable today without anyone mistaking the sample prices for real ones.
+
+### 2026-10-27 · Draft legal and customer wording
+
+- **Decision:** The exterior "What's included" list is the website's text (approved). Interior, cabinets and deck/fence lists, the guarantees and the four agreement templates are drafts with [SLOTS] for L&I/UBI numbers, warranty terms and the lead-safe disclosure. Customers see "Draft – owner to approve" / "Draft – owner/attorney to approve" labels until an owner approves or publishes. Publishing a template needs every slot filled, the required merge fields and an owner's confirmation. The e-sign consent sentence (`ESIGN_CONSENT`) is also draft wording for the owners' attorney.
+- **Reason:** CLAUDE.md rule 2. The flow works end to end; the words are theirs to approve.
+
+### 2026-10-27 · PDFs stream through the app
+
+- **Decision:** Office PDFs (`/jobs/[id]/estimate/[versionId]/pdf`, change orders, color sheet, invoices, stored documents) check the person's permission and row security, then the server renders or reads the file and streams it. The customer's signed copy streams from `/p/[token]/pdf`. No storage URLs reach the browser.
+- **Reason:** The bucket stays private and every download goes through the same permission check.
+
+### 2026-10-27 · Builder details
+
+- **Decision:** Lines added for a pre-1978 (or unknown-age) home default to lead-safe when they disturb paint. The measurement helper (room walls, ceiling, baseboard, exterior wall with gable factor, fence) fills the quantity and keeps the measurements on the line. Crew leads (`change_orders:draft`) report a scope change from the field without prices; owners are notified and price it. Onboarding requirements show read-only on the job until Phase 5 adds verification.
+- **Reason:** SPEC §7.2–7.7, §6.4.
+
+### 2026-10-27 · Embedding hints for estimates ↔ jobs
+
+- **Decision:** `jobs.accepted_estimate_id` adds a second relationship between jobs and estimates, so PostgREST embeds between them name the foreign key (`jobs!estimates_job_id_fkey`, `estimates!estimate_versions_estimate_id_fkey`).
+- **Reason:** Without the hint the query fails at run time (PGRST201); the generated types don't catch it.
+
 ## Hosting
 
 ### 2026-10-27 · Separate hosting; worker every minute from the database

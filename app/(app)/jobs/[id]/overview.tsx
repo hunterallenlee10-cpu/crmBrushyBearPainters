@@ -408,8 +408,13 @@ export function Overview({ data }: { data: JobDetailData }) {
               <Item label="Access">{p.accessNotes}</Item>
               <Item label="Pets">{p.pets}</Item>
               <Item label="Parking">{p.parking}</Item>
-              <Item label="Colors chosen">
-                <span className="text-muted-foreground">Arrives with estimates (Phase 4)</span>
+              <Item label="Colors">
+                <Link
+                  href={sectionHref(job.id, "estimate")}
+                  className="text-bb-forest underline-offset-2 hover:underline"
+                >
+                  Color schedule in Estimate &amp; Scope
+                </Link>
               </Item>
             </dl>
           ) : (

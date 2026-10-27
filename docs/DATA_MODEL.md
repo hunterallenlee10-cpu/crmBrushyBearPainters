@@ -274,7 +274,7 @@ erDiagram
 | Table               | Purpose                                                                                                                                                              |
 | ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `jobs`              | The opportunity (SPEC §5.3): customer, property, work types, stage, derived status, priority, team, dates, milestone timestamps, health. Soft delete.                |
-| `job_financials`    | Contract baseline in cents until estimates (Phase 4). Read needs `financials:read`; write needs `job_admin:override`.                                                |
+| `job_financials`    | Contract baseline in cents (Phase 4 adds the contract amount from estimates and change orders). Read needs `financials:read`; write needs `job_admin:override`.                                                |
 | `job_holds`         | Holds with type (picklist), reason, "blocks scheduling", who placed/released. Released holds stay for history. Hold counts on the job are kept by a trigger.         |
 | `job_team`          | Internal team members by role (estimator, point of contact, project manager, office, painter).                                                                       |
 | `stage_history`     | Append-only log of every stage change: from, to, who, override + reason, gate snapshot, approval request.                                                            |
@@ -286,3 +286,77 @@ erDiagram
 New RPCs: `apply_job_stage_change()` and `convert_lead_to_job()` (service role only), `claim_events()` (worker, service role only), `job_stats(from, to, prev_from)` (Jobs Dashboard; money null without `financials:read`), `job_status_counts()` (Job List tabs), `attention_summary()` (Attention Center KPIs and the nav badge). `search_records()` now finds jobs by number and name; soft delete / Deleted Records / open work counts cover jobs. Notes, comments, tasks and messages accept `subject_type = 'job'`.
 
 Migrations: `20261026001100_jobs_core`, `20261026001200_worker`, each with a rollback.
+
+## Phase 4 — estimating
+
+```mermaid
+erDiagram
+  price_books ||--o{ catalog_items : "items"
+  paint_products |o--o{ catalog_items : "default paint"
+  jobs ||--o{ estimates : ""
+  estimates ||--o{ estimate_versions : "v1, v2…"
+  estimate_versions ||--o{ estimate_options : "Good / Better / Best"
+  estimate_options ||--o{ estimate_areas : "rooms, sides"
+  estimate_versions ||--o{ estimate_line_items : "lines (option, area) and add-ons"
+  jobs ||--o{ change_orders : ""
+  change_orders ||--o{ estimate_line_items : "lines and credits"
+  estimate_versions ||--o{ proposal_tokens : "hashed link"
+  change_orders ||--o{ proposal_tokens : "hashed link"
+  estimate_versions |o--o| signatures : "Accept & Sign"
+  change_orders |o--o| signatures : ""
+  signatures |o--o| documents : "signed PDF"
+  jobs ||--o{ documents : "private bucket"
+  jobs ||--o{ invoices : "deposit, change order"
+  invoices ||--o{ invoice_lines : ""
+  jobs ||--o{ onboarding_requirements : "SPEC 6.4"
+  jobs ||--o{ paint_orders : ""
+  paint_orders ||--o{ paint_order_lines : "gallons by product/color/sheen"
+  jobs ||--o{ work_orders : "by phase, budgeted hours"
+  jobs ||--o{ color_selections : "color schedule"
+
+  estimate_line_items {
+    text kind "production_rate / flat"
+    numeric quantity
+    text condition "good/fair/poor"
+    text prep_level
+    smallint coats
+    text primer "none/spot/full"
+    text color_change
+    bool lead_safe
+    bigint override_price_cents "needs a reason"
+    bigint price_cents "engine (trusted)"
+    bigint cost_cents "engine (trusted)"
+    jsonb measurement "helper inputs"
+  }
+  estimate_versions {
+    text status "draft/sent/viewed/accepted/declined/expired/superseded"
+    jsonb proposal "customer snapshot, frozen at send"
+    jsonb priced "engine totals"
+    numeric max_effective_discount_percent
+    numeric discount_approved_percent
+  }
+```
+
+| Table | Purpose |
+| --- | --- |
+| `estimate_settings` | One per company: pricing knobs (`pricing` jsonb, SPEC §7.3), discount limits by role/user, "What's included" by work type, guarantees, lead-safe disclosure, `is_sample` + who calibrated it. Deposit %, expiry and tax config stay in `company_settings`. |
+| `price_books`, `catalog_items` | The price book (one default). Items: family, type, unit, pricing method (production rate via `surface`, or flat price/cost), default coats/method/paint, work type, work-order phase, allowance flag, `is_sample`. |
+| `paint_products` | Brand (picklist), product, use, sheens, coverage, cost per gallon, containers, primer flag, `is_sample`. |
+| `production_rates` | Units per labor hour and prep hours per unit by surface × method × condition, `is_sample`. |
+| `estimates`, `estimate_versions`, `estimate_options`, `estimate_areas`, `estimate_line_items` | The estimate tree. Line items also belong to change orders (`change_order_id`, `is_credit`). Engine columns (hours, gallons, cost, computed and final price, issues) are written only by trusted server code; sent content can't change. |
+| `change_orders` | Number `CO-…`, title, reason, field notes (crew-reported), status, totals, snapshot, "bill separately". |
+| `proposal_tokens` | SHA-256 of each customer link, expiry, revoked/used, view count. |
+| `signatures` | Typed name, signature PNG + hash, consent text, IP, user agent, selection (option, add-ons, totals), time. Never changes; trusted code links the signed PDF. |
+| `documents` | Files in the private `documents` bucket (category, status, hash, related record, customer-visible flag). Soft delete. |
+| `agreement_templates` | BearSign templates by doc type: body with merge fields and [SLOTS], conditional clauses (lead-safe, HOA), status draft/published, version, approval. |
+| `invoices`, `invoice_lines` | Phase 4 creates the deposit invoice and change-order invoices as drafts (one deposit per job). Payments and the ledger arrive in Phase 7. |
+| `onboarding_requirements` | The SPEC §6.4 checklist seeded on acceptance (14 keys, required by rule), with status and auto-verify rule. |
+| `paint_orders`, `paint_order_lines` | Paint drafted from the accepted lines (`PO-…`): gallons and containers by product, color and sheen, cost. |
+| `work_orders` (+ `work_order_costs`) | Drafted by phase (prep, repair, paint, touch-up…) with budgeted hours from the accepted lines. |
+| `color_selections` | The color schedule per area and surface, seeded from the accepted lines; brand, color, code, sheen, product, confirmed. |
+
+`job_financials` gains `estimate_contract_cents`, `change_orders_cents` and a generated `contract_cents` (estimate + change orders, else the baseline). `jobs` gains `accepted_estimate_id` and the estimate SLA reads `estimate_sent_at`.
+
+New RPCs (service role only unless noted): `mark_estimate_sent`, `resolve_proposal_token`, `record_proposal_view`, `accept_estimate`, `decline_proposal`, `expire_proposals`, `store_version_pricing`, `store_change_order_pricing`, `approve_version_discount`, `mark_change_order_sent`, `accept_change_order`, `attach_signed_document`; for signed-in users: `create_estimate`, `copy_estimate_version`, `estimate_stats(from, to)`, `estimate_status_counts()`. `job_stats` reads `contract_cents`. Seed function `app.seed_estimating_defaults(org)` loads the sample configuration.
+
+Migrations: `20261027000100_estimating`, `20261027000200_estimating_seed`, each with a rollback.

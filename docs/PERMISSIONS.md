@@ -371,3 +371,13 @@ No new permissions; Phase 3 starts using the job ones seeded in Phase 1.
 - **Milestone dates and the contract baseline** are edited only in the job's Admin section (`job_admin:override`).
 - **Holds:** placing and releasing need `jobs:update` on the job. **Team:** adding and removing teammates needs `jobs:assign`.
 - **Attention items:** anyone with `attention:read` sees items for records they can open (or everything with _Everyone's_ scope) and can assign, snooze and resolve them. Rules and thresholds need `settings:manage`.
+
+## Added in Phase 4
+
+- **`catalog:manage`** (Price Book, paint catalog, production rates): Owners. Everyone with `estimates:read` can see the catalog; only this permission edits it.
+- **`change_orders:draft`**: report a scope change from the field (what was found, no prices). Granted to Crew Lead, Sales (all) and Sales (own). Crew roles still can't see estimate prices or change-order totals.
+- **Estimates** follow the job: you see a job's estimates if you can see the job and hold `estimates:read`; building and editing needs `estimates:create` plus edit rights on the job; sending needs `estimates:send` and `messages:send`. Sent versions can't be edited by anyone.
+- **Discounts** over a person's limit (Admin → Estimate Setup, by role; per-user limits are stored too) need an owner's approval (`estimates:approve_discount`).
+- **Estimate Setup** needs `settings:manage`; **Agreement Templates** need `templates:manage` to edit and an owner (`settings:manage`) to publish.
+- **Documents** (signed proposals/contracts, change orders) need `documents:read`; **invoices** need `invoices:read`. Files are only ever streamed by the server after these checks.
+- **Customers** never sign in: the proposal link is their credential, scoped to one version or change order.

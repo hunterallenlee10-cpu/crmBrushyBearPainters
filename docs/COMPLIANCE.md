@@ -40,3 +40,12 @@
 - [ ] Keep two-step sign-in (MFA) on for Owner and Bookkeeper. It's on by default.
 - [ ] Review Admin → Users each quarter and turn off anyone who has left. Turned-off users can't sign in, and their records stay.
 - [ ] Use View as user only to check what a teammate sees. Each use is in the audit log.
+
+## Estimates and e-signatures (Phase 4)
+
+- [ ] Have an attorney approve the four agreement templates (Admin → Agreement Templates). They're drafts with [SLOTS] for the L&I/UBI numbers, warranty terms, required disclosures and the lead-safe text; customers see "Draft – owner/attorney to approve" until an owner publishes them.
+- [ ] Approve the e-sign consent sentence shown next to Accept & Sign (`ESIGN_CONSENT` in `lib/domain/estimating/agreements.ts`) and confirm what a valid electronic signature needs to record. Today each signature stores the typed name, the drawn signature (PNG and its SHA-256), the time, IP address, user agent, the consent text and the exact option/add-ons/total accepted.
+- [ ] Enter the lead-safe disclosure in Admin → Estimate Setup → Guarantees (currently a slot). It shows on proposals for pre-1978 homes with lead-safe work.
+- [ ] Approve the interior, cabinets and deck/fence "What's included" lists and the guarantees (drafts; the exterior list is the website's wording).
+- [ ] Confirm the sales-tax rate and treatment with your accountant, then set it in Estimate Setup and tick "Confirmed with our accountant" (tax is 0% until then).
+- [ ] Decide how long signed documents are kept. They're stored privately and never deleted by the app.

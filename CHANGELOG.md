@@ -2,6 +2,36 @@
 
 All notable changes, by build phase. See `docs/PLAN.md` for what each phase covers.
 
+## Phase 4 — Estimating
+
+### Added
+
+- **Pricing engine** (`lib/domain/estimating`, 100% covered): production-rate lines (labor from units per hour × height × access × coats, prep, lead-safe time; paint from coverage × coats + waste, rounded to quarts / gallons / 5-gallon pails), flat lines, credits, margin pricing (cost ÷ (1 − margin)), job minimum, discounts, tax, deposit, RRP supplies, options and add-ons, change orders, effective-discount check, proposal snapshot, paint order, work orders, color schedule and onboarding requirements from the accepted scope.
+- **Estimate Builder** (Job → Estimate & Scope → builder), tablet-first: versions, Good/Better/Best options (duplicate, recommend), areas (copy to another option), lines from the price book or custom, a line editor with a measurement helper (room walls/ceiling/baseboard, exterior wall with gable factor, fence), optional add-ons, live customer total and deposit, an internal margin panel (cost, gross margin vs floor, labor hours, crew days, gallons by product), discount with approval request, notes, preview PDF, Send for signature (text/email, simulated) and New version.
+- **Customer proposal page** `/p/[token]` (no login, mobile-first cream/forest): options, add-on switches that update the total live, scope by area, what's included, guarantees, lead-safe disclosure, terms, Accept & Sign (typed name + drawn signature, consent, time, IP, device), decline, viewed tracking, rate limits, signed-copy download. Same page for change orders.
+- **On acceptance:** one database transaction records the signature and drafts the deposit invoice, a Deposit Hold, the onboarding checklist, a paint order, work orders by phase and the color schedule; then the signed proposal + contract PDF is stored privately and the job moves Estimate Sent → Sold → Onboarding through the gates. Retried by the worker if anything fails.
+- **Change orders:** priced with the same engine (credits allowed), sent and signed on the proposal page; signing updates the contract amount and drafts a change-order invoice. Crew leads can report a scope change from the field for the office to price.
+- **Job → Estimate & Scope:** estimates and versions, color schedule (edit, confirm, color-sheet PDF), change orders, signed documents. **Job → Onboarding** shows the requirement checklist and progress. **Job → Financial** lists invoices with PDFs.
+- **PDFs:** proposal / signed contract, change order, color sheet, invoice.
+- **Price Book** (`/price-book`): price books, catalog by family with search and an item editor; **Paint catalog**; **Production rates** by surface × method × condition. Sample rows are badged until saved.
+- **Admin → Estimate Setup:** labor rate, sundries, waste, margin target and floor, minimum job, multipliers, color-change rule, lead-safe labor and RRP supplies, crew and measuring defaults, discount limits by role, sales tax; "What's included" per work type; guarantees and lead-safe disclosure. **Admin → Agreement Templates:** edit wording and conditional clauses, publish with validation (no unfilled slots, required merge fields, owner confirmation).
+- **Estimates** list (`/estimates`) with status tabs and KPIs from the registry: estimates sent, 24h SLA %, close rate (count and $), average job value, open estimates.
+- **Attention rules:** estimate SLA now uses the real send time; new "Estimate awaiting reply" (3 days) and "Expiring estimate" (5 days) rules. **Job health:** the contract-signed check is real.
+- New permissions `catalog:manage` and `change_orders:draft`; discount approvals in Jobs → Approvals.
+- Seed (configuration, all sample-flagged): default price book with 45 items, 10 sample paint products, 360 sample production rates, pricing settings, exterior "What's included" from the website (others draft), guarantees, 4 draft agreement templates, private `documents` bucket.
+
+### Changed
+
+- The contract amount on dashboards, lists and job health is the accepted estimate plus signed change orders (the Admin baseline only when nothing is accepted).
+- Build Estimate and Send for Signature shortcuts open the Estimate & Scope section.
+- Leaving a field out of an estimate form no longer clears it; a blank deposit % means the company default.
+
+### Tests
+
+- SQL/RLS: 452 assertions across 11 files (Phase 4 adds 95: catalog and estimate access per role, sent versions frozen, send/accept/decline/expire, signatures, deposit invoice, onboarding, change orders).
+- Unit: 866 tests; the estimating engine at 100% statements and branches.
+- E2E + axe: estimate build → send → sign on a 390px phone → signed PDF, deposit invoice and onboarding; change order signed and contract updated; phone builder; Price Book, paint catalog, production rates, Estimate Setup, Agreement Templates, Estimates list; estimator permissions. Screenshots in `docs/screens/phase-4/`.
+
 ## Phase 3 — Jobs core
 
 ### Added

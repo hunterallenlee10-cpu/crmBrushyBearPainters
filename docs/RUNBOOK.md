@@ -90,6 +90,14 @@ The website posts quote requests to `POST /api/public/leads` (contract in `docs/
 4. **Stuck or failing events:** check `events` where `status = 'failed'` (`last_error` says why). Failed events retry up to 5 times with back-off; events stuck in `processing` for 5 minutes are picked up again.
 5. **Attention noise:** turn a rule off or change its thresholds in Admin → Attention Rules; changes apply on the next run.
 
+## Estimates, proposal links and documents _(Phase 4)_
+
+- **Links** are `APP_URL/p/<token>`. Only the token's SHA-256 is stored, so a lost link can't be recovered: send a new version (the old link then says "There's a newer version"). Links expire after the Company Settings expiry days; the worker marks them Expired.
+- **Rate limits** on the public page: 120 views, 10 accept/decline tries and 30 PDF downloads per address per 10 minutes, 8 accept tries per link. Buckets live in `rate_limits` (same table as website intake).
+- **Documents** live in the private Supabase Storage bucket `documents` (`<org>/jobs/<job>/<uuid>-<file>.pdf`). The app streams them after a permission check; never make the bucket public. Back it up with the database (Storage isn't in the database dump).
+- **Acceptance didn't finish** (signed but no PDF, or the job didn't move): the worker retries on the `estimate.accepted` event. Check `events` for a failed `estimate.accepted`; once the cause is fixed, set it back to `queued`.
+- **Changing prices:** edit the Price Book or Estimate Setup. Drafts pick up the change the next time they're opened or edited; sent versions never change.
+
 ## Month close _(Phase 7)_
 
 ## Purge demo data _(Phase 10)_

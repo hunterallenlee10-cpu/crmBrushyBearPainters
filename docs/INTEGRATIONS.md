@@ -95,7 +95,7 @@ The last step for every provider: **ask the developer to lift the build lock (se
 
 ### E-signature: built-in BearSign (default)
 
-Needs no account. The click-to-sign flow arrives in Phase 4; until then signature requests are recorded to the outbox. Have contract templates approved (`docs/COMPLIANCE.md`) before any real signing.
+Needs no account. Built in Phase 4: the customer opens `/p/[token]` (no login), picks an option and add-ons, types their name and draws a signature. The CRM stores the signature with time, IP, user agent and the consent text, renders the signed proposal + contract PDF into the private `documents` bucket, and moves the job on. Estimate and change-order links are sent by text and email through the messaging adapters, so in this build they land in the outbox as **simulated** (the link is shown to the sender to open or copy). Have the templates approved (`docs/COMPLIANCE.md`) before any real signing.
 
 ### E-signature: DocuSign
 

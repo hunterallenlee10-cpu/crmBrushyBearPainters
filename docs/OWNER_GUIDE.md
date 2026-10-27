@@ -10,6 +10,19 @@
 
 ## Build and send an estimate in under 15 minutes _(Phase 4)_
 
+1. Open the job → **Estimate & Scope** → **Start the estimate**. (The walkthrough must be completed as "Measured" before it can be sent.)
+2. **Add an area** for each room or side of the house (Living room, North side, Kitchen cabinets…).
+3. In each area, **Add line** and pick from the price book (search "walls", "trim", "door"…). Tap the ruler to measure: enter length × width × height and doors/windows and it fills the square feet. Set condition, prep, coats, primer, color change, height and paint; the price works itself out.
+4. Want Good / Better / Best? **+ Option**, or duplicate an option and change it. Star the one you recommend.
+5. **Add add-on** for extras the customer can switch on (rot repair allowance, color consultation…).
+6. Watch the right-hand panel: customer total and deposit, and (internal) cost, gross margin against your floor, labor hours, crew days and gallons. Red means below the margin floor.
+7. Discount? Set it under Discount, deposit & notes with a reason. If it's over your limit, **Ask for approval** and an owner approves it in Jobs → Approvals.
+8. **Preview PDF**, then **Send for signature** by text, email or both. The link appears so you can copy or open it. (Messages are simulated in this build.)
+9. The customer picks an option on their phone, toggles add-ons, signs. The job moves to Sold → Onboarding by itself, with the signed contract in Signed documents, the deposit invoice under Financial, the onboarding checklist, paint order and work orders drafted, and the color schedule ready.
+10. Need to change it after sending? **New version** (it copies the sent one). Found more work mid-job? **Change order** (crew leads can report one from the field).
+
+**Before real customers:** set your real numbers in Admin → Estimate Setup and the Price Book (everything says "Sample – Erik to calibrate" until saved), confirm tax with your accountant, and publish the agreement templates after your attorney's review.
+
 ## Run the schedule _(Phase 6)_
 
 ## Close out a job _(Phases 6–7)_

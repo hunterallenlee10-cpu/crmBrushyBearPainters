@@ -386,7 +386,7 @@ export function leadAging(stats: LeadStats): AgingRow[] {
 // `public.job_status_counts()` (supabase/migrations/20261026001100_jobs_core.sql).
 // Both run with the viewer's row security. Money is the contract baseline in
 // cents (job_financials), visible only with financials:read: for anyone else
-// every money value is null and shows as "—". Until estimates exist (Phase 4)
+// every money value is null and shows as "—". Without an accepted estimate
 // the baseline is the job's contract amount.
 
 /** Money in cents: null when the viewer may not see it. */
