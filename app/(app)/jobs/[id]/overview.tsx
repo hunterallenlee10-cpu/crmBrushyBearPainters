@@ -1,5 +1,6 @@
 import Link from "next/link";
 import {
+  CheckCircle2,
   AlertTriangle,
   ArrowRight,
   BadgeDollarSign,
@@ -228,10 +229,16 @@ export function Overview({ data }: { data: JobDetailData }) {
             <MoneyTile
               icon={BadgeDollarSign}
               label="Contract"
-              value={data.contractCents !== null ? formatMoney(data.contractCents) : "Not set"}
+              value={
+                data.ledger
+                  ? formatMoney(data.ledger.contractCents)
+                  : data.contractCents !== null
+                    ? formatMoney(data.contractCents)
+                    : "Not set"
+              }
               caption={
                 data.contractFromEstimate
-                  ? "Accepted estimate + signed change orders"
+                  ? "Accepted estimate + signed change orders − credits"
                   : data.contractCents !== null
                     ? "Contract baseline (no estimate accepted yet)"
                     : "Set when the customer accepts an estimate."
@@ -240,15 +247,30 @@ export function Overview({ data }: { data: JobDetailData }) {
             <MoneyTile
               icon={Wallet}
               label="Paid"
-              value="—"
-              caption="Arrives with Money (Phase 7)"
+              value={data.ledger ? formatMoney(data.ledger.collectedCents) : "—"}
+              caption="Payments applied to invoices"
             />
-            <MoneyTile
-              icon={Wallet}
-              label="Balance"
-              value="—"
-              caption="Arrives with Money (Phase 7)"
-            />
+            {data.ledger?.paidInFull ? (
+              <MoneyTile
+                icon={CheckCircle2}
+                label="Balance"
+                value="Paid in full"
+                caption={`${formatMoney(data.ledger.billedCents)} billed and collected`}
+              />
+            ) : (
+              <MoneyTile
+                icon={Wallet}
+                label="Balance"
+                value={data.ledger ? formatMoney(data.ledger.balanceCents) : "—"}
+                caption={
+                  data.ledger && data.ledger.dueCents > 0
+                    ? `${formatMoney(data.ledger.dueCents)} past due`
+                    : data.ledger && data.ledger.leftToBillCents > 0
+                      ? `${formatMoney(data.ledger.leftToBillCents)} not billed yet`
+                      : "Billed − collected"
+                }
+              />
+            )}
           </div>
         </Card>
       ) : (

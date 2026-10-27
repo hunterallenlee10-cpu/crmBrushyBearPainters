@@ -84,6 +84,8 @@ export function SectionContent({
           jobId={job.id}
           canReadInvoices={can.readInvoices}
           canReadFinancials={can.readFinancials}
+          readOnly={data.readOnly}
+          initialTab={tab}
         />
       );
       break;

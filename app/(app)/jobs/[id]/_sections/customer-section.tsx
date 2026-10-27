@@ -93,14 +93,19 @@ export async function CustomerSection({
   const [financials, secret, names, users] = await Promise.all([
     canSeeMoney && jobs.length
       ? supabase
-          .from("job_financials")
-          .select("job_id, contract_cents")
+          .from("job_ledger")
+          .select("job_id, contract_cents, collected_cents, balance_cents")
           .in(
             "job_id",
             jobs.map((j) => j.id),
           )
       : Promise.resolve({
-          data: [] as { job_id: string; contract_cents: number | null }[],
+          data: [] as {
+            job_id: string | null;
+            contract_cents: number | null;
+            collected_cents: number | null;
+            balance_cents: number | null;
+          }[],
         }),
     canSeeCodes && property
       ? supabase
@@ -120,6 +125,8 @@ export async function CustomerSection({
 
   const counts = customerJobCounts(jobs);
   const contractByJob = new Map((financials.data ?? []).map((f) => [f.job_id, f.contract_cents]));
+  const paid = (financials.data ?? []).reduce((s, f) => s + (f.collected_cents ?? 0), 0);
+  const owed = (financials.data ?? []).reduce((s, f) => s + (f.balance_cents ?? 0), 0);
   const lifetime = lifetimeContractCents(
     jobs.map((j) => ({ contractCents: contractByJob.get(j.id) ?? null, status: j.status })),
   );
@@ -259,6 +266,12 @@ export async function CustomerSection({
                   caption="Contract amounts on this customer's jobs · lost jobs excluded"
                   className="col-span-2 sm:col-span-4 lg:col-span-1"
                 />
+              )}
+              {canSeeMoney && (
+                <Stat label="Paid" value={formatCents(paid)} caption="Applied payments, all jobs" />
+              )}
+              {canSeeMoney && (
+                <Stat label="Balance" value={formatCents(owed)} caption="Billed − collected" />
               )}
             </dl>
           </div>

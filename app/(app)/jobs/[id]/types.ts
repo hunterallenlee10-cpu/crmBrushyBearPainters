@@ -180,6 +180,16 @@ export type JobDetailData = {
   contractCents: number | null;
   contractBaselineCents: number | null;
   contractFromEstimate: boolean;
+  /** The job ledger (public.job_ledger); null without financials:read. */
+  ledger: {
+    contractCents: number;
+    billedCents: number;
+    collectedCents: number;
+    balanceCents: number;
+    leftToBillCents: number;
+    dueCents: number;
+    paidInFull: boolean;
+  } | null;
   gate: GateContext;
   counts: {
     notes: number | null;

@@ -7,7 +7,7 @@ import {
 } from "@/lib/lists/filters";
 
 /** Lists that support saved views and column choices (saved_views.module). */
-export type ListModuleId = "leads" | "accounts" | "contacts" | "jobs";
+export type ListModuleId = "leads" | "accounts" | "contacts" | "jobs" | "invoices";
 
 /**
  * List state lives in the URL so every filtered list is a shareable link and

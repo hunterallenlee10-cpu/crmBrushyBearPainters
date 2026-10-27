@@ -1,3 +1,4 @@
+import { isPaidInFull } from "@/lib/domain/ledger/ledger";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { z } from "zod";
@@ -192,6 +193,17 @@ export default async function JobDetailPage({
       ? supabase.from("job_photos").select("id", { count: "exact", head: true }).eq("job_id", id)
       : none,
   ]);
+  const ledgerRow = can.readFinancials
+    ? (
+        await supabase
+          .from("job_ledger")
+          .select(
+            "contract_cents, billed_cents, collected_cents, balance_cents, left_to_bill_cents, due_cents",
+          )
+          .eq("job_id", id)
+          .maybeSingle()
+      ).data
+    : null;
 
   // Names for everyone who appears on the page.
   const personIds = new Set<string>();
@@ -395,6 +407,21 @@ export default async function JobDetailPage({
     contractCents: financials.data?.contract_cents ?? null,
     contractBaselineCents: financials.data?.contract_baseline_cents ?? null,
     contractFromEstimate: financials.data?.estimate_contract_cents != null,
+    ledger: ledgerRow
+      ? {
+          contractCents: ledgerRow.contract_cents ?? 0,
+          billedCents: ledgerRow.billed_cents ?? 0,
+          collectedCents: ledgerRow.collected_cents ?? 0,
+          balanceCents: ledgerRow.balance_cents ?? 0,
+          leftToBillCents: ledgerRow.left_to_bill_cents ?? 0,
+          dueCents: ledgerRow.due_cents ?? 0,
+          paidInFull: isPaidInFull({
+            billedCents: ledgerRow.billed_cents ?? 0,
+            leftToBillCents: ledgerRow.left_to_bill_cents ?? 0,
+            balanceCents: ledgerRow.balance_cents ?? 0,
+          }),
+        }
+      : null,
     gate,
     counts: {
       notes: notesCount.count ?? null,
