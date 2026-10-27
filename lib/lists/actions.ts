@@ -10,7 +10,7 @@ import { ActionFailure, check } from "@/lib/actions/errors";
  * to their own views and their own profile preferences.
  */
 
-const moduleId = z.enum(["leads", "accounts", "contacts"]);
+const moduleId = z.enum(["leads", "accounts", "contacts", "jobs"]);
 
 const viewConfig = z
   .object({

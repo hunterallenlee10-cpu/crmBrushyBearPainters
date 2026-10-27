@@ -6,6 +6,9 @@ import {
   type QueryOp,
 } from "@/lib/lists/filters";
 
+/** Lists that support saved views and column choices (saved_views.module). */
+export type ListModuleId = "leads" | "accounts" | "contacts" | "jobs";
+
 /**
  * List state lives in the URL so every filtered list is a shareable link and
  * the browser Back button works: ?q=&tab=&chips=&f=&sort=&dir=&page=&size=&view=
@@ -44,7 +47,7 @@ export type ChipDef = { id: string; label: string; group?: string };
 export type ListContext = { userId: string; now: Date };
 
 export type ListModule = {
-  id: "leads" | "accounts" | "contacts";
+  id: ListModuleId;
   label: string;
   fields: readonly FieldDef[];
   columns: readonly ColumnDef[];

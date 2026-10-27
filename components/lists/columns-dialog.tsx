@@ -1,5 +1,7 @@
 "use client";
 
+import type { ListModuleId } from "@/lib/lists/params";
+
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { Columns3, GripVertical, Loader2 } from "lucide-react";
@@ -75,7 +77,7 @@ export function ColumnsDialog({
   allColumns,
   visibleIds,
 }: {
-  moduleId: "leads" | "accounts" | "contacts";
+  moduleId: ListModuleId;
   allColumns: readonly ColumnDef[];
   visibleIds: readonly string[];
 }) {

@@ -1,5 +1,7 @@
 "use client";
 
+import type { ListModuleId } from "@/lib/lists/params";
+
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { BookmarkPlus, Check, ChevronDown, Eye, Loader2, Trash2, Users } from "lucide-react";
@@ -44,7 +46,7 @@ export function ViewsMenu({
   onApply,
   onClear,
 }: {
-  moduleId: "leads" | "accounts" | "contacts";
+  moduleId: ListModuleId;
   views: readonly SavedViewItem[];
   currentViewId: string | null;
   currentConfig: ViewConfig;

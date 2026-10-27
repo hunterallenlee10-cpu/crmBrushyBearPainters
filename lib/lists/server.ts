@@ -2,7 +2,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/db/types";
 import type { FieldDef, QueryOp } from "@/lib/lists/filters";
-import type { ViewConfig } from "@/lib/lists/params";
+import type { ListModuleId, ViewConfig } from "@/lib/lists/params";
 import type { SavedViewItem } from "@/components/lists/views-menu";
 import type { Option } from "@/lib/leads/service";
 
@@ -24,7 +24,7 @@ export function applyOps<Q extends Filterable<Q>>(query: Q, ops: readonly QueryO
 
 export async function loadSavedViews(
   db: SupabaseClient<Database>,
-  module: "leads" | "accounts" | "contacts",
+  module: ListModuleId,
   userId: string,
 ): Promise<SavedViewItem[]> {
   const { data } = await db
@@ -45,7 +45,7 @@ export async function loadSavedViews(
 export async function loadColumnPrefs(
   db: SupabaseClient<Database>,
   userId: string,
-  module: "leads" | "accounts" | "contacts",
+  module: ListModuleId,
 ): Promise<string[] | null> {
   const { data } = await db.from("profiles").select("preferences").eq("id", userId).maybeSingle();
   const prefs = (data?.preferences ?? {}) as { list_columns?: Record<string, unknown> };

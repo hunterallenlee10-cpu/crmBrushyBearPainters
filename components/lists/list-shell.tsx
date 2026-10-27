@@ -1,5 +1,7 @@
 "use client";
 
+import type { ListModuleId } from "@/lib/lists/params";
+
 import * as React from "react";
 import {
   ArrowDown,
@@ -49,7 +51,7 @@ export type ListRow = { id: string; label: string; cells: Record<string, React.R
 export type TabWithCount = { id: string; label: string; count: number | null };
 
 export type ListShellProps = {
-  moduleId: "leads" | "accounts" | "contacts";
+  moduleId: ListModuleId;
   state: ListState;
   defaults: ListDefaults;
   tabs: readonly TabWithCount[];
