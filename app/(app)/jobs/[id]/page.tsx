@@ -428,6 +428,8 @@ export default async function JobDetailPage({
       readPhotos: viewer.can("photos:read"),
       uploadPhotos: writable(viewer.can("photos:upload")),
       deletePhotos: writable(viewer.can("photos:delete")),
+      managePaintOrders: writable(viewer.can("paint_orders:manage")),
+      createDailyLogs: writable(viewer.can("daily_logs:create")),
     },
     viewerId: viewer.id,
     readOnly,

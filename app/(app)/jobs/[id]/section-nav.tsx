@@ -41,6 +41,10 @@ export function SectionNav({
     resultReason: string | null;
     estimateHref: string;
     estimateReason: string | null;
+    paintHref: string;
+    paintReason: string | null;
+    dailyLogHref: string;
+    dailyLogReason: string | null;
   };
 }) {
   const router = useRouter();
@@ -114,24 +118,42 @@ export function SectionNav({
           </Button>
         </>
       )}
-      <ReasonButton
-        size="sm"
-        variant="outline"
-        className="justify-start"
-        disabledReason="Order Paint arrives with paint orders in Phase 6."
-      >
-        <PaintBucket aria-hidden />
-        Order Paint
-      </ReasonButton>
-      <ReasonButton
-        size="sm"
-        variant="outline"
-        className="justify-start"
-        disabledReason="New Daily Log arrives with daily logs in Phase 6."
-      >
-        <NotebookPen aria-hidden />
-        New Daily Log
-      </ReasonButton>
+      {shortcuts.paintReason ? (
+        <ReasonButton
+          size="sm"
+          variant="outline"
+          className="justify-start"
+          disabledReason={shortcuts.paintReason}
+        >
+          <PaintBucket aria-hidden />
+          Order Paint
+        </ReasonButton>
+      ) : (
+        <Button size="sm" variant="outline" className="justify-start" asChild>
+          <Link href={shortcuts.paintHref} scroll={false}>
+            <PaintBucket aria-hidden />
+            Order Paint
+          </Link>
+        </Button>
+      )}
+      {shortcuts.dailyLogReason ? (
+        <ReasonButton
+          size="sm"
+          variant="outline"
+          className="justify-start"
+          disabledReason={shortcuts.dailyLogReason}
+        >
+          <NotebookPen aria-hidden />
+          New Daily Log
+        </ReasonButton>
+      ) : (
+        <Button size="sm" variant="outline" className="justify-start" asChild>
+          <Link href={shortcuts.dailyLogHref} scroll={false}>
+            <NotebookPen aria-hidden />
+            New Daily Log
+          </Link>
+        </Button>
+      )}
     </div>
   );
 

@@ -25,7 +25,7 @@ export type CaptureDetails = {
   checklistKey?: string;
 };
 
-async function shrink(file: File): Promise<Blob> {
+export async function shrinkPhoto(file: File): Promise<Blob> {
   try {
     const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
     const size = fitWithin(bitmap.width, bitmap.height, PHOTO_MAX_EDGE);
@@ -75,7 +75,7 @@ export function usePhotoCapture(jobId: string) {
           }
           let blob: Blob;
           try {
-            blob = await shrink(file);
+            blob = await shrinkPhoto(file);
           } catch (e) {
             toast.error(e instanceof Error ? e.message : "That photo can't be read.");
             continue;

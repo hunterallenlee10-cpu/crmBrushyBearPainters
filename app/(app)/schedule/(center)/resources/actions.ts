@@ -130,17 +130,15 @@ export const setCrewSkill = defineAction({
       return done();
     }
     check(
-      await supabase
-        .from("crew_skills")
-        .upsert(
-          {
-            org_id: viewer.orgId,
-            crew_id: v.crewId,
-            skill_id: v.skillId,
-            expires_on: v.expiresOn ?? null,
-          },
-          { onConflict: "crew_id,skill_id" },
-        ),
+      await supabase.from("crew_skills").upsert(
+        {
+          org_id: viewer.orgId,
+          crew_id: v.crewId,
+          skill_id: v.skillId,
+          expires_on: v.expiresOn ?? null,
+        },
+        { onConflict: "crew_id,skill_id" },
+      ),
     );
     return done();
   },

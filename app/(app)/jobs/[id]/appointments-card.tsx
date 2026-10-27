@@ -331,7 +331,7 @@ function BookDialog({
         <DialogHeader>
           <DialogTitle>Book an appointment</DialogTitle>
           <DialogDescription>
-            Times are Pacific. Production days are booked from the schedule in Phase 6.
+            Times are Pacific. Production days are booked on the Master Schedule.
           </DialogDescription>
         </DialogHeader>
         <form

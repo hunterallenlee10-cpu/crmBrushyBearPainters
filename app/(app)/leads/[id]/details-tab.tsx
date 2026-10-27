@@ -218,7 +218,7 @@ export function DetailsTab({ data, label }: { data: LeadDetailData; label: Label
             </Item>
           </List>
           <p className="mt-3 text-xs text-muted-foreground">
-            Times are Pacific. Calendar appointments and sync arrive with scheduling (Phase 6).
+            Times are Pacific. Calendar sync needs the calendar integration (not connected).
           </p>
         </Section>
 

@@ -164,3 +164,14 @@ export function arrivalWindowLabel(dayStart: string, minutes: number): string | 
   const samePeriod = Math.floor(startMin / 720) === Math.floor(end / 720);
   return `${fmt(startMin, !samePeriod)}–${fmt(end, true)}`;
 }
+
+/**
+ * The customer's final-walkthrough sign-off statement (SPEC §1.3 final
+ * walkthrough). Draft wording – owner to approve.
+ */
+export function signoffStatement(openItems: number): string {
+  const base = "I walked through the finished work with the crew and I'm happy with it.";
+  return openItems > 0
+    ? `${base} ${openItems} touch-up item${openItems === 1 ? " is" : "s are"} still open; I accept ${openItems === 1 ? "it" : "them"} as listed. (Draft wording – owner to approve.)`
+    : `${base} (Draft wording – owner to approve.)`;
+}

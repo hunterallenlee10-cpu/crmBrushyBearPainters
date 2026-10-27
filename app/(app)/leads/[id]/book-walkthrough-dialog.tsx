@@ -42,8 +42,8 @@ function defaultsFor(data: LeadDetailData): BookWalkthroughInput {
  * Book Walkthrough (SPEC §8.4, §6.1). Saves the walkthrough appointment and the
  * owner on the lead. When Company Settings → auto-convert is on (default) and
  * the person can create jobs, the lead becomes a job and we open it; a failed
- * conversion keeps the booking and stays on the lead with a warning. Suggested
- * slots and calendar sync arrive with scheduling (Phase 6).
+ * conversion keeps the booking and stays on the lead with a warning. Calendar
+ * sync waits for the calendar integration (not connected).
  */
 export function BookWalkthroughDialog({
   open,
@@ -181,7 +181,8 @@ export function BookWalkthroughDialog({
           </Field>
           <p className="rounded-lg bg-muted px-3 py-2 text-xs text-muted-foreground">
             When auto-convert is on in Company Settings, booking also turns the lead into a job and
-            opens it. Suggested time slots and calendar sync arrive with scheduling (Phase 6).
+            opens it. Calendar sync needs the calendar integration (Admin → Integrations, not
+            connected).
           </p>
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>

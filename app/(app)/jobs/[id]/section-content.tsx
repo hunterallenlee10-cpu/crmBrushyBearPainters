@@ -1,4 +1,4 @@
-import { CalendarRange, ClipboardList, HardHat, ListTodo, NotebookPen } from "lucide-react";
+import { ClipboardList } from "lucide-react";
 import { EmptySection } from "@/components/jobs/empty-section";
 import { JOB_SECTIONS } from "@/lib/domain/jobs/constants";
 import type { JobDetailData } from "./types";
@@ -7,9 +7,12 @@ import { OnboardingWithChecklist } from "./onboarding-checklist";
 import { FinancialSection } from "./financial-section";
 import { EstimateSection } from "./estimate/section";
 import { AdminSection } from "./admin-section";
-import { AppointmentsCard } from "./appointments-card";
 import { PhotosSection } from "./photos/section";
 import { DocumentsSection } from "./documents-section/section";
+import { DailyLogsSection } from "./production/daily-logs-section";
+import { PunchListSection } from "./production/punch-list-section";
+import { ScheduleSection } from "./production/schedule-section";
+import { WorkOrdersSection } from "./production/work-orders-section";
 import {
   ActivitySection,
   CustomerSection,
@@ -59,27 +62,7 @@ export function SectionContent({
       );
       break;
     case "schedule":
-      body = (
-        <div className="flex flex-col gap-4">
-          {can.readAppointments && (
-            <AppointmentsCard
-              jobId={job.id}
-              appointments={data.appointments}
-              users={data.options.users}
-              defaultAssignee={job.ownerId ?? data.viewerId}
-              canManage={can.manageAppointments}
-              readOnly={data.readOnly}
-            />
-          )}
-          <EmptySection icon={CalendarRange} title="Production schedule" phase={6}>
-            <p>
-              The production timeline, dispatch readiness and recommended crews arrive with the
-              Master Schedule. Book walkthroughs, color consultations and final walkthroughs above
-              today.
-            </p>
-          </EmptySection>
-        </div>
-      );
+      body = <ScheduleSection data={data} />;
       break;
     case "estimate":
       body = (
@@ -133,29 +116,13 @@ export function SectionContent({
       );
       break;
     case "work-orders":
-      body = (
-        <EmptySection icon={HardHat} title="Work orders" phase={6}>
-          <p>
-            Prep, paint and touch-up work orders for crews and subcontractors, plus paint orders.
-          </p>
-        </EmptySection>
-      );
+      body = <WorkOrdersSection data={data} />;
       break;
     case "daily-logs":
-      body = (
-        <EmptySection icon={NotebookPen} title="Daily logs" phase={6}>
-          <p>
-            Crew leads post what got done, what&apos;s next and cleanup photos each production day.
-          </p>
-        </EmptySection>
-      );
+      body = <DailyLogsSection data={data} />;
       break;
     case "punch-list":
-      body = (
-        <EmptySection icon={ListTodo} title="Punch list" phase={6}>
-          <p>Touch-up items by area with photos, and the customer&apos;s sign-off.</p>
-        </EmptySection>
-      );
+      body = <PunchListSection data={data} />;
       break;
     case "customer":
       body = <CustomerSection jobId={job.id} canEdit={can.update} />;

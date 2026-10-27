@@ -81,7 +81,7 @@ export const APPOINTMENT_DEFAULT_MINUTES: Record<AppointmentType, number> = {
   warranty_visit: 60,
   paint_pickup: 60,
 };
-/** Appointment types people can book from a job in Phase 3 (production days arrive in Phase 6). */
+/** Appointment types people can book from a job (production days come from the Master Schedule). */
 export const BOOKABLE_APPOINTMENT_TYPES = [
   "walkthrough",
   "color_consultation",

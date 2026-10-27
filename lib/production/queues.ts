@@ -11,6 +11,7 @@ import {
 } from "@/lib/domain/scheduling/dates";
 import { effectiveSlot, publishedSlot } from "@/lib/domain/scheduling/publish";
 import { dispatchReadiness, type ReadinessCheck } from "@/lib/domain/scheduling/readiness";
+import { rankCrews, type RankedCrew } from "@/lib/domain/scheduling/recommend";
 import { missingSkills, requiredSkills } from "@/lib/domain/scheduling/skills";
 import {
   defaultEntryWorkType,
@@ -65,20 +66,44 @@ export type ProductionJobRow = {
   paintStatuses: string[];
   priorityReschedule: boolean;
   daysToStart: number | null;
+  /** Ranked crews for the planned (or next open) dates; only with `rank`. */
+  ranking: RankedCrew[];
+  /** Live entries (published or draft) for the job's Schedule section. */
+  entries: {
+    id: string;
+    status: string;
+    crewId: string | null;
+    startsOn: IsoDate | null;
+    endsOn: IsoDate | null;
+    draftAction: string | null;
+    draftCrewId: string | null;
+    draftStartsOn: IsoDate | null;
+    draftEndsOn: IsoDate | null;
+    workType: string;
+    publishedAt: string | null;
+  }[];
 };
 
 export async function loadProductionJobs(
   db: { supabase: Db; service: Db },
-  input: { orgId: string; stages: readonly string[]; now?: Date },
+  input: {
+    orgId: string;
+    stages: readonly string[];
+    jobIds?: readonly string[];
+    rank?: boolean;
+    now?: Date;
+  },
 ): Promise<{ jobs: ProductionJobRow[]; crews: CrewRecord[]; config: SchedulingConfig }> {
   const now = input.now ?? new Date();
   const { supabase, service } = db;
-  const { data: visible } = await supabase
+  let vq = supabase
     .from("jobs")
     .select("id")
     .in("stage", [...input.stages])
     .is("deleted_at", null)
     .limit(1000);
+  if (input.jobIds) vq = vq.in("id", [...input.jobIds]);
+  const { data: visible } = await vq;
   const ids = (visible ?? []).map((j) => j.id);
   const config = await loadSchedulingConfig(service, input.orgId, now);
   const crews = await loadCrews(service, {
@@ -213,6 +238,44 @@ export async function loadProductionJobs(
       paintStatuses: job.paintOrderStatuses,
       priorityReschedule: job.isPriorityReschedule,
       daysToStart: planned ? daysBetween(config.context.today, planned.startsOn) : null,
+      ranking: input.rank
+        ? rankCrews(
+            {
+              job,
+              workType,
+              startsOn:
+                planned && planned.startsOn >= config.context.today
+                  ? planned.startsOn
+                  : nextProductionDay(config.context.today, config.context.productionDays),
+              endsOn:
+                planned && planned.startsOn >= config.context.today
+                  ? planned.endsOn
+                  : endAfterWorkingDays(
+                      nextProductionDay(config.context.today, config.context.productionDays),
+                      workingDays,
+                      config.context.productionDays,
+                    ),
+            },
+            crews.filter((c) => c.active),
+            bars.filter((b) => b.jobId !== id),
+            config.context,
+          ).slice(0, 3)
+        : [],
+      entries: entries
+        .filter((e) => e.status !== "canceled")
+        .map((e) => ({
+          id: e.id,
+          status: e.status,
+          crewId: e.crew_id,
+          startsOn: e.starts_on,
+          endsOn: e.ends_on,
+          draftAction: e.draft_action,
+          draftCrewId: e.draft_crew_id,
+          draftStartsOn: e.draft_starts_on,
+          draftEndsOn: e.draft_ends_on,
+          workType: e.work_type,
+          publishedAt: e.published_at,
+        })),
     });
   }
   out.sort(

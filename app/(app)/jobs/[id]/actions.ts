@@ -269,7 +269,7 @@ export const bookAppointment = defineAction({
   ) => {
     if (!(BOOKABLE_APPOINTMENT_TYPES as readonly string[]).includes(type)) {
       throw new ActionFailure(
-        actionError("validation", "Production days are booked from the schedule (Phase 6).", {
+        actionError("validation", "Production days are booked on the Master Schedule.", {
           type: ["Pick one of the listed appointment types."],
         }),
       );

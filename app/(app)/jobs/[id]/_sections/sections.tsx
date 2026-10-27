@@ -1,4 +1,4 @@
-import { ClipboardCheck, Info, MessageSquareText } from "lucide-react";
+import { Info, MessageSquareText } from "lucide-react";
 import { EmptyState } from "@/components/layout/empty-state";
 import { requireViewer } from "@/lib/auth/viewer";
 import { createSupabaseServerClient } from "@/lib/db/server";
@@ -18,6 +18,8 @@ import { JobFeed } from "./feed";
 import { MessageComposer } from "./message-composer";
 import { NoAccess, Unavailable } from "./section-card";
 import { JobTasks, type JobTask } from "./tasks";
+import { loadChecklists } from "@/lib/production/job";
+import { ChecklistsCard } from "../production/schedule-client";
 
 type SectionProps = { jobId: string; canEdit: boolean };
 
@@ -128,13 +130,13 @@ export async function MessagesSection({ jobId }: SectionProps): Promise<React.Re
 
 // --- Tasks & Checklists (SPEC §8.5 #12) ------------------------------------------------
 
-export async function TasksSection({ jobId }: SectionProps): Promise<React.ReactNode> {
+export async function TasksSection({ jobId, canEdit }: SectionProps): Promise<React.ReactNode> {
   const [viewer, job] = await Promise.all([requireViewer(), loadJobCore(jobId)]);
   if (!job) return <Unavailable />;
   const canRead = viewer.can("tasks:read");
   const canManage = viewer.can("tasks:manage") && !viewer.impersonating;
   const supabase = await createSupabaseServerClient();
-  const [tasksRes, users] = await Promise.all([
+  const [tasksRes, users, checklists, templates] = await Promise.all([
     canRead
       ? supabase
           .from("tasks")
@@ -146,6 +148,12 @@ export async function TasksSection({ jobId }: SectionProps): Promise<React.React
           .limit(FEED_LIMIT)
       : Promise.resolve({ data: [] }),
     loadActiveUsers(),
+    loadChecklists(supabase, job.id),
+    supabase
+      .from("checklist_templates")
+      .select("id, name, sort_order")
+      .eq("active", true)
+      .order("sort_order"),
   ]);
   const rows = tasksRes.data ?? [];
   const names = await loadNames(rows.map((t) => t.assignee_id));
@@ -176,15 +184,16 @@ export async function TasksSection({ jobId }: SectionProps): Promise<React.React
       ) : (
         <NoAccess>Tasks are hidden for your role.</NoAccess>
       )}
-      <section aria-labelledby="job-checklists-title" className="flex flex-col gap-3">
-        <h2 id="job-checklists-title" className="text-base font-semibold">
-          Checklists
-        </h2>
-        <EmptyState icon={ClipboardCheck} title="No checklists yet" className="py-8">
-          Checklists (exterior prep, cabinet process, lead-safe, final walkthrough) arrive with
-          Production (Phase 6).
-        </EmptyState>
-      </section>
+      <ChecklistsCard
+        jobId={job.id}
+        checklists={checklists}
+        templates={(templates.data ?? []).map((t) => ({ id: t.id, name: t.name }))}
+        canAdd={!viewer.impersonating && (viewer.can("work_orders:manage") || canEdit)}
+        canTick={
+          !viewer.impersonating &&
+          (viewer.can("work_orders:manage") || viewer.can("daily_logs:create") || canEdit)
+        }
+      />
     </div>
   );
 }

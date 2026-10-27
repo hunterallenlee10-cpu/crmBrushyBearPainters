@@ -149,6 +149,16 @@ export function JobDetailShell({
             resultReason: resultWalkthroughReason(data),
             estimateHref: sectionHref(job.id, "estimate"),
             estimateReason: data.can.readEstimates ? null : "Your role doesn't include estimates.",
+            paintHref: sectionHref(job.id, "work-orders"),
+            paintReason: data.can.managePaintOrders
+              ? null
+              : "Your role doesn't include paint orders.",
+            dailyLogHref: sectionHref(job.id, "daily-logs"),
+            dailyLogReason: !data.can.createDailyLogs
+              ? "Your role doesn't post daily logs."
+              : ["scheduled", "in_progress", "final_walkthrough"].includes(job.stage)
+                ? null
+                : "Daily logs start once the job is Scheduled.",
           }}
         />
         <section className="min-w-0 flex-1" aria-labelledby="job-section-title">

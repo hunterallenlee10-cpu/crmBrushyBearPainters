@@ -161,6 +161,9 @@ export type JobPermissions = {
   readPhotos: boolean;
   uploadPhotos: boolean;
   deletePhotos: boolean;
+  /** Production (Phase 6). */
+  managePaintOrders: boolean;
+  createDailyLogs: boolean;
 };
 
 export type JobDetailData = {
