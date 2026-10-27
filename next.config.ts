@@ -19,6 +19,11 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   // PDFs are rendered on the server with @react-pdf/renderer (Node APIs, not bundled).
   serverExternalPackages: ["@react-pdf/renderer"],
+  // pdfkit loads its built-in fonts with a computed require(), which file tracing
+  // can't see; without this, PDF routes and the worker fail on Vercel.
+  outputFileTracingIncludes: {
+    "/**/*": ["./node_modules/.pnpm/pdfkit@*/node_modules/pdfkit/js/**/*"],
+  },
   // Test sign-in locks and helper worktrees must not trigger dev rebuilds.
   webpack(config, { dev }) {
     if (dev) {
