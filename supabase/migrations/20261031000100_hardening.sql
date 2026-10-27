@@ -50,7 +50,7 @@ where not exists (select 1 from public.pack_permissions x where x.pack_id = p.id
 -- 1. Module Manager (SPEC §5.9, §8.19)
 -- =============================================================================
 
-create table public.custom_field_definitions (
+create table if not exists public.custom_field_definitions (
   id uuid primary key default gen_random_uuid(),
   org_id uuid not null references public.organizations (id) on delete cascade,
   module text not null check (module in ('leads', 'jobs', 'accounts', 'contacts')),
@@ -71,7 +71,7 @@ create table public.custom_field_definitions (
   updated_by uuid,
   unique (org_id, module, api_name)
 );
-create index custom_field_definitions_module_idx on public.custom_field_definitions (org_id, module, sort_order);
+create index if not exists custom_field_definitions_module_idx on public.custom_field_definitions (org_id, module, sort_order);
 
 alter table public.leads add column if not exists custom_field_values jsonb not null default '{}'::jsonb
   check (jsonb_typeof(custom_field_values) = 'object');
@@ -104,7 +104,7 @@ as $$
   end;
 $$;
 
-create table public.validation_rules (
+create table if not exists public.validation_rules (
   id uuid primary key default gen_random_uuid(),
   org_id uuid not null references public.organizations (id) on delete cascade,
   module text not null check (module in ('leads', 'jobs', 'accounts', 'contacts')),
@@ -120,10 +120,10 @@ create table public.validation_rules (
   updated_by uuid,
   check (rule_type = 'required' or value is not null)
 );
-create index validation_rules_module_idx on public.validation_rules (org_id, module) where active;
+create index if not exists validation_rules_module_idx on public.validation_rules (org_id, module) where active;
 
 -- Section order and visibility on a module's detail page.
-create table public.module_layouts (
+create table if not exists public.module_layouts (
   id uuid primary key default gen_random_uuid(),
   org_id uuid not null references public.organizations (id) on delete cascade,
   module text not null check (module in ('leads', 'jobs', 'accounts', 'contacts')),
@@ -171,6 +171,7 @@ begin
   return new;
 end;
 $$;
+drop trigger if exists custom_field_definitions_guard on public.custom_field_definitions;
 create trigger custom_field_definitions_guard before insert or update on public.custom_field_definitions
   for each row execute function app.custom_field_definitions_guard();
 
@@ -206,6 +207,7 @@ begin
   return new;
 end;
 $$;
+drop trigger if exists validation_rules_guard on public.validation_rules;
 create trigger validation_rules_guard before insert or update on public.validation_rules
   for each row execute function app.validation_rules_guard();
 
@@ -234,6 +236,7 @@ begin
   return new;
 end;
 $$;
+drop trigger if exists module_layouts_guard on public.module_layouts;
 create trigger module_layouts_guard before insert or update on public.module_layouts
   for each row execute function app.module_layouts_guard();
 
@@ -415,12 +418,16 @@ begin
   return new;
 end;
 $$;
+drop trigger if exists leads_check_module_fields on public.leads;
 create trigger leads_check_module_fields before insert or update on public.leads
   for each row execute function app.check_module_fields('leads');
+drop trigger if exists jobs_check_module_fields on public.jobs;
 create trigger jobs_check_module_fields before insert or update on public.jobs
   for each row execute function app.check_module_fields('jobs');
+drop trigger if exists accounts_check_module_fields on public.accounts;
 create trigger accounts_check_module_fields before insert or update on public.accounts
   for each row execute function app.check_module_fields('accounts');
+drop trigger if exists contacts_check_module_fields on public.contacts;
 create trigger contacts_check_module_fields before insert or update on public.contacts
   for each row execute function app.check_module_fields('contacts');
 
@@ -428,7 +435,7 @@ create trigger contacts_check_module_fields before insert or update on public.co
 -- 2. Data Import (SPEC §8.19): CSV → mapping → preview → review queue → apply
 -- =============================================================================
 
-create table public.imports (
+create table if not exists public.imports (
   id uuid primary key default gen_random_uuid(),
   org_id uuid not null references public.organizations (id) on delete cascade,
   module text not null check (module in ('leads', 'accounts', 'contacts')),
@@ -453,9 +460,9 @@ create table public.imports (
   created_by uuid,
   updated_by uuid
 );
-create index imports_org_created_idx on public.imports (org_id, created_at desc);
+create index if not exists imports_org_created_idx on public.imports (org_id, created_at desc);
 
-create table public.import_rows (
+create table if not exists public.import_rows (
   id uuid primary key default gen_random_uuid(),
   org_id uuid not null references public.organizations (id) on delete cascade,
   import_id uuid not null references public.imports (id) on delete cascade,
@@ -475,13 +482,13 @@ create table public.import_rows (
   updated_by uuid,
   unique (import_id, row_number)
 );
-create index import_rows_import_status_idx on public.import_rows (import_id, status, row_number);
+create index if not exists import_rows_import_status_idx on public.import_rows (import_id, status, row_number);
 
 -- =============================================================================
 -- 3. Bulk Update (SPEC §8.19, §19): preview first → apply → revert
 -- =============================================================================
 
-create table public.bulk_updates (
+create table if not exists public.bulk_updates (
   id uuid primary key default gen_random_uuid(),
   org_id uuid not null references public.organizations (id) on delete cascade,
   module text not null check (module in ('leads', 'jobs', 'accounts', 'contacts')),
@@ -506,9 +513,9 @@ create table public.bulk_updates (
   created_by uuid,
   updated_by uuid
 );
-create index bulk_updates_org_created_idx on public.bulk_updates (org_id, created_at desc);
+create index if not exists bulk_updates_org_created_idx on public.bulk_updates (org_id, created_at desc);
 
-create table public.bulk_update_rows (
+create table if not exists public.bulk_update_rows (
   id uuid primary key default gen_random_uuid(),
   org_id uuid not null references public.organizations (id) on delete cascade,
   bulk_update_id uuid not null references public.bulk_updates (id) on delete cascade,
@@ -527,7 +534,7 @@ create table public.bulk_update_rows (
   updated_by uuid,
   unique (bulk_update_id, row_number)
 );
-create index bulk_update_rows_bulk_idx on public.bulk_update_rows (bulk_update_id, status, row_number);
+create index if not exists bulk_update_rows_bulk_idx on public.bulk_update_rows (bulk_update_id, status, row_number);
 
 -- Fields a bulk update may change (custom fields go under custom_field_values).
 -- Stage never changes here (only advanceJobStage). Consent fields are excluded.
@@ -752,7 +759,7 @@ $$;
 -- 4. Merge Customers (SPEC §8.19): reversible account / contact merges
 -- =============================================================================
 
-create table public.record_merges (
+create table if not exists public.record_merges (
   id uuid primary key default gen_random_uuid(),
   org_id uuid not null references public.organizations (id) on delete cascade,
   module text not null check (module in ('accounts', 'contacts')),
@@ -779,8 +786,8 @@ create table public.record_merges (
   updated_by uuid,
   check (survivor_id <> merged_id)
 );
-create index record_merges_org_idx on public.record_merges (org_id, merged_at desc);
-create index record_merges_merged_idx on public.record_merges (merged_id);
+create index if not exists record_merges_org_idx on public.record_merges (org_id, merged_at desc);
+create index if not exists record_merges_merged_idx on public.record_merges (merged_id);
 
 -- Fields a person may choose between when merging; consent is never chosen
 -- (the stricter answer always wins). Must agree with lib/domain/merge/fields.ts.
@@ -1081,7 +1088,7 @@ alter table public.export_log add constraint export_log_kind_check
 -- 6. Help Center (SPEC §8.17)
 -- =============================================================================
 
-create table public.kb_categories (
+create table if not exists public.kb_categories (
   id uuid primary key default gen_random_uuid(),
   org_id uuid not null references public.organizations (id) on delete cascade,
   key text not null check (key ~ '^[a-z][a-z0-9_]{0,39}$'),
@@ -1108,7 +1115,7 @@ as $$
       || setweight(to_tsvector('english'::regconfig, coalesce(p_body, '')), 'C');
 $$;
 
-create table public.kb_articles (
+create table if not exists public.kb_articles (
   id uuid primary key default gen_random_uuid(),
   org_id uuid not null references public.organizations (id) on delete cascade,
   category_id uuid references public.kb_categories (id) on delete set null,
@@ -1133,9 +1140,9 @@ create table public.kb_articles (
   unique (org_id, slug),
   unique (org_id, seed_key)
 );
-create index kb_articles_search_idx on public.kb_articles using gin (search);
-create index kb_articles_tags_idx on public.kb_articles using gin (tags);
-create index kb_articles_category_idx on public.kb_articles (org_id, category_id, sort_order) where deleted_at is null;
+create index if not exists kb_articles_search_idx on public.kb_articles using gin (search);
+create index if not exists kb_articles_tags_idx on public.kb_articles using gin (tags);
+create index if not exists kb_articles_category_idx on public.kb_articles (org_id, category_id, sort_order) where deleted_at is null;
 
 create or replace function app.kb_articles_guard()
 returns trigger
@@ -1150,11 +1157,12 @@ begin
   return new;
 end;
 $$;
+drop trigger if exists kb_articles_guard on public.kb_articles;
 create trigger kb_articles_guard before insert or update on public.kb_articles
   for each row execute function app.kb_articles_guard();
 
 -- Read counts ("popular articles"), kept apart from the audited article.
-create table public.kb_article_stats (
+create table if not exists public.kb_article_stats (
   article_id uuid primary key references public.kb_articles (id) on delete cascade,
   org_id uuid not null references public.organizations (id) on delete cascade,
   view_count integer not null default 0 check (view_count >= 0),
@@ -1189,7 +1197,7 @@ $$;
 -- 7. Commissions (SPEC §10) — disabled by default; owners configure every rate
 -- =============================================================================
 
-create table public.commission_settings (
+create table if not exists public.commission_settings (
   org_id uuid primary key references public.organizations (id) on delete cascade,
   id uuid not null default gen_random_uuid() unique,
   enabled boolean not null default false,
@@ -1206,7 +1214,7 @@ create table public.commission_settings (
   updated_by uuid
 );
 
-create table public.commission_plans (
+create table if not exists public.commission_plans (
   id uuid primary key default gen_random_uuid(),
   org_id uuid not null references public.organizations (id) on delete cascade,
   name text not null check (length(btrim(name)) between 1 and 80),
@@ -1226,9 +1234,9 @@ create table public.commission_plans (
   delete_reason text,
   check (role_template_id is not null or user_id is not null)
 );
-create index commission_plans_org_idx on public.commission_plans (org_id) where deleted_at is null;
+create index if not exists commission_plans_org_idx on public.commission_plans (org_id) where deleted_at is null;
 
-create table public.commission_entries (
+create table if not exists public.commission_entries (
   id uuid primary key default gen_random_uuid(),
   org_id uuid not null references public.organizations (id) on delete cascade,
   job_id uuid not null references public.jobs (id) on delete cascade,
@@ -1255,9 +1263,9 @@ create table public.commission_entries (
   check (status <> 'paid' or paid_on is not null),
   check (status not in ('approved', 'paid') or approved_at is not null)
 );
-create index commission_entries_user_idx on public.commission_entries (org_id, user_id, status);
+create index if not exists commission_entries_user_idx on public.commission_entries (org_id, user_id, status);
 
-create table public.commission_adjustments (
+create table if not exists public.commission_adjustments (
   id uuid primary key default gen_random_uuid(),
   org_id uuid not null references public.organizations (id) on delete cascade,
   user_id uuid not null references public.profiles (id) on delete cascade,
@@ -1276,7 +1284,7 @@ create table public.commission_adjustments (
   updated_by uuid,
   check (status <> 'paid' or paid_on is not null)
 );
-create index commission_adjustments_user_idx on public.commission_adjustments (org_id, user_id, status);
+create index if not exists commission_adjustments_user_idx on public.commission_adjustments (org_id, user_id, status);
 
 insert into public.commission_settings (org_id) select id from public.organizations on conflict (org_id) do nothing;
 
@@ -1307,6 +1315,7 @@ begin
   return new;
 end;
 $$;
+drop trigger if exists commission_entries_guard on public.commission_entries;
 create trigger commission_entries_guard before insert or update or delete on public.commission_entries
   for each row execute function app.commission_entries_guard();
 
@@ -1526,6 +1535,7 @@ as $$
 $$;
 
 drop policy if exists property_secrets_select on public.property_secrets;
+drop policy if exists property_secrets_select on public.property_secrets;
 create policy property_secrets_select on public.property_secrets for select to authenticated
   using (
     org_id = (select app.current_org_id())
@@ -1604,32 +1614,46 @@ begin
   foreach t in array array['custom_field_definitions', 'validation_rules', 'module_layouts', 'imports', 'import_rows',
                            'bulk_updates', 'bulk_update_rows', 'record_merges', 'kb_categories', 'kb_articles',
                            'commission_settings', 'commission_plans', 'commission_entries', 'commission_adjustments'] loop
+    execute format('drop trigger if exists %I_set_updated_at on public.%I', t, t);
     execute format('create trigger %I_set_updated_at before update on public.%I for each row execute function app.set_updated_at()', t, t);
+    execute format('drop trigger if exists %I_stamp_actor on public.%I', t, t);
     execute format('create trigger %I_stamp_actor before insert or update on public.%I for each row execute function app.stamp_actor()', t, t);
+    execute format('drop trigger if exists %I_audit on public.%I', t, t);
     execute format('create trigger %I_audit after insert or update or delete on public.%I for each row execute function app.audit_row()', t, t);
   end loop;
 end
 $$;
+drop trigger if exists custom_field_definitions_event on public.custom_field_definitions;
 create trigger custom_field_definitions_event after insert or update or delete on public.custom_field_definitions
   for each row execute function app.emit_change_event('custom_field');
+drop trigger if exists validation_rules_event on public.validation_rules;
 create trigger validation_rules_event after insert or update or delete on public.validation_rules
   for each row execute function app.emit_change_event('validation_rule');
+drop trigger if exists module_layouts_event on public.module_layouts;
 create trigger module_layouts_event after insert or update or delete on public.module_layouts
   for each row execute function app.emit_change_event('module_layout');
+drop trigger if exists imports_event on public.imports;
 create trigger imports_event after insert or update or delete on public.imports
   for each row execute function app.emit_change_event('import', 'mapping', 'headers');
+drop trigger if exists bulk_updates_event on public.bulk_updates;
 create trigger bulk_updates_event after insert or update or delete on public.bulk_updates
   for each row execute function app.emit_change_event('bulk_update', 'changes');
+drop trigger if exists kb_categories_event on public.kb_categories;
 create trigger kb_categories_event after insert or update or delete on public.kb_categories
   for each row execute function app.emit_change_event('kb_category');
+drop trigger if exists kb_articles_event on public.kb_articles;
 create trigger kb_articles_event after insert or update or delete on public.kb_articles
   for each row execute function app.emit_change_event('kb_article', 'body', 'search');
+drop trigger if exists commission_settings_event on public.commission_settings;
 create trigger commission_settings_event after insert or update on public.commission_settings
   for each row execute function app.emit_change_event('commission_settings');
+drop trigger if exists commission_plans_event on public.commission_plans;
 create trigger commission_plans_event after insert or update or delete on public.commission_plans
   for each row execute function app.emit_change_event('commission_plan');
+drop trigger if exists commission_entries_event on public.commission_entries;
 create trigger commission_entries_event after insert or update or delete on public.commission_entries
   for each row execute function app.emit_change_event('commission_entry');
+drop trigger if exists commission_adjustments_event on public.commission_adjustments;
 create trigger commission_adjustments_event after insert or update or delete on public.commission_adjustments
   for each row execute function app.emit_change_event('commission_adjustment');
 
@@ -1660,6 +1684,10 @@ declare
   t text;
 begin
   foreach t in array array['custom_field_definitions', 'validation_rules', 'module_layouts'] loop
+    execute format('drop policy if exists %I on public.%I', t || '_select', t);
+    execute format('drop policy if exists %I on public.%I', t || '_insert', t);
+    execute format('drop policy if exists %I on public.%I', t || '_update', t);
+    execute format('drop policy if exists %I on public.%I', t || '_delete', t);
     execute format($p$create policy %I on public.%I for select to authenticated
       using (org_id = (select app.current_org_id()))$p$, t || '_select', t);
     execute format($p$create policy %I on public.%I for insert to authenticated
@@ -1679,6 +1707,10 @@ declare
   t text;
 begin
   foreach t in array array['imports', 'bulk_updates'] loop
+    execute format('drop policy if exists %I on public.%I', t || '_select', t);
+    execute format('drop policy if exists %I on public.%I', t || '_insert', t);
+    execute format('drop policy if exists %I on public.%I', t || '_update', t);
+    execute format('drop policy if exists %I on public.%I', t || '_delete', t);
     execute format($p$create policy %I on public.%I for select to authenticated
       using (org_id = (select app.current_org_id()) and (select app.has_perm('bulk:update')))$p$, t || '_select', t);
     execute format($p$create policy %I on public.%I for insert to authenticated
@@ -1689,73 +1721,96 @@ begin
   end loop;
 end
 $$;
+drop policy if exists imports_delete on public.imports;
 create policy imports_delete on public.imports for delete to authenticated
   using (org_id = (select app.current_org_id()) and (select app.can_write('bulk:update')) and status <> 'applied');
 
+drop policy if exists import_rows_select on public.import_rows;
 create policy import_rows_select on public.import_rows for select to authenticated
   using (org_id = (select app.current_org_id()) and (select app.has_perm('bulk:update')));
+drop policy if exists import_rows_insert on public.import_rows;
 create policy import_rows_insert on public.import_rows for insert to authenticated
   with check (org_id = (select app.current_org_id()) and (select app.can_write('bulk:update'))
               and exists (select 1 from public.imports i where i.id = import_id and i.status in ('mapping', 'review')));
+drop policy if exists import_rows_update on public.import_rows;
 create policy import_rows_update on public.import_rows for update to authenticated
   using (org_id = (select app.current_org_id()) and (select app.can_write('bulk:update')))
   with check (org_id = (select app.current_org_id()));
+drop policy if exists import_rows_delete on public.import_rows;
 create policy import_rows_delete on public.import_rows for delete to authenticated
   using (org_id = (select app.current_org_id()) and (select app.can_write('bulk:update'))
          and exists (select 1 from public.imports i where i.id = import_id and i.status in ('mapping', 'review', 'canceled')));
 
+drop policy if exists bulk_update_rows_select on public.bulk_update_rows;
 create policy bulk_update_rows_select on public.bulk_update_rows for select to authenticated
   using (org_id = (select app.current_org_id()) and (select app.has_perm('bulk:update')));
+drop policy if exists bulk_update_rows_insert on public.bulk_update_rows;
 create policy bulk_update_rows_insert on public.bulk_update_rows for insert to authenticated
   with check (org_id = (select app.current_org_id()) and (select app.can_write('bulk:update'))
               and exists (select 1 from public.bulk_updates b where b.id = bulk_update_id and b.status = 'preview'));
+drop policy if exists bulk_update_rows_update on public.bulk_update_rows;
 create policy bulk_update_rows_update on public.bulk_update_rows for update to authenticated
   using (org_id = (select app.current_org_id()) and (select app.can_write('bulk:update')))
   with check (org_id = (select app.current_org_id()));
 
 -- Merges: written by merge_customers() (service role) only; records:merge reads.
+drop policy if exists record_merges_select on public.record_merges;
 create policy record_merges_select on public.record_merges for select to authenticated
   using (org_id = (select app.current_org_id()) and (select app.has_perm('records:merge')));
 revoke insert, update, delete on public.record_merges from authenticated;
 
 -- Help Center: everyone reads published articles; help:manage writes and sees drafts.
+drop policy if exists kb_categories_select on public.kb_categories;
 create policy kb_categories_select on public.kb_categories for select to authenticated
   using (org_id = (select app.current_org_id()));
+drop policy if exists kb_categories_insert on public.kb_categories;
 create policy kb_categories_insert on public.kb_categories for insert to authenticated
   with check (org_id = (select app.current_org_id()) and (select app.can_write('help:manage')));
+drop policy if exists kb_categories_update on public.kb_categories;
 create policy kb_categories_update on public.kb_categories for update to authenticated
   using (org_id = (select app.current_org_id()) and (select app.can_write('help:manage')))
   with check (org_id = (select app.current_org_id()));
+drop policy if exists kb_categories_delete on public.kb_categories;
 create policy kb_categories_delete on public.kb_categories for delete to authenticated
   using (org_id = (select app.current_org_id()) and (select app.can_write('help:manage')));
+drop policy if exists kb_articles_select on public.kb_articles;
 create policy kb_articles_select on public.kb_articles for select to authenticated
   using (org_id = (select app.current_org_id())
          and ((status = 'published' and deleted_at is null) or (select app.has_perm('help:manage'))));
+drop policy if exists kb_article_stats_select on public.kb_article_stats;
 create policy kb_article_stats_select on public.kb_article_stats for select to authenticated
   using (org_id = (select app.current_org_id()));
 revoke insert, update, delete on public.kb_article_stats from authenticated;
+drop policy if exists kb_articles_insert on public.kb_articles;
 create policy kb_articles_insert on public.kb_articles for insert to authenticated
   with check (org_id = (select app.current_org_id()) and (select app.can_write('help:manage')));
+drop policy if exists kb_articles_update on public.kb_articles;
 create policy kb_articles_update on public.kb_articles for update to authenticated
   using (org_id = (select app.current_org_id()) and (select app.can_write('help:manage')))
   with check (org_id = (select app.current_org_id()));
 
 -- Commissions: settings and plans for commission readers; your own entries
 -- (or everyone's with an all-records scope); commissions:manage writes.
+drop policy if exists commission_settings_select on public.commission_settings;
 create policy commission_settings_select on public.commission_settings for select to authenticated
   using (org_id = (select app.current_org_id())
          and ((select app.has_perm('commissions:read')) or (select app.has_perm('commissions:manage'))));
+drop policy if exists commission_settings_insert on public.commission_settings;
 create policy commission_settings_insert on public.commission_settings for insert to authenticated
   with check (org_id = (select app.current_org_id()) and (select app.can_write('commissions:manage')));
+drop policy if exists commission_settings_update on public.commission_settings;
 create policy commission_settings_update on public.commission_settings for update to authenticated
   using (org_id = (select app.current_org_id()) and (select app.can_write('commissions:manage')))
   with check (org_id = (select app.current_org_id()));
+drop policy if exists commission_plans_select on public.commission_plans;
 create policy commission_plans_select on public.commission_plans for select to authenticated
   using (org_id = (select app.current_org_id())
          and ((select app.has_perm('commissions:manage'))
               or ((select app.has_perm('commissions:read')) and deleted_at is null)));
+drop policy if exists commission_plans_insert on public.commission_plans;
 create policy commission_plans_insert on public.commission_plans for insert to authenticated
   with check (org_id = (select app.current_org_id()) and (select app.can_write('commissions:manage')));
+drop policy if exists commission_plans_update on public.commission_plans;
 create policy commission_plans_update on public.commission_plans for update to authenticated
   using (org_id = (select app.current_org_id()) and (select app.can_write('commissions:manage')))
   with check (org_id = (select app.current_org_id()));
@@ -1764,6 +1819,10 @@ declare
   t text;
 begin
   foreach t in array array['commission_entries', 'commission_adjustments'] loop
+    execute format('drop policy if exists %I on public.%I', t || '_select', t);
+    execute format('drop policy if exists %I on public.%I', t || '_insert', t);
+    execute format('drop policy if exists %I on public.%I', t || '_update', t);
+    execute format('drop policy if exists %I on public.%I', t || '_delete', t);
     execute format($p$create policy %I on public.%I for select to authenticated
       using (org_id = (select app.current_org_id())
              and ((select app.has_perm('commissions:manage'))
