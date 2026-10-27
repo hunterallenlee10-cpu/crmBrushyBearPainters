@@ -12,7 +12,7 @@ import { formatCents } from "@/lib/format/money";
 /**
  * Attention engine v1 (SPEC §9). Pure: a snapshot of open leads, jobs,
  * walkthroughs and approvals goes in; the items that should be open come out.
- * Unread customer messages and warranty / service cases arrived in Phase 8.
+ * Unread customer messages and warranty / service cases are included.
  * Weather risk is present but dormant until weather is connected.
  */
 

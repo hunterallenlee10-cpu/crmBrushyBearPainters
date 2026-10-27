@@ -3,11 +3,10 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Download, LayoutGrid, Loader2, Rows3, UserPlus } from "lucide-react";
+import { LayoutGrid, Loader2, Rows3, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { StageBadge } from "@/components/layout/stage-badge";
 import { HealthBadge, HoldPill, JobStatusBadge, PriorityBadge } from "@/components/jobs/job-badges";
 import { formatJobAmount, formatJobDay, holdPillLabel } from "@/components/jobs/job-card";
@@ -177,17 +176,6 @@ function BulkActions({ ids, clear, props }: { ids: string[]; clear: () => void; 
           </PopoverContent>
         </Popover>
       )}
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <span tabIndex={0} className="inline-flex rounded-md">
-            <Button variant="outline" size="sm" disabled aria-disabled>
-              <Download aria-hidden />
-              Export
-            </Button>
-          </span>
-        </TooltipTrigger>
-        <TooltipContent>Arrives with Export Controls (Phase 10)</TooltipContent>
-      </Tooltip>
     </>
   );
 }

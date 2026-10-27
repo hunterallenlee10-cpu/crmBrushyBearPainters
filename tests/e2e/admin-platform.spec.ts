@@ -165,8 +165,8 @@ test.describe("Admin → Audit Log", () => {
     await signIn(page, "owner", "/admin/audit-log");
     await expect(page.getByRole("heading", { level: 1, name: "Audit Log" })).toBeVisible();
     await expect(page.getByTestId("audit-row").first()).toBeVisible();
-    await expect(page.getByRole("button", { name: "Export CSV" })).toBeDisabled();
-    await expect(page.getByText("Export arrives with Export Controls (Phase 10)")).toBeVisible();
+    // Owners can export the audit log (Phase 10 Export Controls); exports are logged.
+    await expect(page.getByRole("button", { name: /Export CSV/ })).toBeEnabled();
 
     await page.getByLabel("Table").selectOption({ label: "Company settings" });
     await page.getByRole("button", { name: "Apply filters" }).click();

@@ -87,7 +87,7 @@ describe("feed categories and counts", () => {
     ]);
   });
 
-  it("counts per chip, with documents and photos empty until Phase 5", () => {
+  it("counts per chip, with no documents or photos yet", () => {
     expect(countFeed(items)).toEqual({
       all: 6,
       comments: 1,

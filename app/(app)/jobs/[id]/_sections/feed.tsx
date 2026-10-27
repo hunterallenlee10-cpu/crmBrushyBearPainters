@@ -98,7 +98,7 @@ const CATEGORY_LABELS: Record<CommentCategory, string> = {
   finance: "Finance",
 };
 
-const ATTACH_REASON = "Attachments arrive with Documents (Phase 5).";
+const ATTACH_REASON = "To attach a file, add it in the Documents section and mention it here.";
 
 type Person = { id: string; name: string };
 

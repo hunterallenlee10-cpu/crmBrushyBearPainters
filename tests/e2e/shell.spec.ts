@@ -1,7 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import { allPages } from "../../lib/nav";
-import { CURRENT_PHASE } from "../../lib/admin-sections";
 import { adminClient, loginAs, signInWithMagicLink, TEST_USERS } from "./support/users";
 
 /**
@@ -106,11 +105,7 @@ test.describe("app shell (owner)", () => {
     for (const p of allPages()) {
       const res = await page.goto(p.href);
       expect(res?.status(), p.href).toBe(200);
-      if (p.phase > CURRENT_PHASE) {
-        await expect(page.getByRole("heading", { level: 1, name: p.label }), p.href).toBeVisible();
-      } else {
-        await expect(page.getByRole("heading", { level: 1 }).first(), p.href).toBeVisible();
-      }
+      await expect(page.getByRole("heading", { level: 1 }).first(), p.href).toBeVisible();
     }
   });
 });

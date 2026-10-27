@@ -254,9 +254,24 @@ export type EventRunResult = {
   failed: number;
 };
 
-export async function processEvents(service: Db, limit = 200): Promise<EventRunResult> {
+/**
+ * Processes queued events (handlers, then workflows). With `subject`, only
+ * that record's pending events (the intake route's instant text-back);
+ * otherwise the oldest events, as the worker does.
+ */
+export async function processEvents(
+  service: Db,
+  limit = 200,
+  subject?: { type: string; id: string },
+): Promise<EventRunResult> {
   const result: EventRunResult = { claimed: 0, processed: 0, skipped: 0, failed: 0 };
-  const { data: events, error } = await service.rpc("claim_events", { p_limit: limit });
+  const { data: events, error } = subject
+    ? await service.rpc("claim_subject_events", {
+        p_aggregate_type: subject.type,
+        p_aggregate_id: subject.id,
+        p_limit: limit,
+      })
+    : await service.rpc("claim_events", { p_limit: limit });
   if (error) throw error;
   result.claimed = events?.length ?? 0;
   for (const e of events ?? []) {

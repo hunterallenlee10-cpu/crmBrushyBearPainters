@@ -132,7 +132,7 @@ export function milestoneSteps(stage: JobStageId, d: StepperDates): MilestoneSte
 /** "Next: Walkthrough Complete" + what has to be true (null for closed jobs). */
 export function nextHint(
   stage: JobStageId,
-): { to: JobStageId; label: string; requirement: string; arrivesInPhase?: number } | null {
+): { to: JobStageId; label: string; requirement: string } | null {
   if (isTerminal(stage)) return null;
   const to = nextStage(stage);
   if (!to) return null;
@@ -141,7 +141,6 @@ export function nextHint(
     to,
     label: getStage(to).label,
     requirement: gate.requirement,
-    arrivesInPhase: gate.arrivesInPhase,
   };
 }
 
@@ -182,7 +181,6 @@ export function parseHealthFactors(value: unknown): HealthFactor[] {
       status,
       ...(typeof r.recommendation === "string" ? { recommendation: r.recommendation } : {}),
       ...(action ? { action } : {}),
-      ...(typeof r.arrivesInPhase === "number" ? { arrivesInPhase: r.arrivesInPhase } : {}),
     });
   }
   return out;

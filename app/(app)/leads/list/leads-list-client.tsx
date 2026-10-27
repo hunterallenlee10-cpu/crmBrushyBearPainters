@@ -3,11 +3,10 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Download, Loader2, UserPlus } from "lucide-react";
+import { Loader2, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { GradeBadge, LeadStatusBadge } from "@/components/leads/lead-badges";
 import { ListShell, type ListShellProps } from "@/components/lists/list-shell";
 import { useListNavigation } from "@/components/lists/use-list-navigation";
@@ -181,17 +180,6 @@ function BulkActions({ ids, clear, props }: { ids: string[]; clear: () => void; 
           <option value="unqualified">Unqualified</option>
         </select>
       )}
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <span>
-            <Button variant="outline" size="sm" disabled>
-              <Download aria-hidden />
-              Export
-            </Button>
-          </span>
-        </TooltipTrigger>
-        <TooltipContent>Export arrives with Export Controls (Phase 10).</TooltipContent>
-      </Tooltip>
     </>
   );
 }

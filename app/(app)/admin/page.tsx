@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/layout/page-header";
 import { requireViewer } from "@/lib/auth/viewer";
-import { CURRENT_PHASE, visibleAdminSections } from "@/lib/admin-sections";
+import { visibleAdminSections } from "@/lib/admin-sections";
 
 export const metadata: Metadata = { title: "Setup" };
 
@@ -24,38 +23,17 @@ export default async function AdminHomePage() {
             {sections
               .filter((s) => s.group === group)
               .map((s) => {
-                const built = s.phase <= CURRENT_PHASE;
-                const body = (
-                  <div
-                    className={
-                      built
-                        ? "flex h-full flex-col gap-1 rounded-2xl border bg-card p-4"
-                        : "flex h-full flex-col gap-1 rounded-2xl border border-dashed bg-muted/40 p-4"
-                    }
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <p className="font-semibold">{s.label}</p>
-                      {!built && <Badge variant="neutral">Phase {s.phase}</Badge>}
-                    </div>
-                    <p className="text-sm text-muted-foreground">{s.description}</p>
-                  </div>
-                );
-                return built ? (
+                return (
                   <Link
                     key={s.href}
                     href={s.href}
                     className="rounded-2xl transition-colors hover:[&>div]:border-bb-forest/40"
                   >
-                    {body}
+                    <div className="flex h-full flex-col gap-1 rounded-2xl border bg-card p-4">
+                      <p className="font-semibold">{s.label}</p>
+                      <p className="text-sm text-muted-foreground">{s.description}</p>
+                    </div>
                   </Link>
-                ) : (
-                  <div
-                    key={s.href}
-                    aria-label={`${s.label}, coming in Phase ${s.phase}`}
-                    role="group"
-                  >
-                    {body}
-                  </div>
                 );
               })}
           </div>

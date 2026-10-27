@@ -52,13 +52,11 @@ describe("gates", () => {
     expect(exitGate("estimate_sent", { ...measured, estimateSigned: true }).passes).toBe(true);
     expect(exitGate("sold", measured).reasons[0]).toMatch(/deposit invoice/);
     expect(exitGate("sold", { ...measured, depositInvoiceReady: true }).passes).toBe(true);
-    expect(exitGate("walkthrough_complete", measured).arrivesInPhase).toBeUndefined();
   });
 
   it("production gates read the schedule, materials, work orders and punch list", () => {
     const g = exitGate("ready_to_schedule", measured);
     expect(g.passes).toBe(false);
-    expect(g.arrivesInPhase).toBeUndefined();
     expect(g.reasons[0]).toMatch(/Publish changes/);
     expect(exitGate("ready_to_schedule", { ...measured, schedulePublished: true }).passes).toBe(
       true,
@@ -136,16 +134,12 @@ describe("gates", () => {
     expect(exitGate("invoiced", money(1000, -100, -50)).reasons).toHaveLength(2);
     expect(exitGate("paid_in_full", money(1000, 0, 300)).passes).toBe(false);
     expect(exitGate("paid_in_full", money(1000, 0, 0)).passes).toBe(true);
-    for (const s of ["completed", "invoiced"] as const) {
-      expect(exitGate(s, measured).arrivesInPhase).toBeUndefined();
-    }
   });
 
   it("the onboarding gate needs a cleared checklist and no blocking holds", () => {
     expect(exitGate("onboarding", measured).reasons[0]).toMatch(/hasn't been built/);
     const open2 = exitGate("onboarding", { ...measured, onboardingOpen: ["deposit", "colors"] });
     expect(open2.passes).toBe(false);
-    expect(open2.arrivesInPhase).toBeUndefined();
     expect(open2.reasons).toEqual(["2 required onboarding items are still open: deposit, colors."]);
     expect(exitGate("onboarding", { ...measured, onboardingOpen: ["deposit"] }).reasons[0]).toMatch(
       /1 required onboarding item is still open/,

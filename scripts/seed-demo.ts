@@ -199,6 +199,7 @@ async function seedCrews(
     "subcontractor",
   );
   const cityTerritory = [...ctx.territories.values()];
+  const skills = must(await db.from("skills").select("id, key").eq("org_id", orgId), "skills");
   const ids: string[] = [];
   for (const [i, c] of plan.crews.entries()) {
     const crew = must(
@@ -232,6 +233,17 @@ async function seedCrews(
       ),
       "crew members",
     );
+    // Employee crews hold every skill; the subcontractor crew isn't RRP certified
+    // (so lead-safe jobs show up as a skills exception if it's booked on one).
+    const held = skills.filter((k) => c.crewType === "employee" || k.key !== "rrp_certified");
+    if (held.length > 0) {
+      ok(
+        await db
+          .from("crew_skills")
+          .insert(held.map((k) => ({ org_id: orgId, crew_id: crew.id, skill_id: k.id }))),
+        "crew skills",
+      );
+    }
   }
   return ids;
 }

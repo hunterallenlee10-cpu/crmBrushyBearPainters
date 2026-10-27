@@ -92,7 +92,6 @@ describe("auto-verify rules", () => {
       appliedCents: null,
     });
     expect(waiting).toMatchObject({ status: "pending" });
-    expect(waiting.arrivesInPhase).toBeUndefined();
     expect(waiting.detail).toMatch(/\$1,500\.00/);
     expect(waiting.detail).toMatch(/Record the payment in Financial/);
     const partial = depositRule({

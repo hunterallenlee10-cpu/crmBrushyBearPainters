@@ -142,7 +142,7 @@ export const INTEGRATIONS = [
     realProviders: ["docusign", "dropbox_sign"],
     syncFrequency: "On demand",
     setupSteps: [
-      "Default is the built-in BearSign (Phase 4), which needs no account; only follow these steps to use DocuSign or Dropbox Sign instead.",
+      "Default is the built-in BearSign, which needs no account; only follow these steps to use DocuSign or Dropbox Sign instead.",
       "DocuSign: create a developer account and an app (integration key) using the JWT grant; set DOCUSIGN_INTEGRATION_KEY and store the account id and base path in the connection's config.",
       "Dropbox Sign: create an API app and key; set DROPBOX_SIGN_API_KEY (requests stay in test mode until the owners approve).",
       "Set INTEGRATION_ESIGN_PROVIDER=docusign|dropbox_sign and point status webhooks at https://<your-domain>/api/webhooks/docusign or https://<your-domain>/api/webhooks/dropbox-sign.",

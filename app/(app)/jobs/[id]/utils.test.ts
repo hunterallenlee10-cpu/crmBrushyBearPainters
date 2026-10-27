@@ -141,11 +141,6 @@ describe("milestones stepper", () => {
       to: "walkthrough_complete",
       label: "Walkthrough Complete",
     });
-    expect(nextHint("walkthrough_complete")?.arrivesInPhase).toBeUndefined();
-    expect(nextHint("onboarding")?.arrivesInPhase).toBeUndefined();
-    expect(nextHint("ready_to_schedule")?.arrivesInPhase).toBeUndefined();
-    expect(nextHint("completed")?.arrivesInPhase).toBeUndefined();
-    expect(nextHint("invoiced")?.arrivesInPhase).toBeUndefined();
     expect(nextHint("closed_won")).toBeNull();
   });
 });
@@ -161,14 +156,14 @@ describe("health factors and action required", () => {
         action: "assign_poc",
         recommendation: "Assign one.",
       },
-      { key: "x", label: "X", weight: 5, status: "unavailable", arrivesInPhase: 6 },
+      { key: "x", label: "X", weight: 5, status: "unavailable" },
       { key: "bad", label: "Bad", status: "weird" },
       "junk",
       null,
     ]);
     expect(parsed).toHaveLength(2);
     expect(parsed[0]).toMatchObject({ action: "assign_poc", recommendation: "Assign one." });
-    expect(parsed[1]?.arrivesInPhase).toBe(6);
+    expect(parsed[1]).toMatchObject({ status: "unavailable" });
     expect(parseHealthFactors({})).toEqual([]);
   });
 

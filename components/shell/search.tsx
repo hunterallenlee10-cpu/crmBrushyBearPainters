@@ -23,10 +23,10 @@ import { searchRecords, type SearchHit } from "@/components/shell/shell-actions"
 import { readRecentRecords, type RecentRecord } from "@/components/shell/recent-records";
 
 /**
- * Universal search (SPEC §8.1): leads, accounts and contacts by name, phone
- * digits, email or address (server-side, limited to what the user may see),
- * recently opened records, and page shortcuts. Jobs, invoices and mentions join
- * in later phases.
+ * Universal search (SPEC §8.1): leads, jobs, accounts, contacts and invoices
+ * by name, number, phone digits, email or address (server-side, limited to
+ * what the user may see), recently opened records, and page shortcuts.
+ * Mentions point to Notifications.
  */
 
 const SCOPES = ["All", "Accounts", "Contacts", "Leads", "Jobs", "Invoices", "Mentions"] as const;
@@ -100,7 +100,7 @@ const KIND_LABEL = {
   invoice: "Invoice",
 } as const;
 
-/** Scopes with records today; the rest say which phase brings them. */
+/** Scopes searched on the server; Mentions explains where mentions live. */
 const SCOPE_TO_RPC: Partial<
   Record<Scope, "all" | "leads" | "jobs" | "accounts" | "contacts" | "invoices">
 > = {

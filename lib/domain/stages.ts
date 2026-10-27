@@ -1,7 +1,7 @@
 /**
  * Job pipeline stages (SPEC §6.2). Names are unique and self-describing
- * (SPEC §3.4). Gates and transitions arrive in Phase 3; this file is the single
- * list of stages, their order, and their display color.
+ * (SPEC §3.4). Gates and transitions live in lib/domain/jobs/gates.ts; this
+ * file is the single list of stages, their order, and their display color.
  */
 
 export const JOB_STAGES = [

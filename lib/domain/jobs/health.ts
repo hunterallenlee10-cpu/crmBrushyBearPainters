@@ -7,9 +7,9 @@ import { isTerminal, stageOrder } from "./gates";
 
 /**
  * Job Health score 0–100 (SPEC §6.5). Pure and deterministic: weighted checks
- * chosen by stage. Checks whose data arrives in a later phase are shown as
- * "unavailable" and never lower the score; checks whose data wasn't loaded
- * (undefined inputs) are left out.
+ * chosen by stage. "Unavailable" checks (none today; kept for stored scores)
+ * never lower the score; checks whose data wasn't loaded (undefined inputs)
+ * are left out.
  */
 
 export type HealthStatus = "pass" | "fail" | "unavailable";
@@ -37,8 +37,6 @@ export type HealthFactor = {
   /** What to do when it fails (plain words). */
   recommendation?: string;
   action?: HealthAction;
-  /** For "unavailable": the phase that brings this check. */
-  arrivesInPhase?: number;
 };
 
 export type HealthInput = {

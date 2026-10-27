@@ -1776,16 +1776,45 @@ grant select, insert, update, delete on public.custom_field_definitions, public.
   public.commission_entries, public.commission_adjustments to service_role;
 
 -- =============================================================================
+-- 11b. Instant follow-up for one record's events (website intake text-back)
+-- =============================================================================
+
+-- Claims the pending events of one record (same rules as claim_events), so
+-- the intake route can run the instant text-back right after it answers
+-- instead of waiting behind the worker's queue (SPEC §19: < 1 s).
+create index if not exists events_pending_aggregate_idx on public.events (aggregate_type, aggregate_id)
+  where status = 'pending';
+
+create or replace function public.claim_subject_events(p_aggregate_type text, p_aggregate_id text, p_limit integer default 10)
+returns setof public.events
+language sql
+security definer
+set search_path = ''
+as $$
+  update public.events e
+     set status = 'processing', locked_at = now(), attempts = e.attempts + 1
+   where e.id in (
+     select x.id from public.events x
+      where x.aggregate_type = p_aggregate_type and x.aggregate_id = p_aggregate_id
+        and x.status = 'pending' and x.available_at <= now()
+      order by x.id
+      limit least(greatest(coalesce(p_limit, 10), 1), 50)
+      for update skip locked
+   )
+  returning e.*;
+$$;
+
+-- =============================================================================
 -- 13. Function grants
 -- =============================================================================
 
 revoke execute on function public.merge_customers(text, uuid, uuid, jsonb, text), public.undo_merge(uuid, text),
   public.purge_demo_data(uuid), public.demo_data_counts(uuid), public.job_recovery_scan(uuid, integer),
-  public.demo_backdate_stage(uuid, timestamptz)
+  public.demo_backdate_stage(uuid, timestamptz), public.claim_subject_events(text, text, integer)
   from public, anon, authenticated;
 grant execute on function public.merge_customers(text, uuid, uuid, jsonb, text), public.undo_merge(uuid, text),
   public.purge_demo_data(uuid), public.demo_data_counts(uuid), public.job_recovery_scan(uuid, integer),
-  public.demo_backdate_stage(uuid, timestamptz)
+  public.demo_backdate_stage(uuid, timestamptz), public.claim_subject_events(text, text, integer)
   to service_role;
 
 revoke execute on function public.bulk_update_apply(uuid), public.bulk_update_revert(uuid, text),

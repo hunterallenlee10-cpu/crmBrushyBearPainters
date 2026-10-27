@@ -201,7 +201,7 @@ export const leadStatusSchema = z
   });
 export type LeadStatusInput = z.input<typeof leadStatusSchema>;
 
-/** Book Walkthrough (Phase 2: stores the tentative date/time + owner; scheduling arrives in Phase 6). */
+/** Book Walkthrough: the tentative date/time and owner (the appointment itself is scheduled from it). */
 export const bookWalkthroughSchema = z.object({
   id: z.uuid(),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Pick a date."),

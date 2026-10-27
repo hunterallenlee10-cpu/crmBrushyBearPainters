@@ -77,8 +77,6 @@ export type RuleResult = {
   detail: string;
   /** Set when the rule decides whether the item applies (HOA, change orders). */
   required?: boolean;
-  /** The phase that brings this check's data (shown in the checklist). */
-  arrivesInPhase?: number;
 };
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;

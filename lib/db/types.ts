@@ -12382,6 +12382,33 @@ export type Database = {
           isSetofReturn: true;
         };
       };
+      claim_subject_events: {
+        Args: { p_aggregate_id: string; p_aggregate_type: string; p_limit?: number };
+        Returns: {
+          actor_id: string | null;
+          aggregate_id: string | null;
+          aggregate_type: string;
+          attempts: number;
+          available_at: string;
+          created_at: string;
+          id: number;
+          idempotency_key: string | null;
+          impersonated_by: string | null;
+          last_error: string | null;
+          locked_at: string | null;
+          org_id: string | null;
+          payload: NonNullable<Json>;
+          processed_at: string | null;
+          status: string;
+          type: string;
+        }[];
+        SetofOptions: {
+          from: "*";
+          to: "events";
+          isOneToOne: false;
+          isSetofReturn: true;
+        };
+      };
       claim_workflow_runs: {
         Args: { p_limit?: number };
         Returns: {

@@ -94,7 +94,7 @@ export function StatusDialog({
           <DialogTitle>Change status</DialogTitle>
           <DialogDescription>
             Walkthrough Scheduled comes from booking a walkthrough, and Converted from Convert to
-            Job (Phase 3).
+            Job.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} noValidate className="flex flex-col gap-4">

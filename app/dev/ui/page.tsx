@@ -96,7 +96,7 @@ export default function DevUiPage() {
 
         <Section title="KPI cards">
           <p className="text-xs text-muted-foreground">
-            Example values for layout only. Real numbers come from the metrics registry (Phase 9).
+            Example values for layout only. Real numbers come from the metrics registry.
           </p>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <KpiCard

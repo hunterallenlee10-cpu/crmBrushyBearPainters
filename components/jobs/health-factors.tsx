@@ -3,7 +3,7 @@ import type { HealthFactor } from "@/lib/domain/jobs/health";
 import { cn } from "@/lib/utils";
 
 /**
- * Job Health checks (SPEC §6.5): pass / fail / "arrives in Phase N", with the
+ * Job Health checks (SPEC §6.5): pass / fail / not checked, with the
  * recommendation under each failed check.
  */
 export function HealthFactors({ factors }: { factors: HealthFactor[] }) {
@@ -29,10 +29,7 @@ export function HealthFactors({ factors }: { factors: HealthFactor[] }) {
               {f.status === "pass" ? ": passing" : f.status === "fail" ? ": needs action" : ""}
             </span>
             {f.status === "unavailable" && (
-              <span className="text-xs text-muted-foreground">
-                {" "}
-                · arrives in Phase {f.arrivesInPhase}
-              </span>
+              <span className="text-xs text-muted-foreground"> · not checked yet</span>
             )}
             {f.status === "fail" && f.recommendation && (
               <span className="block text-xs text-muted-foreground">{f.recommendation}</span>

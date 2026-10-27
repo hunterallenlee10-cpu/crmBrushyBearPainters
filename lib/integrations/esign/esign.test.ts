@@ -48,7 +48,7 @@ describe("builtin (BearSign) provider", () => {
     expect(entry?.renderedBody).toContain("Sample Customer <customer@example.com> (customer)");
   });
 
-  it("getStatus is not connected until Phase 4", async () => {
+  it("getStatus is not connected (no real e-signature provider)", async () => {
     const provider = createBuiltinESignProvider({ orgId: "o", sink: createMemoryOutboxSink() });
     expect(await provider.getStatus("x")).toMatchObject({ connected: false });
   });

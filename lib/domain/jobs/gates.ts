@@ -14,8 +14,6 @@ import { formatCents as moneyText } from "@/lib/format/money";
 export type GateDefinition = {
   /** Plain-English requirement shown next to the Advance button. */
   requirement: string;
-  /** Phase that brings the data this gate checks; until then only an owner override moves past it. */
-  arrivesInPhase?: number;
 };
 
 export const EXIT_GATES: Record<
@@ -49,7 +47,7 @@ export const EXIT_GATES: Record<
   },
 };
 
-/** Facts the gates read. Grows as later phases add data. */
+/** Facts the gates read. */
 export type GateContext = {
   /** A walkthrough on this job is completed with result "measured". */
   walkthroughMeasured: boolean;
@@ -89,7 +87,6 @@ export type GateResult = {
   requirement: string;
   /** Why it doesn't pass, in plain words (empty when it passes). */
   reasons: string[];
-  arrivesInPhase?: number;
 };
 
 export function stageOrder(stage: JobStageId): number {
@@ -115,7 +112,7 @@ export function exitGate(stage: JobStageId, ctx: GateContext): GateResult {
     return { passes: false, requirement: "The job is closed.", reasons: ["The job is closed."] };
   }
   const gate = EXIT_GATES[stage];
-  const base = { requirement: gate.requirement, arrivesInPhase: gate.arrivesInPhase };
+  const base = { requirement: gate.requirement };
   switch (stage) {
     case "walkthrough_scheduled":
       return ctx.walkthroughMeasured
@@ -265,7 +262,7 @@ export function exitGate(stage: JobStageId, ctx: GateContext): GateResult {
         ...base,
         passes: false,
         reasons: [
-          `${gate.requirement.replace(/\.$/, "")} — this check arrives in Phase ${gate.arrivesInPhase}. Until then an owner can override it with a reason.`,
+          `${gate.requirement.replace(/\.$/, "")}. An owner can override it with a reason.`,
         ],
       };
   }

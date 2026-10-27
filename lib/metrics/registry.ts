@@ -21,7 +21,7 @@ import type { Permission } from "@/lib/permissions";
  * A metric names the server-side aggregate it reads (`source`, an RPC that
  * counts in Postgres across every record the viewer can see), its unit, a
  * formula caption, and a pure `compute` over that RPC's parsed payload.
- * Later phases add sources (estimates, jobs, money…) next to `lead_stats`.
+ * Each source (leads, estimates, jobs, money…) has its own group below.
  *
  * Rules: a ratio with a zero denominator is `null` (shown as "—"), never NaN or
  * Infinity, and percentages are clamped to 0–100%.
@@ -1053,7 +1053,7 @@ export function approvalMetricValue(id: ApprovalMetricId, c: ApprovalCounts): nu
 // All metrics
 // ---------------------------------------------------------------------------
 
-/** Every registered metric, by id. Later phases spread their groups in here. */
+/** Every registered metric, by id. */
 // ===========================================================================
 // ESTIMATES (Phase 4): sent, 24h SLA, close rate, job value (SPEC §1.3, §12.1)
 // ===========================================================================

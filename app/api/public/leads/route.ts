@@ -1,4 +1,4 @@
-import type { NextRequest } from "next/server";
+import { after, type NextRequest } from "next/server";
 import { serverEnv } from "@/lib/env";
 import { createSupabaseServiceClient } from "@/lib/db/service";
 import { websiteLeadSchema } from "@/lib/validation/intake";
@@ -18,6 +18,7 @@ import {
   tooMany,
 } from "@/lib/intake/http";
 import { logError } from "@/lib/log";
+import { processEvents } from "@/lib/worker/events";
 
 /**
  * Website lead intake (SPEC §14). Contract: docs/WEBSITE_INTEGRATION.md.
@@ -93,6 +94,17 @@ export async function POST(req: NextRequest) {
 
     switch (result.kind) {
       case "created":
+        // The instant text-back (workflow 1) runs right after the response
+        // instead of waiting for the next worker minute (SPEC §19: < 1 s).
+        // Same idempotent event processing the worker does, for this lead's
+        // events only; claims use SKIP LOCKED, so a worker run at the same
+        // moment doesn't double up.
+        after(() =>
+          processEvents(db, 10, { type: "lead", id: result.leadId }).then(
+            () => undefined,
+            (e: unknown) => logError("public.leads.events", e),
+          ),
+        );
         return jsonOk({ leadId: result.leadId }, 201);
       case "duplicate":
       case "replay":
