@@ -9,6 +9,7 @@ import { type OwnProfileInput, type PreferencesValues } from "@/lib/validation/u
 import { OwnProfileForm } from "./own-profile-form";
 import { PreferencesForm } from "./preferences-form";
 import { SecurityPanel } from "./security-panel";
+import { ChangePassword } from "./change-password";
 import { NotificationMatrix, type MatrixRow } from "@/components/notifications/notification-matrix";
 
 const TABS = [
@@ -81,6 +82,7 @@ export function SettingsTabs({
       </TabsContent>
       <TabsContent value="security">
         <SecurityPanel requiresMfa={requiresMfa} readOnly={readOnly} />
+        <ChangePassword readOnly={readOnly} />
       </TabsContent>
       <TabsContent value="preferences">
         <PreferencesForm defaults={preferences} readOnly={readOnly} canExecutive={canExecutive} />
