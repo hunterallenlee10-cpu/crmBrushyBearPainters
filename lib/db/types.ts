@@ -8,11 +8,13 @@ export type Database = {
           account_type: string;
           created_at: string;
           created_by: string | null;
+          custom_field_values: NonNullable<Json>;
           delete_reason: string | null;
           deleted_at: string | null;
           deleted_by: string | null;
           display_name: string;
           id: string;
+          is_demo: boolean;
           is_referral_champion: boolean;
           notes: string | null;
           org_id: string;
@@ -30,11 +32,13 @@ export type Database = {
           account_type?: string;
           created_at?: string;
           created_by?: string | null;
+          custom_field_values?: NonNullable<Json>;
           delete_reason?: string | null;
           deleted_at?: string | null;
           deleted_by?: string | null;
           display_name: string;
           id?: string;
+          is_demo?: boolean;
           is_referral_champion?: boolean;
           notes?: string | null;
           org_id: string;
@@ -51,11 +55,13 @@ export type Database = {
           account_type?: string;
           created_at?: string;
           created_by?: string | null;
+          custom_field_values?: NonNullable<Json>;
           delete_reason?: string | null;
           deleted_at?: string | null;
           deleted_by?: string | null;
           display_name?: string;
           id?: string;
+          is_demo?: boolean;
           is_referral_champion?: boolean;
           notes?: string | null;
           org_id?: string;
@@ -301,6 +307,7 @@ export type Database = {
           ends_at: string;
           external_calendar_event_id: string | null;
           id: string;
+          is_demo: boolean;
           job_id: string | null;
           lead_id: string | null;
           location: string | null;
@@ -329,6 +336,7 @@ export type Database = {
           ends_at: string;
           external_calendar_event_id?: string | null;
           id?: string;
+          is_demo?: boolean;
           job_id?: string | null;
           lead_id?: string | null;
           location?: string | null;
@@ -356,6 +364,7 @@ export type Database = {
           ends_at?: string;
           external_calendar_event_id?: string | null;
           id?: string;
+          is_demo?: boolean;
           job_id?: string | null;
           lead_id?: string | null;
           location?: string | null;
@@ -526,6 +535,7 @@ export type Database = {
           detail: string | null;
           due_at: string | null;
           id: string;
+          is_demo: boolean;
           last_seen_at: string;
           opened_at: string;
           org_id: string;
@@ -552,6 +562,7 @@ export type Database = {
           detail?: string | null;
           due_at?: string | null;
           id?: string;
+          is_demo?: boolean;
           last_seen_at?: string;
           opened_at?: string;
           org_id: string;
@@ -577,6 +588,7 @@ export type Database = {
           detail?: string | null;
           due_at?: string | null;
           id?: string;
+          is_demo?: boolean;
           last_seen_at?: string;
           opened_at?: string;
           org_id?: string;
@@ -704,6 +716,157 @@ export type Database = {
           user_agent?: string | null;
         };
         Relationships: [];
+      };
+      bulk_update_rows: {
+        Row: {
+          after: NonNullable<Json>;
+          before: NonNullable<Json>;
+          bulk_update_id: string;
+          created_at: string;
+          created_by: string | null;
+          error: string | null;
+          id: string;
+          label: string | null;
+          org_id: string;
+          record_id: string;
+          row_number: number;
+          status: string;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        ComputedFields: never;
+        Insert: {
+          after?: NonNullable<Json>;
+          before?: NonNullable<Json>;
+          bulk_update_id: string;
+          created_at?: string;
+          created_by?: string | null;
+          error?: string | null;
+          id?: string;
+          label?: string | null;
+          org_id: string;
+          record_id: string;
+          row_number: number;
+          status?: string;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          after?: NonNullable<Json>;
+          before?: NonNullable<Json>;
+          bulk_update_id?: string;
+          created_at?: string;
+          created_by?: string | null;
+          error?: string | null;
+          id?: string;
+          label?: string | null;
+          org_id?: string;
+          record_id?: string;
+          row_number?: number;
+          status?: string;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "bulk_update_rows_bulk_update_id_fkey";
+            columns: ["bulk_update_id"];
+            isOneToOne: false;
+            referencedRelation: "bulk_updates";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "bulk_update_rows_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      bulk_updates: {
+        Row: {
+          applied_at: string | null;
+          applied_by: string | null;
+          applied_rows: number;
+          changed_rows: number;
+          changes: NonNullable<Json>;
+          conflict_rows: number;
+          created_at: string;
+          created_by: string | null;
+          failed_rows: number;
+          id: string;
+          module: string;
+          org_id: string;
+          revert_reason: string | null;
+          reverted_at: string | null;
+          reverted_by: string | null;
+          reverted_rows: number;
+          source: string;
+          status: string;
+          title: string;
+          total_rows: number;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        ComputedFields: never;
+        Insert: {
+          applied_at?: string | null;
+          applied_by?: string | null;
+          applied_rows?: number;
+          changed_rows?: number;
+          changes?: NonNullable<Json>;
+          conflict_rows?: number;
+          created_at?: string;
+          created_by?: string | null;
+          failed_rows?: number;
+          id?: string;
+          module: string;
+          org_id: string;
+          revert_reason?: string | null;
+          reverted_at?: string | null;
+          reverted_by?: string | null;
+          reverted_rows?: number;
+          source: string;
+          status?: string;
+          title: string;
+          total_rows?: number;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          applied_at?: string | null;
+          applied_by?: string | null;
+          applied_rows?: number;
+          changed_rows?: number;
+          changes?: NonNullable<Json>;
+          conflict_rows?: number;
+          created_at?: string;
+          created_by?: string | null;
+          failed_rows?: number;
+          id?: string;
+          module?: string;
+          org_id?: string;
+          revert_reason?: string | null;
+          reverted_at?: string | null;
+          reverted_by?: string | null;
+          reverted_rows?: number;
+          source?: string;
+          status?: string;
+          title?: string;
+          total_rows?: number;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "bulk_updates_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       campaign_recipients: {
         Row: {
@@ -928,6 +1091,7 @@ export type Database = {
           description: string | null;
           first_response_at: string | null;
           id: string;
+          is_demo: boolean;
           job_id: string | null;
           org_id: string;
           owner_id: string | null;
@@ -954,6 +1118,7 @@ export type Database = {
           description?: string | null;
           first_response_at?: string | null;
           id?: string;
+          is_demo?: boolean;
           job_id?: string | null;
           org_id: string;
           owner_id?: string | null;
@@ -979,6 +1144,7 @@ export type Database = {
           description?: string | null;
           first_response_at?: string | null;
           id?: string;
+          is_demo?: boolean;
           job_id?: string | null;
           org_id?: string;
           owner_id?: string | null;
@@ -1735,6 +1901,366 @@ export type Database = {
           },
         ];
       };
+      commission_adjustments: {
+        Row: {
+          amount_cents: number;
+          approved_at: string | null;
+          approved_by: string | null;
+          created_at: string;
+          created_by: string | null;
+          entry_id: string | null;
+          id: string;
+          job_id: string | null;
+          kind: string;
+          org_id: string;
+          paid_on: string | null;
+          reason: string;
+          status: string;
+          updated_at: string;
+          updated_by: string | null;
+          user_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          amount_cents: number;
+          approved_at?: string | null;
+          approved_by?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          entry_id?: string | null;
+          id?: string;
+          job_id?: string | null;
+          kind: string;
+          org_id: string;
+          paid_on?: string | null;
+          reason: string;
+          status?: string;
+          updated_at?: string;
+          updated_by?: string | null;
+          user_id: string;
+        };
+        Update: {
+          amount_cents?: number;
+          approved_at?: string | null;
+          approved_by?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          entry_id?: string | null;
+          id?: string;
+          job_id?: string | null;
+          kind?: string;
+          org_id?: string;
+          paid_on?: string | null;
+          reason?: string;
+          status?: string;
+          updated_at?: string;
+          updated_by?: string | null;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "commission_adjustments_entry_id_fkey";
+            columns: ["entry_id"];
+            isOneToOne: false;
+            referencedRelation: "commission_entries";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "commission_adjustments_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
+            referencedRelation: "job_ledger";
+            referencedColumns: ["job_id"];
+          },
+          {
+            foreignKeyName: "commission_adjustments_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
+            referencedRelation: "jobs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "commission_adjustments_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
+            referencedRelation: "report_jobs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "commission_adjustments_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "commission_adjustments_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      commission_entries: {
+        Row: {
+          amount_cents: number;
+          approved_at: string | null;
+          approved_by: string | null;
+          basis_cents: number;
+          computed_at: string;
+          created_at: string;
+          created_by: string | null;
+          id: string;
+          job_id: string;
+          note: string | null;
+          org_id: string;
+          overhead_cents: number;
+          paid_on: string | null;
+          payroll_ref: string | null;
+          plan_id: string | null;
+          rate_percent: number;
+          reasons: string[];
+          source_kind: string;
+          status: string;
+          updated_at: string;
+          updated_by: string | null;
+          user_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          amount_cents?: number;
+          approved_at?: string | null;
+          approved_by?: string | null;
+          basis_cents?: number;
+          computed_at?: string;
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          job_id: string;
+          note?: string | null;
+          org_id: string;
+          overhead_cents?: number;
+          paid_on?: string | null;
+          payroll_ref?: string | null;
+          plan_id?: string | null;
+          rate_percent?: number;
+          reasons?: string[];
+          source_kind: string;
+          status?: string;
+          updated_at?: string;
+          updated_by?: string | null;
+          user_id: string;
+        };
+        Update: {
+          amount_cents?: number;
+          approved_at?: string | null;
+          approved_by?: string | null;
+          basis_cents?: number;
+          computed_at?: string;
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          job_id?: string;
+          note?: string | null;
+          org_id?: string;
+          overhead_cents?: number;
+          paid_on?: string | null;
+          payroll_ref?: string | null;
+          plan_id?: string | null;
+          rate_percent?: number;
+          reasons?: string[];
+          source_kind?: string;
+          status?: string;
+          updated_at?: string;
+          updated_by?: string | null;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "commission_entries_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
+            referencedRelation: "job_ledger";
+            referencedColumns: ["job_id"];
+          },
+          {
+            foreignKeyName: "commission_entries_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
+            referencedRelation: "jobs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "commission_entries_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
+            referencedRelation: "report_jobs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "commission_entries_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "commission_entries_plan_id_fkey";
+            columns: ["plan_id"];
+            isOneToOne: false;
+            referencedRelation: "commission_plans";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "commission_entries_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      commission_plans: {
+        Row: {
+          active: boolean;
+          company_rate_percent: number;
+          created_at: string;
+          created_by: string | null;
+          delete_reason: string | null;
+          deleted_at: string | null;
+          deleted_by: string | null;
+          id: string;
+          name: string;
+          notes: string | null;
+          org_id: string;
+          overhead_deduction_percent: number | null;
+          role_template_id: string | null;
+          self_rate_percent: number;
+          updated_at: string;
+          updated_by: string | null;
+          user_id: string | null;
+        };
+        ComputedFields: never;
+        Insert: {
+          active?: boolean;
+          company_rate_percent?: number;
+          created_at?: string;
+          created_by?: string | null;
+          delete_reason?: string | null;
+          deleted_at?: string | null;
+          deleted_by?: string | null;
+          id?: string;
+          name: string;
+          notes?: string | null;
+          org_id: string;
+          overhead_deduction_percent?: number | null;
+          role_template_id?: string | null;
+          self_rate_percent?: number;
+          updated_at?: string;
+          updated_by?: string | null;
+          user_id?: string | null;
+        };
+        Update: {
+          active?: boolean;
+          company_rate_percent?: number;
+          created_at?: string;
+          created_by?: string | null;
+          delete_reason?: string | null;
+          deleted_at?: string | null;
+          deleted_by?: string | null;
+          id?: string;
+          name?: string;
+          notes?: string | null;
+          org_id?: string;
+          overhead_deduction_percent?: number | null;
+          role_template_id?: string | null;
+          self_rate_percent?: number;
+          updated_at?: string;
+          updated_by?: string | null;
+          user_id?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "commission_plans_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "commission_plans_role_template_id_fkey";
+            columns: ["role_template_id"];
+            isOneToOne: false;
+            referencedRelation: "role_templates";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "commission_plans_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      commission_settings: {
+        Row: {
+          basis: string;
+          created_at: string;
+          created_by: string | null;
+          enabled: boolean;
+          id: string;
+          notes: string | null;
+          org_id: string;
+          overhead_deduction_percent: number;
+          require_cleared_funds: boolean;
+          review_threshold_cents: number | null;
+          self_generated_sources: string[];
+          updated_at: string;
+          updated_by: string | null;
+        };
+        ComputedFields: never;
+        Insert: {
+          basis?: string;
+          created_at?: string;
+          created_by?: string | null;
+          enabled?: boolean;
+          id?: string;
+          notes?: string | null;
+          org_id: string;
+          overhead_deduction_percent?: number;
+          require_cleared_funds?: boolean;
+          review_threshold_cents?: number | null;
+          self_generated_sources?: string[];
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          basis?: string;
+          created_at?: string;
+          created_by?: string | null;
+          enabled?: boolean;
+          id?: string;
+          notes?: string | null;
+          org_id?: string;
+          overhead_deduction_percent?: number;
+          require_cleared_funds?: boolean;
+          review_threshold_cents?: number | null;
+          self_generated_sources?: string[];
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "commission_settings_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: true;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       company_settings: {
         Row: {
           auto_convert_on_walkthrough: boolean;
@@ -1851,6 +2377,7 @@ export type Database = {
           account_id: string;
           created_at: string;
           created_by: string | null;
+          custom_field_values: NonNullable<Json>;
           delete_reason: string | null;
           deleted_at: string | null;
           deleted_by: string | null;
@@ -1862,6 +2389,7 @@ export type Database = {
           email_opted_out_at: string | null;
           first_name: string;
           id: string;
+          is_demo: boolean;
           language: string;
           last_name: string | null;
           mobile: string | null;
@@ -1884,6 +2412,7 @@ export type Database = {
           account_id: string;
           created_at?: string;
           created_by?: string | null;
+          custom_field_values?: NonNullable<Json>;
           delete_reason?: string | null;
           deleted_at?: string | null;
           deleted_by?: string | null;
@@ -1895,6 +2424,7 @@ export type Database = {
           email_opted_out_at?: string | null;
           first_name: string;
           id?: string;
+          is_demo?: boolean;
           language?: string;
           last_name?: string | null;
           mobile?: string | null;
@@ -1916,6 +2446,7 @@ export type Database = {
           account_id?: string;
           created_at?: string;
           created_by?: string | null;
+          custom_field_values?: NonNullable<Json>;
           delete_reason?: string | null;
           deleted_at?: string | null;
           deleted_by?: string | null;
@@ -1927,6 +2458,7 @@ export type Database = {
           email_opted_out_at?: string | null;
           first_name?: string;
           id?: string;
+          is_demo?: boolean;
           language?: string;
           last_name?: string | null;
           mobile?: string | null;
@@ -1973,6 +2505,7 @@ export type Database = {
           decision_note: string | null;
           id: string;
           invoice_id: string | null;
+          is_demo: boolean;
           job_id: string;
           on_time_credit_id: string | null;
           org_id: string;
@@ -1995,6 +2528,7 @@ export type Database = {
           decision_note?: string | null;
           id?: string;
           invoice_id?: string | null;
+          is_demo?: boolean;
           job_id: string;
           on_time_credit_id?: string | null;
           org_id: string;
@@ -2016,6 +2550,7 @@ export type Database = {
           decision_note?: string | null;
           id?: string;
           invoice_id?: string | null;
+          is_demo?: boolean;
           job_id?: string;
           on_time_credit_id?: string | null;
           org_id?: string;
@@ -2178,6 +2713,7 @@ export type Database = {
           crew_id: string;
           display_name: string | null;
           id: string;
+          is_demo: boolean;
           org_id: string;
           role: string;
           updated_at: string;
@@ -2192,6 +2728,7 @@ export type Database = {
           crew_id: string;
           display_name?: string | null;
           id?: string;
+          is_demo?: boolean;
           org_id: string;
           role?: string;
           updated_at?: string;
@@ -2205,6 +2742,7 @@ export type Database = {
           crew_id?: string;
           display_name?: string | null;
           id?: string;
+          is_demo?: boolean;
           org_id?: string;
           role?: string;
           updated_at?: string;
@@ -2310,6 +2848,7 @@ export type Database = {
           deleted_by: string | null;
           home_territory_id: string | null;
           id: string;
+          is_demo: boolean;
           lead_user_id: string | null;
           max_jobs_per_day: number;
           name: string;
@@ -2333,6 +2872,7 @@ export type Database = {
           deleted_by?: string | null;
           home_territory_id?: string | null;
           id?: string;
+          is_demo?: boolean;
           lead_user_id?: string | null;
           max_jobs_per_day?: number;
           name: string;
@@ -2355,6 +2895,7 @@ export type Database = {
           deleted_by?: string | null;
           home_territory_id?: string | null;
           id?: string;
+          is_demo?: boolean;
           lead_user_id?: string | null;
           max_jobs_per_day?: number;
           name?: string;
@@ -2396,6 +2937,72 @@ export type Database = {
           },
         ];
       };
+      custom_field_definitions: {
+        Row: {
+          active: boolean;
+          api_name: string;
+          created_at: string;
+          created_by: string | null;
+          field_type: string;
+          help_text: string | null;
+          id: string;
+          label: string;
+          module: string;
+          options: NonNullable<Json>;
+          org_id: string;
+          required: boolean;
+          show_in_list: boolean;
+          sort_order: number;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        ComputedFields: never;
+        Insert: {
+          active?: boolean;
+          api_name: string;
+          created_at?: string;
+          created_by?: string | null;
+          field_type: string;
+          help_text?: string | null;
+          id?: string;
+          label: string;
+          module: string;
+          options?: NonNullable<Json>;
+          org_id: string;
+          required?: boolean;
+          show_in_list?: boolean;
+          sort_order?: number;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          active?: boolean;
+          api_name?: string;
+          created_at?: string;
+          created_by?: string | null;
+          field_type?: string;
+          help_text?: string | null;
+          id?: string;
+          label?: string;
+          module?: string;
+          options?: NonNullable<Json>;
+          org_id?: string;
+          required?: boolean;
+          show_in_list?: boolean;
+          sort_order?: number;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "custom_field_definitions_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       daily_logs: {
         Row: {
           author_id: string | null;
@@ -2411,6 +3018,7 @@ export type Database = {
           deleted_by: string | null;
           finished_today: string;
           id: string;
+          is_demo: boolean;
           issues: string | null;
           job_id: string;
           log_date: string;
@@ -2439,6 +3047,7 @@ export type Database = {
           deleted_by?: string | null;
           finished_today: string;
           id?: string;
+          is_demo?: boolean;
           issues?: string | null;
           job_id: string;
           log_date: string;
@@ -2466,6 +3075,7 @@ export type Database = {
           deleted_by?: string | null;
           finished_today?: string;
           id?: string;
+          is_demo?: boolean;
           issues?: string | null;
           job_id?: string;
           log_date?: string;
@@ -3484,6 +4094,7 @@ export type Database = {
           estimate_number: string;
           expires_at: string | null;
           id: string;
+          is_demo: boolean;
           job_id: string;
           org_id: string;
           owner_id: string | null;
@@ -3511,6 +4122,7 @@ export type Database = {
           estimate_number: string;
           expires_at?: string | null;
           id?: string;
+          is_demo?: boolean;
           job_id: string;
           org_id: string;
           owner_id?: string | null;
@@ -3537,6 +4149,7 @@ export type Database = {
           estimate_number?: string;
           expires_at?: string | null;
           id?: string;
+          is_demo?: boolean;
           job_id?: string;
           org_id?: string;
           owner_id?: string | null;
@@ -3905,6 +4518,160 @@ export type Database = {
           },
         ];
       };
+      import_rows: {
+        Row: {
+          created_at: string;
+          created_by: string | null;
+          data: NonNullable<Json>;
+          decision: string | null;
+          duplicate_of: string | null;
+          duplicate_reason: string | null;
+          errors: string[];
+          id: string;
+          import_id: string;
+          org_id: string;
+          raw: NonNullable<Json>;
+          record_id: string | null;
+          row_number: number;
+          status: string;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        ComputedFields: never;
+        Insert: {
+          created_at?: string;
+          created_by?: string | null;
+          data?: NonNullable<Json>;
+          decision?: string | null;
+          duplicate_of?: string | null;
+          duplicate_reason?: string | null;
+          errors?: string[];
+          id?: string;
+          import_id: string;
+          org_id: string;
+          raw?: NonNullable<Json>;
+          record_id?: string | null;
+          row_number: number;
+          status?: string;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          created_at?: string;
+          created_by?: string | null;
+          data?: NonNullable<Json>;
+          decision?: string | null;
+          duplicate_of?: string | null;
+          duplicate_reason?: string | null;
+          errors?: string[];
+          id?: string;
+          import_id?: string;
+          org_id?: string;
+          raw?: NonNullable<Json>;
+          record_id?: string | null;
+          row_number?: number;
+          status?: string;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "import_rows_import_id_fkey";
+            columns: ["import_id"];
+            isOneToOne: false;
+            referencedRelation: "imports";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "import_rows_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      imports: {
+        Row: {
+          applied_at: string | null;
+          applied_by: string | null;
+          applied_rows: number;
+          created_at: string;
+          created_by: string | null;
+          duplicate_rows: number;
+          error_rows: number;
+          failed_rows: number;
+          file_name: string;
+          headers: string[];
+          id: string;
+          mapping: NonNullable<Json>;
+          module: string;
+          options: NonNullable<Json>;
+          org_id: string;
+          skipped_rows: number;
+          status: string;
+          total_rows: number;
+          updated_at: string;
+          updated_by: string | null;
+          valid_rows: number;
+        };
+        ComputedFields: never;
+        Insert: {
+          applied_at?: string | null;
+          applied_by?: string | null;
+          applied_rows?: number;
+          created_at?: string;
+          created_by?: string | null;
+          duplicate_rows?: number;
+          error_rows?: number;
+          failed_rows?: number;
+          file_name: string;
+          headers?: string[];
+          id?: string;
+          mapping?: NonNullable<Json>;
+          module: string;
+          options?: NonNullable<Json>;
+          org_id: string;
+          skipped_rows?: number;
+          status?: string;
+          total_rows?: number;
+          updated_at?: string;
+          updated_by?: string | null;
+          valid_rows?: number;
+        };
+        Update: {
+          applied_at?: string | null;
+          applied_by?: string | null;
+          applied_rows?: number;
+          created_at?: string;
+          created_by?: string | null;
+          duplicate_rows?: number;
+          error_rows?: number;
+          failed_rows?: number;
+          file_name?: string;
+          headers?: string[];
+          id?: string;
+          mapping?: NonNullable<Json>;
+          module?: string;
+          options?: NonNullable<Json>;
+          org_id?: string;
+          skipped_rows?: number;
+          status?: string;
+          total_rows?: number;
+          updated_at?: string;
+          updated_by?: string | null;
+          valid_rows?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "imports_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       intake_requests: {
         Row: {
           created_at: string;
@@ -4184,6 +4951,7 @@ export type Database = {
           id: string;
           invoice_number: string;
           invoice_type: string;
+          is_demo: boolean;
           issue_date: string | null;
           job_id: string;
           notes: string | null;
@@ -4217,6 +4985,7 @@ export type Database = {
           id?: string;
           invoice_number: string;
           invoice_type: string;
+          is_demo?: boolean;
           issue_date?: string | null;
           job_id: string;
           notes?: string | null;
@@ -4249,6 +5018,7 @@ export type Database = {
           id?: string;
           invoice_number?: string;
           invoice_type?: string;
+          is_demo?: boolean;
           issue_date?: string | null;
           job_id?: string;
           notes?: string | null;
@@ -4507,6 +5277,7 @@ export type Database = {
           created_at: string;
           hold_type: string;
           id: string;
+          is_demo: boolean;
           job_id: string;
           org_id: string;
           placed_at: string;
@@ -4523,6 +5294,7 @@ export type Database = {
           created_at?: string;
           hold_type: string;
           id?: string;
+          is_demo?: boolean;
           job_id: string;
           org_id: string;
           placed_at?: string;
@@ -4538,6 +5310,7 @@ export type Database = {
           created_at?: string;
           hold_type?: string;
           id?: string;
+          is_demo?: boolean;
           job_id?: string;
           org_id?: string;
           placed_at?: string;
@@ -4802,6 +5575,7 @@ export type Database = {
           created_at: string;
           created_by: string | null;
           crew_id: string | null;
+          custom_field_values: NonNullable<Json>;
           delete_reason: string | null;
           deleted_at: string | null;
           deleted_by: string | null;
@@ -4818,6 +5592,7 @@ export type Database = {
           health_factors: NonNullable<Json>;
           health_score: number | null;
           id: string;
+          is_demo: boolean;
           is_priority_reschedule: boolean;
           job_number: string;
           lead_created_at: string | null;
@@ -4871,6 +5646,7 @@ export type Database = {
           created_at?: string;
           created_by?: string | null;
           crew_id?: string | null;
+          custom_field_values?: NonNullable<Json>;
           delete_reason?: string | null;
           deleted_at?: string | null;
           deleted_by?: string | null;
@@ -4887,6 +5663,7 @@ export type Database = {
           health_factors?: NonNullable<Json>;
           health_score?: number | null;
           id?: string;
+          is_demo?: boolean;
           is_priority_reschedule?: boolean;
           job_number: string;
           lead_created_at?: string | null;
@@ -4939,6 +5716,7 @@ export type Database = {
           created_at?: string;
           created_by?: string | null;
           crew_id?: string | null;
+          custom_field_values?: NonNullable<Json>;
           delete_reason?: string | null;
           deleted_at?: string | null;
           deleted_by?: string | null;
@@ -4955,6 +5733,7 @@ export type Database = {
           health_factors?: NonNullable<Json>;
           health_score?: number | null;
           id?: string;
+          is_demo?: boolean;
           is_priority_reschedule?: boolean;
           job_number?: string;
           lead_created_at?: string | null;
@@ -5089,6 +5868,179 @@ export type Database = {
           },
         ];
       };
+      kb_article_stats: {
+        Row: {
+          article_id: string;
+          last_viewed_at: string | null;
+          org_id: string;
+          view_count: number;
+        };
+        ComputedFields: never;
+        Insert: {
+          article_id: string;
+          last_viewed_at?: string | null;
+          org_id: string;
+          view_count?: number;
+        };
+        Update: {
+          article_id?: string;
+          last_viewed_at?: string | null;
+          org_id?: string;
+          view_count?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "kb_article_stats_article_id_fkey";
+            columns: ["article_id"];
+            isOneToOne: true;
+            referencedRelation: "kb_articles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "kb_article_stats_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      kb_articles: {
+        Row: {
+          audience: string[];
+          body: string;
+          category_id: string | null;
+          created_at: string;
+          created_by: string | null;
+          delete_reason: string | null;
+          deleted_at: string | null;
+          deleted_by: string | null;
+          id: string;
+          org_id: string;
+          published_at: string | null;
+          search: unknown;
+          seed_key: string | null;
+          slug: string;
+          sort_order: number;
+          status: string;
+          summary: string;
+          tags: string[];
+          title: string;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        ComputedFields: never;
+        Insert: {
+          audience?: string[];
+          body?: string;
+          category_id?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          delete_reason?: string | null;
+          deleted_at?: string | null;
+          deleted_by?: string | null;
+          id?: string;
+          org_id: string;
+          published_at?: string | null;
+          search?: never;
+          seed_key?: string | null;
+          slug: string;
+          sort_order?: number;
+          status?: string;
+          summary?: string;
+          tags?: string[];
+          title: string;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          audience?: string[];
+          body?: string;
+          category_id?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          delete_reason?: string | null;
+          deleted_at?: string | null;
+          deleted_by?: string | null;
+          id?: string;
+          org_id?: string;
+          published_at?: string | null;
+          search?: never;
+          seed_key?: string | null;
+          slug?: string;
+          sort_order?: number;
+          status?: string;
+          summary?: string;
+          tags?: string[];
+          title?: string;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "kb_articles_category_id_fkey";
+            columns: ["category_id"];
+            isOneToOne: false;
+            referencedRelation: "kb_categories";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "kb_articles_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      kb_categories: {
+        Row: {
+          created_at: string;
+          created_by: string | null;
+          description: string | null;
+          id: string;
+          key: string;
+          name: string;
+          org_id: string;
+          sort_order: number;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        ComputedFields: never;
+        Insert: {
+          created_at?: string;
+          created_by?: string | null;
+          description?: string | null;
+          id?: string;
+          key: string;
+          name: string;
+          org_id: string;
+          sort_order?: number;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          created_at?: string;
+          created_by?: string | null;
+          description?: string | null;
+          id?: string;
+          key?: string;
+          name?: string;
+          org_id?: string;
+          sort_order?: number;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "kb_categories_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       lead_attachments: {
         Row: {
           content_type: string;
@@ -5212,6 +6164,7 @@ export type Database = {
           converted_job_id: string | null;
           created_at: string;
           created_by: string | null;
+          custom_field_values: NonNullable<Json>;
           customer_notes: string | null;
           delete_reason: string | null;
           deleted_at: string | null;
@@ -5226,6 +6179,7 @@ export type Database = {
           home_built: string | null;
           id: string;
           intake_channel: string;
+          is_demo: boolean;
           landing_page: string | null;
           last_activity_at: string;
           last_name: string | null;
@@ -5283,6 +6237,7 @@ export type Database = {
           converted_job_id?: string | null;
           created_at?: string;
           created_by?: string | null;
+          custom_field_values?: NonNullable<Json>;
           customer_notes?: string | null;
           delete_reason?: string | null;
           deleted_at?: string | null;
@@ -5297,6 +6252,7 @@ export type Database = {
           home_built?: string | null;
           id?: string;
           intake_channel?: string;
+          is_demo?: boolean;
           landing_page?: string | null;
           last_activity_at?: string;
           last_name?: string | null;
@@ -5353,6 +6309,7 @@ export type Database = {
           converted_job_id?: string | null;
           created_at?: string;
           created_by?: string | null;
+          custom_field_values?: NonNullable<Json>;
           customer_notes?: string | null;
           delete_reason?: string | null;
           deleted_at?: string | null;
@@ -5367,6 +6324,7 @@ export type Database = {
           home_built?: string | null;
           id?: string;
           intake_channel?: string;
+          is_demo?: boolean;
           landing_page?: string | null;
           last_activity_at?: string;
           last_name?: string | null;
@@ -5723,6 +6681,7 @@ export type Database = {
           email_subject: string | null;
           from_address: string | null;
           id: string;
+          is_demo: boolean;
           message_type: string | null;
           org_id: string;
           outbox_id: string | null;
@@ -5750,6 +6709,7 @@ export type Database = {
           email_subject?: string | null;
           from_address?: string | null;
           id?: string;
+          is_demo?: boolean;
           message_type?: string | null;
           org_id: string;
           outbox_id?: string | null;
@@ -5776,6 +6736,7 @@ export type Database = {
           email_subject?: string | null;
           from_address?: string | null;
           id?: string;
+          is_demo?: boolean;
           message_type?: string | null;
           org_id?: string;
           outbox_id?: string | null;
@@ -5902,6 +6863,48 @@ export type Database = {
           },
         ];
       };
+      module_layouts: {
+        Row: {
+          created_at: string;
+          created_by: string | null;
+          id: string;
+          module: string;
+          org_id: string;
+          sections: NonNullable<Json>;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        ComputedFields: never;
+        Insert: {
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          module: string;
+          org_id: string;
+          sections?: NonNullable<Json>;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          module?: string;
+          org_id?: string;
+          sections?: NonNullable<Json>;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "module_layouts_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       month_closes: {
         Row: {
           closed_at: string;
@@ -5986,6 +6989,7 @@ export type Database = {
           created_by: string | null;
           deleted_at: string | null;
           id: string;
+          is_demo: boolean;
           org_id: string;
           pinned: boolean;
           priority: string;
@@ -6001,6 +7005,7 @@ export type Database = {
           created_by?: string | null;
           deleted_at?: string | null;
           id?: string;
+          is_demo?: boolean;
           org_id: string;
           pinned?: boolean;
           priority?: string;
@@ -6015,6 +7020,7 @@ export type Database = {
           created_by?: string | null;
           deleted_at?: string | null;
           id?: string;
+          is_demo?: boolean;
           org_id?: string;
           pinned?: boolean;
           priority?: string;
@@ -6617,6 +7623,7 @@ export type Database = {
           external_ref: string | null;
           fulfillment: string | null;
           id: string;
+          is_demo: boolean;
           job_id: string;
           notes: string | null;
           ordered_at: string | null;
@@ -6642,6 +7649,7 @@ export type Database = {
           external_ref?: string | null;
           fulfillment?: string | null;
           id?: string;
+          is_demo?: boolean;
           job_id: string;
           notes?: string | null;
           ordered_at?: string | null;
@@ -6666,6 +7674,7 @@ export type Database = {
           external_ref?: string | null;
           fulfillment?: string | null;
           id?: string;
+          is_demo?: boolean;
           job_id?: string;
           notes?: string | null;
           ordered_at?: string | null;
@@ -6914,6 +7923,7 @@ export type Database = {
           external_id: string | null;
           external_synced_at: string | null;
           id: string;
+          is_demo: boolean;
           job_id: string;
           method: string;
           notes: string | null;
@@ -6939,6 +7949,7 @@ export type Database = {
           external_id?: string | null;
           external_synced_at?: string | null;
           id?: string;
+          is_demo?: boolean;
           job_id: string;
           method: string;
           notes?: string | null;
@@ -6963,6 +7974,7 @@ export type Database = {
           external_id?: string | null;
           external_synced_at?: string | null;
           id?: string;
+          is_demo?: boolean;
           job_id?: string;
           method?: string;
           notes?: string | null;
@@ -7540,6 +8552,7 @@ export type Database = {
           hoa_name: string | null;
           home_built: string | null;
           id: string;
+          is_demo: boolean;
           is_primary: boolean;
           lat: number | null;
           lead_safe_required: boolean | null;
@@ -7581,6 +8594,7 @@ export type Database = {
           hoa_name?: string | null;
           home_built?: string | null;
           id?: string;
+          is_demo?: boolean;
           is_primary?: boolean;
           lat?: number | null;
           lead_safe_required?: never;
@@ -7621,6 +8635,7 @@ export type Database = {
           hoa_name?: string | null;
           home_built?: string | null;
           id?: string;
+          is_demo?: boolean;
           is_primary?: boolean;
           lat?: number | null;
           lead_safe_required?: never;
@@ -7826,6 +8841,7 @@ export type Database = {
           fixed_by: string | null;
           fixed_photo_id: string | null;
           id: string;
+          is_demo: boolean;
           job_id: string;
           org_id: string;
           photo_id: string | null;
@@ -7849,6 +8865,7 @@ export type Database = {
           fixed_by?: string | null;
           fixed_photo_id?: string | null;
           id?: string;
+          is_demo?: boolean;
           job_id: string;
           org_id: string;
           photo_id?: string | null;
@@ -7871,6 +8888,7 @@ export type Database = {
           fixed_by?: string | null;
           fixed_photo_id?: string | null;
           id?: string;
+          is_demo?: boolean;
           job_id?: string;
           org_id?: string;
           photo_id?: string | null;
@@ -8020,6 +9038,7 @@ export type Database = {
           customer_message_id: string | null;
           delay_date: string;
           id: string;
+          is_demo: boolean;
           job_id: string;
           marked_by: string | null;
           note: string | null;
@@ -8036,6 +9055,7 @@ export type Database = {
           customer_message_id?: string | null;
           delay_date: string;
           id?: string;
+          is_demo?: boolean;
           job_id: string;
           marked_by?: string | null;
           note?: string | null;
@@ -8051,6 +9071,7 @@ export type Database = {
           customer_message_id?: string | null;
           delay_date?: string;
           id?: string;
+          is_demo?: boolean;
           job_id?: string;
           marked_by?: string | null;
           note?: string | null;
@@ -8124,6 +9145,90 @@ export type Database = {
         };
         Relationships: [];
       };
+      record_merges: {
+        Row: {
+          created_at: string;
+          created_by: string | null;
+          field_choices: NonNullable<Json>;
+          id: string;
+          merged_at: string;
+          merged_before: NonNullable<Json>;
+          merged_by: string | null;
+          merged_id: string;
+          merged_label: string | null;
+          module: string;
+          moved: NonNullable<Json>;
+          org_id: string;
+          reason: string | null;
+          status: string;
+          survivor_before: NonNullable<Json>;
+          survivor_id: string;
+          survivor_label: string | null;
+          undo_reason: string | null;
+          undone_at: string | null;
+          undone_by: string | null;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        ComputedFields: never;
+        Insert: {
+          created_at?: string;
+          created_by?: string | null;
+          field_choices?: NonNullable<Json>;
+          id?: string;
+          merged_at?: string;
+          merged_before: NonNullable<Json>;
+          merged_by?: string | null;
+          merged_id: string;
+          merged_label?: string | null;
+          module: string;
+          moved?: NonNullable<Json>;
+          org_id: string;
+          reason?: string | null;
+          status?: string;
+          survivor_before: NonNullable<Json>;
+          survivor_id: string;
+          survivor_label?: string | null;
+          undo_reason?: string | null;
+          undone_at?: string | null;
+          undone_by?: string | null;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          created_at?: string;
+          created_by?: string | null;
+          field_choices?: NonNullable<Json>;
+          id?: string;
+          merged_at?: string;
+          merged_before?: NonNullable<Json>;
+          merged_by?: string | null;
+          merged_id?: string;
+          merged_label?: string | null;
+          module?: string;
+          moved?: NonNullable<Json>;
+          org_id?: string;
+          reason?: string | null;
+          status?: string;
+          survivor_before?: NonNullable<Json>;
+          survivor_id?: string;
+          survivor_label?: string | null;
+          undo_reason?: string | null;
+          undone_at?: string | null;
+          undone_by?: string | null;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "record_merges_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       referral_champions: {
         Row: {
           account_id: string | null;
@@ -8133,6 +9238,7 @@ export type Database = {
           created_by: string | null;
           id: string;
           invited_at: string | null;
+          is_demo: boolean;
           notes: string | null;
           org_id: string;
           status: string;
@@ -8148,6 +9254,7 @@ export type Database = {
           created_by?: string | null;
           id?: string;
           invited_at?: string | null;
+          is_demo?: boolean;
           notes?: string | null;
           org_id: string;
           status?: string;
@@ -8162,6 +9269,7 @@ export type Database = {
           created_by?: string | null;
           id?: string;
           invited_at?: string | null;
+          is_demo?: boolean;
           notes?: string | null;
           org_id?: string;
           status?: string;
@@ -8956,6 +10064,7 @@ export type Database = {
           drafted_by: string | null;
           ends_on: string | null;
           id: string;
+          is_demo: boolean;
           job_id: string;
           org_id: string;
           override_by: string | null;
@@ -8986,6 +10095,7 @@ export type Database = {
           drafted_by?: string | null;
           ends_on?: string | null;
           id?: string;
+          is_demo?: boolean;
           job_id: string;
           org_id: string;
           override_by?: string | null;
@@ -9015,6 +10125,7 @@ export type Database = {
           drafted_by?: string | null;
           ends_on?: string | null;
           id?: string;
+          is_demo?: boolean;
           job_id?: string;
           org_id?: string;
           override_by?: string | null;
@@ -9656,6 +10767,7 @@ export type Database = {
           deleted_by: string | null;
           email: string | null;
           id: string;
+          is_demo: boolean;
           lni_expires_on: string | null;
           lni_registration: string | null;
           notes: string | null;
@@ -9684,6 +10796,7 @@ export type Database = {
           deleted_by?: string | null;
           email?: string | null;
           id?: string;
+          is_demo?: boolean;
           lni_expires_on?: string | null;
           lni_registration?: string | null;
           notes?: string | null;
@@ -9711,6 +10824,7 @@ export type Database = {
           deleted_by?: string | null;
           email?: string | null;
           id?: string;
+          is_demo?: boolean;
           lni_expires_on?: string | null;
           lni_registration?: string | null;
           notes?: string | null;
@@ -9746,6 +10860,7 @@ export type Database = {
           description: string | null;
           due_at: string | null;
           id: string;
+          is_demo: boolean;
           org_id: string;
           priority: string;
           status: string;
@@ -9767,6 +10882,7 @@ export type Database = {
           description?: string | null;
           due_at?: string | null;
           id?: string;
+          is_demo?: boolean;
           org_id: string;
           priority?: string;
           status?: string;
@@ -9787,6 +10903,7 @@ export type Database = {
           description?: string | null;
           due_at?: string | null;
           id?: string;
+          is_demo?: boolean;
           org_id?: string;
           priority?: string;
           status?: string;
@@ -10106,6 +11223,63 @@ export type Database = {
           },
         ];
       };
+      validation_rules: {
+        Row: {
+          active: boolean;
+          created_at: string;
+          created_by: string | null;
+          field: string;
+          id: string;
+          message: string;
+          module: string;
+          org_id: string;
+          rule_type: string;
+          sort_order: number;
+          updated_at: string;
+          updated_by: string | null;
+          value: string | null;
+        };
+        ComputedFields: never;
+        Insert: {
+          active?: boolean;
+          created_at?: string;
+          created_by?: string | null;
+          field: string;
+          id?: string;
+          message: string;
+          module: string;
+          org_id: string;
+          rule_type: string;
+          sort_order?: number;
+          updated_at?: string;
+          updated_by?: string | null;
+          value?: string | null;
+        };
+        Update: {
+          active?: boolean;
+          created_at?: string;
+          created_by?: string | null;
+          field?: string;
+          id?: string;
+          message?: string;
+          module?: string;
+          org_id?: string;
+          rule_type?: string;
+          sort_order?: number;
+          updated_at?: string;
+          updated_by?: string | null;
+          value?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "validation_rules_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       weather_forecasts: {
         Row: {
           dew_point_f: number | null;
@@ -10223,6 +11397,7 @@ export type Database = {
           deleted_by: string | null;
           estimate_version_id: string | null;
           id: string;
+          is_demo: boolean;
           job_id: string;
           notes: string | null;
           org_id: string;
@@ -10253,6 +11428,7 @@ export type Database = {
           deleted_by?: string | null;
           estimate_version_id?: string | null;
           id?: string;
+          is_demo?: boolean;
           job_id: string;
           notes?: string | null;
           org_id: string;
@@ -10282,6 +11458,7 @@ export type Database = {
           deleted_by?: string | null;
           estimate_version_id?: string | null;
           id?: string;
+          is_demo?: boolean;
           job_id?: string;
           notes?: string | null;
           org_id?: string;
@@ -11146,6 +12323,8 @@ export type Database = {
         Returns: undefined;
       };
       attention_summary: { Args: Record<PropertyKey, never>; Returns: Json };
+      bulk_update_apply: { Args: { p_id: string }; Returns: Json };
+      bulk_update_revert: { Args: { p_id: string; p_reason?: string }; Returns: Json };
       claim_drip_enrollments: {
         Args: { p_limit?: number };
         Returns: {
@@ -11275,6 +12454,7 @@ export type Database = {
         Returns: undefined;
       };
       decline_proposal: { Args: { p_reason: string; p_token_hash: string }; Returns: Json };
+      demo_data_counts: { Args: { p_org: string }; Returns: Json };
       document_stats: { Args: { p_job?: string }; Returns: Json };
       draft_final_invoice: { Args: { p_job: string }; Returns: string };
       emit_domain_event: {
@@ -11303,8 +12483,28 @@ export type Database = {
       finance_stats: { Args: { p_from: string; p_to: string }; Returns: Json };
       integration_summary: { Args: Record<PropertyKey, never>; Returns: Json };
       job_photo_summary: { Args: { p_job: string }; Returns: Json };
+      job_recovery_scan: {
+        Args: { p_limit?: number; p_org: string };
+        Returns: {
+          blocking_holds: number;
+          gate_passes: boolean;
+          has_accepted_estimate: boolean;
+          has_published_schedule: boolean;
+          job_id: string;
+          job_number: string;
+          last_changed_at: string;
+          last_from_stage: string;
+          last_override: boolean;
+          milestones: Json;
+          name: string;
+          stage: string;
+          stage_entered_at: string;
+          status: string;
+        }[];
+      };
       job_stats: { Args: { p_from: string; p_prev_from: string; p_to: string }; Returns: Json };
       job_status_counts: { Args: Record<PropertyKey, never>; Returns: Json };
+      kb_article_viewed: { Args: { p_article: string }; Returns: undefined };
       lead_stats: { Args: { p_now?: string }; Returns: Json };
       lead_status_counts: { Args: Record<PropertyKey, never>; Returns: Json };
       list_deleted_records: {
@@ -11361,12 +12561,23 @@ export type Database = {
         Returns: undefined;
       };
       mark_thread_read: { Args: { p_read?: boolean; p_thread: string }; Returns: undefined };
+      merge_customers: {
+        Args: {
+          p_choices?: Json;
+          p_merged: string;
+          p_module: string;
+          p_reason?: string;
+          p_survivor: string;
+        };
+        Returns: string;
+      };
       my_access: { Args: Record<PropertyKey, never>; Returns: Json };
       my_numbers: { Args: { p_from: string; p_to: string; p_user: string }; Returns: Json };
       note_report_run: { Args: { p_report: string }; Returns: undefined };
       open_work_counts: { Args: { p_user_id: string }; Returns: Json };
       place_job_credits: { Args: { p_job: string }; Returns: number };
       production_stats: { Args: Record<PropertyKey, never>; Returns: Json };
+      purge_demo_data: { Args: { p_org: string }; Returns: Json };
       record_payment: {
         Args: {
           p_amount_cents: number;
@@ -11448,6 +12659,7 @@ export type Database = {
         Returns: undefined;
       };
       sweep_invoices: { Args: { p_limit?: number }; Returns: Json };
+      undo_merge: { Args: { p_merge: string; p_reason?: string }; Returns: undefined };
       update_invoice_draft: {
         Args: {
           p_due_date?: string;

@@ -16,3 +16,4 @@ select app.seed_production_defaults(id) from public.organizations;
 select app.seed_money_defaults(id) from public.organizations;
 select app.seed_communication_defaults(id) from public.organizations;
 select app.seed_analytics_defaults(id) from public.organizations;
+select app.seed_help_defaults(id) from public.organizations;

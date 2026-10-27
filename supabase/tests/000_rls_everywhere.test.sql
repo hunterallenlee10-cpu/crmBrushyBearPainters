@@ -22,6 +22,7 @@ select tests.assert_eq(
 -- message threads are summaries kept by triggers on the (audited) messages.
 -- Phase 9: the export log is itself a log (written only by log_export()), and report run stats are a
 -- last-run summary kept by note_report_run().
+-- Phase 10: Help Center read counts (kb_article_stats) are a counter kept by kb_article_viewed().
 select tests.assert_eq(
   (
     select coalesce(string_agg(c.relname, ', ' order by c.relname), '')
@@ -30,7 +31,7 @@ select tests.assert_eq(
     where c.relkind = 'r' and n.nspname = 'public'
       and c.relname not in ('audit_log', 'activity', 'events', 'integration_outbox', 'permissions', 'rate_limits',
                             'workflow_runs', 'campaign_recipients', 'message_threads',
-                            'export_log', 'report_run_stats')
+                            'export_log', 'report_run_stats', 'kb_article_stats')
       and not exists (
         select 1 from pg_trigger t
         join pg_proc p on p.oid = t.tgfoid

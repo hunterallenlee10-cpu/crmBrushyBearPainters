@@ -268,6 +268,12 @@ export const PERMISSIONS = [
     scoped: false,
   },
   {
+    key: "help:manage",
+    label: "Write and publish Help Center articles",
+    category: "operational_control",
+    scoped: false,
+  },
+  {
     key: "job_admin:override",
     label: "Override job stage gates and dates",
     category: "operational_control",
