@@ -58,6 +58,8 @@ export type ProposalView = {
   snapshot: ProposalSnapshot;
   inclusions: { workType: InclusionWorkType; label: string; items: string[]; draft: boolean }[];
   guarantees: { key: string; title: string; body: string }[];
+  /** Guarantees not yet approved by an owner (shown with a draft label). */
+  guaranteesDraft: boolean;
   terms: { blocks: TemplateBlock[]; draft: boolean } | null;
   contract: { blocks: TemplateBlock[]; draft: boolean } | null;
   leadSafe: string | null;
@@ -163,7 +165,13 @@ export type ProposalViewInput = {
   expiresAt: string | null;
   pointOfContact: string | null;
   snapshot: ProposalSnapshot;
-  settings: { whatsIncluded: unknown; guarantees: unknown; leadSafeDisclosure: string | null };
+  settings: {
+    whatsIncluded: unknown;
+    guarantees: unknown;
+    leadSafeDisclosure: string | null;
+    /** Omitted = approved (older callers). */
+    guaranteesApproved?: boolean;
+  };
   workTypeLabels: ReadonlyMap<string, string>;
   templates: { proposal: TemplateRow | null; contract: TemplateRow | null };
   customerNotes: string | null;
@@ -238,6 +246,7 @@ export function buildProposalView(i: ProposalViewInput): ProposalView {
     snapshot: i.snapshot,
     inclusions,
     guarantees,
+    guaranteesDraft: i.settings.guaranteesApproved === false,
     terms: renderTemplate(i.templates.proposal, values, conditions),
     contract: renderTemplate(i.templates.contract, values, conditions),
     leadSafe:

@@ -124,6 +124,32 @@ async function axe(page: Page) {
   ).toEqual([]);
 }
 
+test("on a phone: start an estimate, add an area and a line", async ({ page }, info) => {
+  test.skip(info.project.name !== "e2e-mobile", "The desktop flow is below.");
+  await page.goto(`/jobs/${jobId}?section=estimate`);
+  await page.getByRole("button", { name: "Start the estimate" }).click();
+  await page.waitForURL(/\/estimate\/[0-9a-f-]{36}$/);
+  await page.getByLabel("New area").fill("Back deck");
+  await page.getByRole("button", { name: "Add area" }).click();
+  const area = page.getByRole("region", { name: "Back deck" });
+  await area.getByRole("button", { name: "Add line" }).click();
+  await page.getByRole("dialog").getByLabel("Search the price book").fill("color consultation");
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: /Color consultation/ })
+    .click();
+  await expect(
+    page.getByRole("dialog").getByRole("heading", { name: "Color consultation" }),
+  ).toBeVisible();
+  await page.getByRole("dialog").getByRole("button", { name: "Cancel" }).click();
+  await expect(area.getByRole("button", { name: /Color consultation/ })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Customer total" })).toContainText("Total");
+  const scrollWidth = await page.evaluate(() => document.documentElement.scrollWidth);
+  expect(scrollWidth).toBeLessThanOrEqual(page.viewportSize()!.width);
+  await page.screenshot({ path: `${SCREENS}/estimate-builder-mobile.png`, fullPage: true });
+  await axe(page);
+});
+
 test("builds an estimate and sends it for signature (simulated)", async ({ page }, info) => {
   test.skip(info.project.name !== "e2e-desktop", "One build per run; the phone part is next.");
   await page.goto(`/jobs/${jobId}?section=estimate`);
@@ -298,4 +324,80 @@ test("the office sees the signed contract, deposit invoice and checklist", async
   await page.goto(`/jobs/${jobId}?section=onboarding&tab=checklist`);
   await expect(page.getByText("Required items cleared")).toBeVisible();
   await page.screenshot({ path: `${SCREENS}/onboarding-checklist.png`, fullPage: true });
+});
+
+test("a change order is priced, sent and signed, and the contract goes up", async ({
+  page,
+  browser,
+}, info) => {
+  test.skip(info.project.name !== "e2e-desktop", "Follows the signing above.");
+  const db = adminClient();
+  const { data: before } = await db
+    .from("job_financials")
+    .select("contract_cents")
+    .eq("job_id", jobId)
+    .single();
+
+  await page.goto(`/jobs/${jobId}?section=estimate`);
+  await page.getByRole("button", { name: "Change order", exact: true }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel("Title").fill("Replace rotted fascia board");
+  await dialog.getByLabel(/Why/).fill("Found soft wood behind the gutter on the north side.");
+  await dialog.getByRole("button", { name: "Create" }).click();
+  await page.waitForURL(/\/change-orders\/[0-9a-f-]{36}$/);
+  await page.getByRole("button", { name: "Add line" }).click();
+  const picker = page.getByRole("dialog");
+  await picker.getByRole("button", { name: "Custom line instead" }).click();
+  await picker.getByLabel("Name").fill("Fascia board replacement");
+  await picker.getByLabel("Price per unit ($)").fill("500");
+  await picker.getByRole("button", { name: "Add line" }).click();
+  // The new line opens in the editor; close it.
+  await expect(
+    page.getByRole("dialog").getByRole("heading", { name: "Fascia board replacement" }),
+  ).toBeVisible();
+  await page.getByRole("dialog").getByRole("button", { name: "Cancel" }).click();
+  await expect(page.getByRole("region", { name: "Change order total" })).toContainText("$500.00");
+  await page.screenshot({ path: `${SCREENS}/change-order-desktop.png`, fullPage: true });
+
+  await page.getByRole("button", { name: "Send for signature" }).click();
+  const send = page.getByRole("dialog");
+  await send.getByRole("button", { name: "Send", exact: true }).click();
+  await expect(send.getByRole("heading", { name: "Sent" })).toBeVisible({ timeout: 30_000 });
+  const link = await send.getByLabel("Proposal link").inputValue();
+
+  const ctx = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+    isMobile: true,
+    hasTouch: true,
+    storageState: { cookies: [], origins: [] },
+  });
+  const phone = await ctx.newPage();
+  await phone.goto(new URL(link).pathname);
+  await expect(phone.getByTestId("proposal-total")).toHaveText("$500.00");
+  await phone.getByLabel("Your full name").fill(`Maya Estimate${t}`);
+  const pad = phone.getByTestId("signature-pad");
+  await pad.scrollIntoViewIfNeeded();
+  const box = (await pad.boundingBox())!;
+  await phone.mouse.move(box.x + 20, box.y + 60);
+  await phone.mouse.down();
+  await phone.mouse.move(box.x + 200, box.y + 90);
+  await phone.mouse.move(box.x + 260, box.y + 40);
+  await phone.mouse.up();
+  await phone.getByRole("checkbox", { name: /agree to sign electronically/ }).check();
+  await phone.getByRole("button", { name: "Accept & sign" }).click();
+  await expect(phone.getByText("Change order signed. Thank you!")).toBeVisible({ timeout: 45_000 });
+  await ctx.close();
+
+  const { data: after } = await db
+    .from("job_financials")
+    .select("contract_cents")
+    .eq("job_id", jobId)
+    .single();
+  expect(Number(after!.contract_cents)).toBe(Number(before!.contract_cents) + 50_000);
+  const { data: docs } = await db
+    .from("documents")
+    .select("category")
+    .eq("job_id", jobId)
+    .eq("category", "change_order");
+  expect(docs).toHaveLength(1);
 });

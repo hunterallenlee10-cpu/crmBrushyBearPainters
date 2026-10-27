@@ -111,6 +111,12 @@ describe("proposal view", () => {
     expect(view.guarantees).toEqual([
       { key: "on_time_start", title: "On-time start", body: "Or take $250 off." },
     ]);
+    expect(view.guaranteesDraft).toBe(false);
+    const draftView = buildProposalView({
+      ...viewInput(),
+      settings: { ...viewInput().settings, guaranteesApproved: false },
+    });
+    expect(draftView.guaranteesDraft).toBe(true);
     expect(view.terms?.draft).toBe(true);
     expect(view.contract?.draft).toBe(false);
     expect(view.contract?.blocks).toContainEqual({

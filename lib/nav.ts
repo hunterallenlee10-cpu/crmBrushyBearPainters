@@ -96,6 +96,7 @@ export const NAV: readonly NavGroup[] = [
         phase: 3,
         requiresAny: [
           "jobs:advance_stage",
+          "estimates:create",
           "estimates:approve_discount",
           "credits:approve",
           "job_admin:override",
@@ -203,7 +204,7 @@ export const NAV: readonly NavGroup[] = [
         href: "/price-book",
         description: "Catalog, paint products and production rates.",
         phase: 4,
-        requiresAny: ["estimates:create", "settings:manage"],
+        requiresAny: ["estimates:read", "catalog:manage"],
       },
       {
         label: "Analytics",

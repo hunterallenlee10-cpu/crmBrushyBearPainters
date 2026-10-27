@@ -169,6 +169,7 @@ export function ProposalBody({ view }: { view: ProposalView }) {
       {view.guarantees.length ? (
         <View wrap={false}>
           <Text style={styles.h2}>Our promises</Text>
+          {view.guaranteesDraft ? <Text style={styles.draft}>Draft – owner to approve</Text> : null}
           {view.guarantees.map((g) => (
             <View key={g.key} style={styles.bullet}>
               <Text style={styles.bulletDot}>✓</Text>

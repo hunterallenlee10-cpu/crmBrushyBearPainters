@@ -88,7 +88,7 @@ export const versionUpdateSchema = z
     discount_value: z.union([z.string(), z.number()]).optional().nullable(),
     discount_reason: text(500),
     deposit_percent: z
-      .union([z.coerce.number().min(0).max(100), z.literal("")])
+      .union([z.literal(""), z.coerce.number().min(0).max(100)])
       .optional()
       .nullable()
       .transform((v) => (v === "" || v === undefined ? null : v)),
@@ -345,22 +345,22 @@ export const paintProductSchema = z.object({
   cost_per_gal: dollars("Cost per gallon").refine((v) => v != null, "Enter the cost per gallon."),
   price_per_gal: dollars("Price per gallon"),
   voc_g_per_l: z
-    .union([z.coerce.number().min(0).max(1000), z.literal("")])
+    .union([z.literal(""), z.coerce.number().min(0).max(1000)])
     .optional()
     .nullable()
     .transform((v) => (v === "" || v === undefined ? null : v)),
   dry_time_hours: z
-    .union([z.coerce.number().min(0).max(1000), z.literal("")])
+    .union([z.literal(""), z.coerce.number().min(0).max(1000)])
     .optional()
     .nullable()
     .transform((v) => (v === "" || v === undefined ? null : v)),
   recoat_hours: z
-    .union([z.coerce.number().min(0).max(1000), z.literal("")])
+    .union([z.literal(""), z.coerce.number().min(0).max(1000)])
     .optional()
     .nullable()
     .transform((v) => (v === "" || v === undefined ? null : v)),
   min_temp_f: z
-    .union([z.coerce.number().int().min(-20).max(120), z.literal("")])
+    .union([z.literal(""), z.coerce.number().int().min(-20).max(120)])
     .optional()
     .nullable()
     .transform((v) => (v === "" || v === undefined ? null : v)),
@@ -393,8 +393,6 @@ export const estimateSetupSchema = z.object({
   discount_limits: z.object({
     roles: z.record(z.string(), z.coerce.number().min(0).max(100)),
   }),
-  deposit_percent: z.coerce.number().min(0).max(100),
-  estimate_expiry_days: z.coerce.number().int().min(1).max(365),
   tax: z.object({
     rate_percent: z.coerce.number().min(0).max(25),
     default_taxable: z.boolean(),
@@ -434,6 +432,16 @@ export const agreementTemplateSchema = z.object({
   doc_type: z.enum(AGREEMENT_DOC_TYPES),
   name: name("Name"),
   body: z.string().min(1, "Write the template.").max(50_000),
+  clauses: z
+    .array(
+      z.object({
+        title: z.string().trim().max(160),
+        body: z.string().trim().min(1, "Write the clause.").max(10_000),
+        when: z.enum(["always", "lead_safe", "hoa"]).default("always"),
+      }),
+    )
+    .max(30)
+    .optional(),
 });
 export const publishTemplateSchema = z.object({
   id: uuid,

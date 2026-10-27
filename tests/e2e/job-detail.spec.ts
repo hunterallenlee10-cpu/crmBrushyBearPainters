@@ -231,10 +231,10 @@ test.describe("Job Detail (owner)", () => {
     // Money is visible to owners; Paid/Balance wait for Phase 7.
     await expect(page.getByRole("heading", { name: "Money" })).toBeVisible();
     await expect(page.getByText("Arrives with Money (Phase 7)").first()).toBeVisible();
-    // Shortcuts that wait for later phases say so.
-    await expect(page.getByRole("button", { name: "Build Estimate" })).toHaveAttribute(
-      "aria-disabled",
-      "true",
+    // Build Estimate opens the Estimate & Scope section (Phase 4).
+    await expect(page.getByRole("link", { name: "Build Estimate" }).first()).toHaveAttribute(
+      "href",
+      /section=estimate/,
     );
 
     await nav.getByRole("link", { name: "Photos" }).click();
@@ -294,7 +294,7 @@ test.describe("Job Detail (owner)", () => {
   test("an override without a reason is refused", async () => {
     page = await open(page, path);
     const panel = stagePanel(page);
-    await expect(panel.getByText(/this check arrives in Phase 4/)).toBeVisible();
+    await expect(panel.getByText("No estimate has been sent yet.")).toBeVisible();
     await panel.getByRole("button", { name: "Override…" }).click();
     const dialog = page.getByRole("dialog", { name: "Override: move to Estimate Sent" });
     await expect(dialog.getByText("What the gate is waiting on:")).toBeVisible();

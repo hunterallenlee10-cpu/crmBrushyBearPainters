@@ -97,7 +97,12 @@ export type JobContext = {
     point_of_contact_id: string | null;
   };
   company: CompanyRow;
-  settings: { whatsIncluded: unknown; guarantees: unknown; leadSafeDisclosure: string | null };
+  settings: {
+    whatsIncluded: unknown;
+    guarantees: unknown;
+    leadSafeDisclosure: string | null;
+    guaranteesApproved: boolean;
+  };
   customer: { firstName: string | null; lastName: string | null; accountName: string | null };
   property: {
     street: string | null;
@@ -131,7 +136,7 @@ export async function loadJobContext(service: Db, jobId: string): Promise<JobCon
     service.from("company_settings").select(COMPANY_COLUMNS).eq("org_id", job.org_id).maybeSingle(),
     service
       .from("estimate_settings")
-      .select("whats_included, guarantees, lead_safe_disclosure")
+      .select("whats_included, guarantees, guarantees_status, lead_safe_disclosure")
       .eq("org_id", job.org_id)
       .maybeSingle(),
     job.primary_contact_id
@@ -176,6 +181,7 @@ export async function loadJobContext(service: Db, jobId: string): Promise<JobCon
     settings: {
       whatsIncluded: est.data?.whats_included ?? {},
       guarantees: est.data?.guarantees ?? [],
+      guaranteesApproved: est.data?.guarantees_status === "approved",
       leadSafeDisclosure: est.data?.lead_safe_disclosure ?? null,
     },
     customer: {

@@ -442,6 +442,7 @@ export function ProposalPage({
 
         {view.guarantees.length > 0 && (
           <Section title="Our promises" id="g-h">
+            {view.guaranteesDraft && <Draft>Draft – owner to approve</Draft>}
             <ul className="flex flex-col gap-3 text-sm">
               {view.guarantees.map((g) => (
                 <li key={g.key} className="flex gap-3">

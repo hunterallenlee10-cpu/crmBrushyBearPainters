@@ -508,7 +508,7 @@ test.describe("as the owner", () => {
     await expect(contacts.getByRole("link", { name: `Jodi Sections${t}` })).toBeVisible();
     const jobs = page.getByRole("list", { name: "Jobs for this customer" });
     await expect(jobs.getByText("This job")).toBeVisible();
-    await expect(page.getByText("Arrives with e-signature (Phase 4).")).toBeVisible();
+    await expect(page.getByText(/The primary contact signs proposals/)).toBeVisible();
     await page.screenshot({ path: `${SCREENS}/job-sections-customer.png`, fullPage: true });
   });
 
