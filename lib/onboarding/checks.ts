@@ -5,6 +5,7 @@ import { evaluateChecklist, type OnboardingSnapshot } from "@/lib/domain/onboard
 import { advanceIfGatePasses } from "@/lib/jobs/stage";
 import { recomputeJobHealth } from "@/lib/jobs/health";
 import { logError } from "@/lib/log";
+import { PREP_TEMPLATE_KEY } from "./messages";
 
 type Db = SupabaseClient<Database>;
 
@@ -18,7 +19,6 @@ type Db = SupabaseClient<Database>;
  * Onboarding each minute.
  */
 
-export const PREP_TEMPLATE_KEY = "prep_instructions";
 const OPEN_APPOINTMENT = ["tentative", "scheduled", "confirmed", "in_progress"];
 const SENT_MESSAGE = ["simulated", "queued", "sent", "delivered"];
 

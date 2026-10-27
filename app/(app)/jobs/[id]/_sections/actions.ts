@@ -5,17 +5,10 @@ import { defineAction, type ActionContext } from "@/lib/actions/define-action";
 import { ActionFailure, check } from "@/lib/actions/errors";
 import { TEAM_ROLE_LABELS, type TeamRole } from "@/lib/domain/jobs/constants";
 import { serverEnv } from "@/lib/env";
-import { type IntegrationContext } from "@/lib/integrations/core";
 import { getEmailProvider } from "@/lib/integrations/email";
-import { createSupabaseOutboxSink } from "@/lib/integrations/outbox-sink";
 import { getSmsProvider } from "@/lib/integrations/sms_voice";
-import {
-  logJobCall,
-  sendJobEmail,
-  sendJobSms,
-  type JobRecipient,
-  type MessagingJob,
-} from "@/lib/jobs/messaging";
+import { logJobCall, sendJobEmail, sendJobSms } from "@/lib/jobs/messaging";
+import { integrationContext, loadMessagingJob } from "@/lib/jobs/send";
 import { logError } from "@/lib/log";
 import { teamMemberSchema } from "@/lib/validation/jobs";
 import { pacificToUtcIso } from "@/app/(app)/leads/[id]/utils";
@@ -90,62 +83,6 @@ async function logJobActivity(
 }
 
 // --- Messages ----------------------------------------------------------------------
-
-async function loadMessagingJob(ctx: ActionContext, jobId: string): Promise<MessagingJob> {
-  const job = await requireJob(ctx, jobId);
-  let contact: JobRecipient | null = null;
-  if (job.primary_contact_id) {
-    // Row security: a contact the person can't see can't be messaged either.
-    const c = check(
-      await ctx.supabase
-        .from("contacts")
-        .select("id, first_name, last_name, mobile, phone, email, do_not_contact, opted_out_at")
-        .eq("id", job.primary_contact_id)
-        .maybeSingle(),
-    );
-    if (c) {
-      contact = {
-        id: c.id,
-        name: [c.first_name, c.last_name].filter(Boolean).join(" "),
-        mobile: c.mobile,
-        phone: c.phone,
-        email: c.email,
-        doNotContact: c.do_not_contact,
-        optedOutAt: c.opted_out_at,
-      };
-    }
-  }
-  // Do Not Contact on the original lead still applies, even to people who
-  // can't open the lead (read with the service client after the job check).
-  let leadDisposition: string | null = null;
-  if (job.lead_id) {
-    const svc = await ctx.service();
-    const { data } = await svc
-      .from("leads")
-      .select("disposition")
-      .eq("id", job.lead_id)
-      .maybeSingle();
-    leadDisposition = data?.disposition ?? null;
-  }
-  return { id: job.id, orgId: job.org_id, contact, leadDisposition };
-}
-
-async function integrationContext(ctx: ActionContext, domain: "sms_voice" | "email") {
-  const connection = check(
-    await ctx.supabase
-      .from("integration_connections")
-      .select("status")
-      .eq("org_id", ctx.viewer.orgId)
-      .eq("domain", domain)
-      .maybeSingle(),
-  );
-  const ic: IntegrationContext = {
-    orgId: ctx.viewer.orgId,
-    actorId: ctx.viewer.id,
-    sink: createSupabaseOutboxSink(await ctx.service()),
-  };
-  return { ic, connectionStatus: connection?.status ?? null };
-}
 
 export const sendJobSmsAction = defineAction({
   name: "jobs.send_sms",

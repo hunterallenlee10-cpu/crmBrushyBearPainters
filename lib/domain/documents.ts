@@ -159,3 +159,27 @@ export function guessCategory(name: string): DocumentCategory {
   if (/estimate|proposal|quote/.test(n)) return "proposal";
   return "other";
 }
+
+/** Type filter on the Documents page: groups of MIME types. */
+export const DOCUMENT_TYPE_FILTERS = {
+  pdf: { label: "PDF", mimes: ["application/pdf"] },
+  image: {
+    label: "Images",
+    mimes: ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"],
+  },
+  office: {
+    label: "Word & Excel",
+    mimes: [
+      "application/msword",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "application/vnd.ms-excel",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    ],
+  },
+  text: { label: "Text & CSV", mimes: ["text/plain", "text/csv"] },
+} as const;
+export type DocumentTypeFilter = keyof typeof DOCUMENT_TYPE_FILTERS;
+
+export function isDocumentTypeFilter(v: string | null | undefined): v is DocumentTypeFilter {
+  return !!v && Object.hasOwn(DOCUMENT_TYPE_FILTERS, v);
+}

@@ -9,6 +9,7 @@ import type { JobDetailData } from "./types";
 import { holdShortLabel, sectionHref } from "./utils";
 import { JobKebab } from "./job-kebab";
 import { SectionNav, type NavItem } from "./section-nav";
+import { SyncIndicator } from "@/components/offline/sync-indicator";
 
 /**
  * Job Detail frame (SPEC §8.5): sticky header with the job number, customer,
@@ -29,10 +30,12 @@ export function JobDetailShell({
   ).length;
 
   const counts: Partial<Record<NavItem["id"], number | null>> = {
-    onboarding: activeHolds.length || null,
+    onboarding: data.counts.onboardingOpen || activeHolds.length || null,
     schedule: data.can.readAppointments ? openAppointments || null : null,
     tasks: data.counts.openTasks || null,
     notes: data.counts.notes || null,
+    documents: data.counts.documents || null,
+    photos: data.counts.photos || null,
   };
   const items: NavItem[] = JOB_SECTIONS.filter((s) => s.id !== "admin" || can.override).map(
     (s) => ({
@@ -72,6 +75,7 @@ export function JobDetailShell({
               {" · "}
               {job.accountJobCount} {job.accountJobCount === 1 ? "job" : "jobs"}
             </p>
+            <SyncIndicator jobId={job.id} className="mt-0.5 flex print:hidden" />
             <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
               <h1 className="text-2xl font-bold tracking-tight break-words text-bb-ink">
                 {job.name}

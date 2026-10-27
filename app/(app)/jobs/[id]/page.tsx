@@ -104,6 +104,8 @@ export default async function JobDetailPage({
     tasksDue,
     propertyPicklists,
     gate,
+    docCount,
+    photoCount,
   ] = await Promise.all([
     loadJobOptions(supabase),
     supabase.from("profiles").select("default_territory_id").eq("id", viewer.id).maybeSingle(),
@@ -183,6 +185,12 @@ export default async function JobDetailPage({
       .in("key", ["siding_type", "property_type"]),
     // Gate facts (walkthrough measured, blocking holds) after the visibility check above.
     loadGateContext(service, id),
+    viewer.can("documents:read")
+      ? supabase.from("documents").select("id", { count: "exact", head: true }).eq("job_id", id)
+      : none,
+    viewer.can("photos:read")
+      ? supabase.from("job_photos").select("id", { count: "exact", head: true }).eq("job_id", id)
+      : none,
   ]);
 
   // Names for everyone who appears on the page.
@@ -392,6 +400,9 @@ export default async function JobDetailPage({
       notes: notesCount.count ?? null,
       openTasks: openTasks.count ?? null,
       tasksDue: tasksDue.count ?? null,
+      documents: docCount.count ?? null,
+      photos: photoCount.count ?? null,
+      onboardingOpen: gate.onboardingOpen?.length ?? null,
     },
     can: {
       update: writable(canUpdate),
@@ -411,6 +422,12 @@ export default async function JobDetailPage({
       readMessages: viewer.can("messages:read"),
       readNotes: can.readNotes,
       readTasks: can.readTasks,
+      sendMessages: writable(viewer.can("messages:send")),
+      manageDocuments: writable(viewer.can("documents:manage")),
+      manageTasks: writable(viewer.can("tasks:manage")),
+      readPhotos: viewer.can("photos:read"),
+      uploadPhotos: writable(viewer.can("photos:upload")),
+      deletePhotos: writable(viewer.can("photos:delete")),
     },
     viewerId: viewer.id,
     readOnly,
@@ -427,7 +444,11 @@ export default async function JobDetailPage({
         href={`/jobs/${j.id}`}
       />
       <JobDetailShell data={data}>
-        <SectionContent data={data} tab={typeof sp.tab === "string" ? sp.tab : undefined} />
+        <SectionContent
+          data={data}
+          tab={typeof sp.tab === "string" ? sp.tab : undefined}
+          limit={typeof sp.limit === "string" ? Number(sp.limit) || undefined : undefined}
+        />
       </JobDetailShell>
     </>
   );
