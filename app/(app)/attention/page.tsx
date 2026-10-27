@@ -31,6 +31,12 @@ import {
 } from "@/lib/domain/attention/rules";
 import { logError } from "@/lib/log";
 import {
+  ATTENTION_METRICS,
+  attentionMetricValue,
+  parseAttentionSummary,
+  type AttentionMetricId,
+} from "@/lib/metrics/registry";
+import {
   DEFAULT_QUERY,
   PAGE_SIZE,
   PRIORITY_FILTER_LABELS,
@@ -58,34 +64,9 @@ export const metadata: Metadata = { title: "Attention" };
  * stalls (the worker's rules) and close on their own when it's fixed. People
  * assign, start, snooze and resolve them here.
  *
- * KPI cards read `attention_summary()` directly (aggregated in Postgres, scoped
- * by row security); they move to lib/metrics/registry.ts with the registry's
- * Phase 3 additions.
+ * KPI cards come from the metrics registry (ATTENTION_METRICS over
+ * `attention_summary()`, aggregated in Postgres and scoped by row security).
  */
-
-type Summary = {
-  open: number;
-  now: number;
-  overdue: number;
-  awaiting_response: number;
-  in_progress: number;
-  snoozed: number;
-  mine: number;
-};
-
-function parseSummary(raw: unknown): Summary {
-  const o = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
-  const n = (k: string) => (typeof o[k] === "number" ? (o[k] as number) : 0);
-  return {
-    open: n("open"),
-    now: n("now"),
-    overdue: n("overdue"),
-    awaiting_response: n("awaiting_response"),
-    in_progress: n("in_progress"),
-    snoozed: n("snoozed"),
-    mine: n("mine"),
-  };
-}
 
 const fmt = (n: number) => n.toLocaleString("en-US");
 const plural = (n: number, one: string, many = `${one}s`) => `${fmt(n)} ${n === 1 ? one : many}`;
@@ -113,7 +94,9 @@ export default async function AttentionPage({
     loadAttentionPage(supabase, q, viewer.id, now),
   ]);
   if (summaryRes.error) logError("attention.summary", summaryRes.error);
-  const s = parseSummary(summaryRes.data);
+  const s = parseAttentionSummary(summaryRes.data);
+  const kpi = (id: AttentionMetricId) => ATTENTION_METRICS[id];
+  const val = (id: AttentionMetricId) => fmt(attentionMetricValue(id, s));
   const readOnly = viewer.impersonating;
 
   const pages = Math.max(1, Math.ceil(page.total / PAGE_SIZE));
@@ -192,33 +175,33 @@ export default async function AttentionPage({
         className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4"
       >
         <KpiCard
-          label="Needs Attention Now"
-          value={fmt(s.now)}
-          caption="Critical and high items still pending"
+          label={kpi("attention.now").label}
+          value={val("attention.now")}
+          caption={kpi("attention.now").caption}
           icon={Flame}
           tone="danger"
           href={attentionHref(DEFAULT_QUERY, { status: "pending", priority: "urgent" })}
         />
         <KpiCard
-          label="Overdue / At-Risk"
-          value={fmt(s.overdue)}
-          caption="Open items past their due time"
+          label={kpi("attention.overdue").label}
+          value={val("attention.overdue")}
+          caption={kpi("attention.overdue").caption}
           icon={Clock}
           tone="warning"
           href={attentionHref(DEFAULT_QUERY, { overdue: true })}
         />
         <KpiCard
-          label="Awaiting Response"
-          value={fmt(s.awaiting_response)}
-          caption="Open communication items (customers waiting on us)"
+          label={kpi("attention.awaiting_response").label}
+          value={val("attention.awaiting_response")}
+          caption={kpi("attention.awaiting_response").caption}
           icon={MessageSquare}
           tone="info"
           href={attentionHref(DEFAULT_QUERY, { category: "communication" })}
         />
         <KpiCard
-          label="In Progress"
-          value={fmt(s.in_progress)}
-          caption={`Someone has started · ${plural(s.snoozed, "snoozed item")}`}
+          label={kpi("attention.in_progress").label}
+          value={val("attention.in_progress")}
+          caption={`${kpi("attention.in_progress").caption} · ${plural(attentionMetricValue("attention.snoozed", s), "snoozed item")}`}
           icon={PlayCircle}
           tone="success"
           href={attentionHref(DEFAULT_QUERY, { status: "in_progress" })}

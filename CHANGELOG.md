@@ -2,6 +2,34 @@
 
 All notable changes, by build phase. See `docs/PLAN.md` for what each phase covers.
 
+## Phase 3 — Jobs core
+
+### Added
+
+- **Convert lead → job:** one database transaction that finds or creates the contact (by mobile, phone or email), account and property (street + ZIP), names the job "Lastname – City – Work types", and moves the lead's notes, comments, tasks and walkthrough to the job. From Lead Detail ("Convert to job"), the New Lead wizard ("Save & Convert"), or automatically when a walkthrough is booked (Company Settings switch).
+- **Stage engine:** `advanceJobStage()` is the only way a stage changes, and the database enforces it. One step forward when the gate passes; skipping, going back, reopening or passing a closed gate needs an owner override with a reason (10+ characters). Closed Lost needs a lost reason. Blocking holds (HOA, color, permit…) stop scheduling even with an override. Every change writes stage history, activity, an audit entry and an event, and stamps the milestone date. Non-owners can request an override; it lands in **Approvals**.
+- **Jobs Dashboard** (`/jobs`): pipeline value, open, in progress, closed won, revenue and performance (sold value, average job size, win rate, closing this month), daily sold chart, pipeline snapshot by stage, recent jobs, pipeline health. All from the metrics registry with "View data" tables.
+- **Job List** (`/jobs/list`): the shared list framework with tabs, stage chips, search, filters, saved views, columns, bulk actions, table or cards (cards by default on phones).
+- **Job Detail** (`/jobs/[id]`): header with stage, holds, priority and health; Call / Text / Email (simulated); 16 sections. Overview (customer, money, milestones stepper, stage actions), Admin (milestone dates, contract baseline, on-time status, stage history, delete), Notes with @mentions, Activity, Customer, Messages, Tasks and Schedule (appointments) work now; the rest say which phase brings them.
+- **Holds, team and appointments:** place and release holds, job team roles, book appointments (walkthrough, color consultation, final walkthrough, touch-up, warranty visit) in Pacific time and completion results.
+- **Job health** score (0–100) with its factors, refreshed by the worker; checks for later modules never lower it.
+- **Attention Center** (`/attention`): items open on their own (untouched new lead, aging lead, unconfirmed walkthrough, estimate SLA, approval waiting, sold with no deposit, onboarding stalled, ready not scheduled, start date missed), escalate, and close on their own when fixed. Assign, start, snooze, resolve, filters, Prioritize sort, nav badge. **Admin → Attention Rules** turns rules on or off and sets thresholds.
+- **Background worker** (`/api/cron/worker`, every minute via Vercel Cron, needs `CRON_SECRET`): processes events, notifies job teams and owners, auto-closes Paid in Full jobs after 3 days, refreshes health, runs the attention sweep.
+- **New Job** (`/jobs/new`) from an existing customer; "New job" button on accounts. Jobs in universal search, recent records and Deleted Records.
+
+### Changed
+
+- Booking a walkthrough on a lead now creates a real appointment.
+- Deleting your own note or comment works again (it was blocked by row security).
+- Attention, Approvals and Jobs counts are registry metrics.
+- Admin: Notification Settings moves to Phase 8, Job Recovery to Phase 10.
+
+### Tests
+
+- SQL/RLS: 357 assertions across 10 files (Phase 3 adds 75: stage rules and overrides, holds, history order, conversion, approvals, attention items, job visibility per role).
+- Unit: 764 tests (gates, health, attention rules and sync plan, metrics, list module, section helpers, snooze times).
+- E2E + axe on a production build (desktop and mobile): Jobs Dashboard, Job List, Job Detail and sections, New Job, Approvals, lead conversion, Attention Center, Admin Attention Rules, plus every earlier spec.
+
 ## Phase 2 — Leads & Customers
 
 ### Added

@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
+import { deleteLeadsAndJobs } from "./support/cleanup";
 import { adminClient, loginAs, TEST_USERS, type TestRole } from "./support/users";
 
 /**
@@ -204,10 +205,7 @@ test.describe("New Lead wizard", () => {
       "aria-disabled",
       "true",
     );
-    await expect(page.getByRole("button", { name: "Save & Convert" })).toHaveAttribute(
-      "aria-disabled",
-      "true",
-    );
+    await expect(page.getByRole("button", { name: "Save & Convert" })).toBeEnabled();
     await shot(page, "leads-new-step3");
 
     await page.getByRole("button", { name: "Save & book walkthrough" }).click();
@@ -251,6 +249,39 @@ test.describe("New Lead wizard", () => {
     expect(lead?.score).toEqual(expect.any(Number));
     expect(lead?.grade).toMatch(/^[A-F]$/);
     expect(lead?.scored_at).not.toBeNull();
+  });
+
+  test("Save & Convert creates the lead and opens its new job", async ({ page }) => {
+    await page.setViewportSize(DESKTOP);
+    await openWizard(page);
+    const last = `Convert${uniq()}`;
+    await fillStep1(page, last, fakePhone().typed);
+    await next(page).click();
+    await expect(heading(page, "The property")).toBeFocused();
+    await page.getByLabel("Street").fill("456 Convert Ln");
+    await page.getByLabel("City").fill("Kirkland");
+    await page.getByLabel("ZIP").fill("98033");
+    await next(page).click();
+    await expect(heading(page, "What they need")).toBeFocused();
+    await page.getByLabel("Exterior").check();
+    await page.getByLabel("Timeline").selectOption("asap");
+    await page.getByLabel(/^Source/).selectOption({ label: "Website" });
+    await page.getByLabel("Sub-source").selectOption({ label: "Organic" });
+    await page.getByRole("button", { name: "Save & Convert" }).click();
+
+    await page.waitForURL(/\/jobs\/[0-9a-f-]{36}/, { timeout: 30_000 });
+    const jobId = /\/jobs\/([0-9a-f-]{36})/.exec(page.url())?.[1];
+    const { data: job } = await adminClient()
+      .from("jobs")
+      .select("lead_id, name, stage")
+      .eq("id", jobId ?? "")
+      .single();
+    try {
+      expect(job?.name).toContain(last);
+      expect(job?.stage).toBe("walkthrough_scheduled");
+    } finally {
+      if (job?.lead_id) await deleteLeadsAndJobs([job.lead_id]);
+    }
   });
 
   test("shows clear validation errors on each step", async ({ page }) => {

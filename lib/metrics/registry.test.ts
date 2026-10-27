@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { JOB_STAGES } from "@/lib/domain/stages";
 import {
+  APPROVAL_METRICS,
+  ATTENTION_METRICS,
+  EMPTY_ATTENTION_SUMMARY,
+  approvalMetricValue,
+  attentionMetricValue,
+  parseApprovalCounts,
+  parseAttentionSummary,
   EMPTY_JOB_STATS,
   EMPTY_JOB_STATUS_COUNTS,
   EMPTY_LEAD_STATS,
@@ -202,7 +209,15 @@ describe("registry shape", () => {
       expect(m.label).not.toBe("");
       expect(m.caption).not.toBe("");
       expect(["count", "percent", "duration", "money"]).toContain(m.unit);
-      expect(["lead_stats", "job_stats", "job_status_counts"]).toContain(m.source);
+      expect([
+        "lead_stats",
+        "job_stats",
+        "job_status_counts",
+        "attention_summary",
+        "approval_counts",
+      ]).toContain(m.source);
+      if (id.startsWith("attention.")) expect(m.source).toBe("attention_summary");
+      if (id.startsWith("approvals.")) expect(m.source).toBe("approval_counts");
       if (id.startsWith("leads.")) expect(m.source).toBe("lead_stats");
       if (id.startsWith("jobs.")) expect(m.source).toMatch(/^job_/);
     }
@@ -511,5 +526,37 @@ describe("job list counts and money format", () => {
     expect(metricDelta("percent", 0.5, 0.25)).toMatchObject({ display: "+25 pts" });
     expect(metricDelta("count", null, 3)).toBeNull();
     expect(getMetric("jobs.win_rate")).toBe(JOB_METRICS["jobs.win_rate"]);
+  });
+});
+
+describe("attention and approval metrics", () => {
+  it("parses attention_summary() and falls back to zeros on bad input", () => {
+    const s = parseAttentionSummary({ open: 9, now: 3, overdue: 2, awaiting_response: 1 });
+    expect(attentionMetricValue("attention.now", s)).toBe(3);
+    expect(attentionMetricValue("attention.overdue", s)).toBe(2);
+    expect(attentionMetricValue("attention.open", s)).toBe(9);
+    expect(attentionMetricValue("attention.in_progress", s)).toBe(0);
+    expect(parseAttentionSummary(null)).toEqual(EMPTY_ATTENTION_SUMMARY);
+    expect(parseAttentionSummary({ now: -4, overdue: "x" })).toMatchObject({ now: 0, overdue: 0 });
+  });
+
+  it("reads approval counts", () => {
+    const c = parseApprovalCounts({
+      total: 10,
+      pending: 4,
+      approved_30d: 3,
+      rejected_30d: 1,
+      overrides_pending: 4,
+    });
+    for (const id of Object.keys(APPROVAL_METRICS) as (keyof typeof APPROVAL_METRICS)[]) {
+      expect(approvalMetricValue(id, c)).toBeGreaterThanOrEqual(0);
+    }
+    expect(approvalMetricValue("approvals.pending", c)).toBe(4);
+    expect(approvalMetricValue("approvals.rejected_30d", parseApprovalCounts(undefined))).toBe(0);
+  });
+
+  it("are in the global registry", () => {
+    expect(getMetric("attention.now")).toBe(ATTENTION_METRICS["attention.now"]);
+    expect(getMetric("approvals.total")).toBe(APPROVAL_METRICS["approvals.total"]);
   });
 });

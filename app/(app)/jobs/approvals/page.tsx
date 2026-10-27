@@ -5,6 +5,13 @@ import { ArrowRight, CheckCheck, ClipboardCheck, Hourglass, Inbox, Layers } from
 import { PageHeader } from "@/components/layout/page-header";
 import { EmptyState } from "@/components/layout/empty-state";
 import { KpiCard } from "@/components/kpi/kpi-card";
+import {
+  APPROVAL_DECIDED_WINDOW_DAYS,
+  APPROVAL_METRICS,
+  approvalMetricValue,
+  parseApprovalCounts,
+  type ApprovalMetricId,
+} from "@/lib/metrics/registry";
 import { StageBadge } from "@/components/layout/stage-badge";
 import { ApprovalStatusBadge } from "@/components/jobs/approval-status-badge";
 import { requireViewer } from "@/lib/auth/viewer";
@@ -47,7 +54,7 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Se
     ? (rawStatus as StatusTab)
     : "pending";
   const page = Math.max(1, Math.min(1000, Number.parseInt(one(sp.page) ?? "1", 10) || 1));
-  const since = new Date(Date.now() - 30 * DAY).toISOString();
+  const since = new Date(Date.now() - APPROVAL_DECIDED_WINDOW_DAYS * DAY).toISOString();
 
   const supabase = await createSupabaseServerClient();
   const scoped = () => {
@@ -79,6 +86,15 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Se
       .range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1),
   ]);
   if (rows.error) throw rows.error;
+  const counts = parseApprovalCounts({
+    total,
+    pending: pendingCount,
+    approved_30d: approved30,
+    rejected_30d: rejected30,
+    overrides_pending: overridesPending,
+  });
+  const kpi = (id: ApprovalMetricId) => APPROVAL_METRICS[id];
+  const val = (id: ApprovalMetricId) => approvalMetricValue(id, counts).toLocaleString("en-US");
   const matching = rows.count ?? 0;
   const pages = Math.max(1, Math.ceil(matching / PAGE_SIZE));
 
@@ -144,32 +160,32 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Se
 
       <section aria-label="Approval counts" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard
-          label="Total"
-          value={total.toLocaleString("en-US")}
-          caption={`All requests · ${scopeCaption}`}
+          label={kpi("approvals.total").label}
+          value={val("approvals.total")}
+          caption={`${kpi("approvals.total").caption} · ${scopeCaption}`}
           icon={Inbox}
           href={href({ status: "all" })}
         />
         <KpiCard
-          label="Pending"
-          value={pendingCount.toLocaleString("en-US")}
-          caption="Waiting for an owner's decision"
+          label={kpi("approvals.pending").label}
+          value={val("approvals.pending")}
+          caption={kpi("approvals.pending").caption}
           icon={Hourglass}
           tone="warning"
           href={href({ status: "pending" })}
         />
         <KpiCard
-          label="Approved / Rejected"
-          value={`${approved30.toLocaleString("en-US")} / ${rejected30.toLocaleString("en-US")}`}
-          caption="Decided in the last 30 days"
+          label={`${kpi("approvals.approved_30d").label} / ${kpi("approvals.rejected_30d").label}`}
+          value={`${val("approvals.approved_30d")} / ${val("approvals.rejected_30d")}`}
+          caption={`Decided in the last ${APPROVAL_DECIDED_WINDOW_DAYS} days`}
           icon={CheckCheck}
           tone="success"
           href={href({ status: "decided" })}
         />
         <KpiCard
           label="By type"
-          value={overridesPending.toLocaleString("en-US")}
-          caption="Pending stage overrides · discounts and change orders join in Phase 4"
+          value={val("approvals.overrides_pending")}
+          caption={kpi("approvals.overrides_pending").caption}
           icon={Layers}
           tone="info"
         />

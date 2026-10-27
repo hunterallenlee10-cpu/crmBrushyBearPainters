@@ -67,11 +67,16 @@ export function parseLeadStats(raw: unknown): LeadStats {
   return parsed.success ? parsed.data : EMPTY_LEAD_STATS;
 }
 
-/** Job sources (JobStats, JobStatusCounts) are defined in the JOB section below. */
+/**
+ * Job sources (JobStats, JobStatusCounts) are defined in the JOB section below;
+ * AttentionSummary and ApprovalCounts in the ATTENTION section.
+ */
 export type MetricSources = {
   lead_stats: LeadStats;
   job_stats: JobStats;
   job_status_counts: JobStatusCounts;
+  attention_summary: AttentionSummary;
+  approval_counts: ApprovalCounts;
 };
 export type MetricSource = keyof MetricSources;
 
@@ -841,11 +846,165 @@ export function jobSoldByDay(stats: JobStats, fromDay: string, toDay: string): S
 }
 
 // ---------------------------------------------------------------------------
+// ATTENTION & APPROVALS (Phase 3): Attention Center, nav badge, Approvals (SPEC §8.9, §9)
+// ---------------------------------------------------------------------------
+
+/** `public.attention_summary()` jsonb: open items the viewer can see, counted in Postgres. */
+export const attentionSummarySchema = z.object({
+  open: count,
+  /** Critical and high, pending, not snoozed — the nav badge. */
+  now: count,
+  overdue: count,
+  awaiting_response: count,
+  in_progress: count,
+  snoozed: count,
+  mine: count,
+});
+export type AttentionSummary = z.infer<typeof attentionSummarySchema>;
+
+export const EMPTY_ATTENTION_SUMMARY: AttentionSummary = attentionSummarySchema.parse({});
+
+export function parseAttentionSummary(raw: unknown): AttentionSummary {
+  const parsed = attentionSummarySchema.safeParse(raw ?? {});
+  return parsed.success ? parsed.data : EMPTY_ATTENTION_SUMMARY;
+}
+
+/**
+ * Approval request counts. Each is a server-side `count: "exact", head: true`
+ * query on approval_requests (row security scopes it; "My requests" adds
+ * requested_by = viewer). Decided counts cover the last 30 days.
+ */
+export const approvalCountsSchema = z.object({
+  total: count,
+  pending: count,
+  approved_30d: count,
+  rejected_30d: count,
+  overrides_pending: count,
+});
+export type ApprovalCounts = z.infer<typeof approvalCountsSchema>;
+
+export const APPROVAL_DECIDED_WINDOW_DAYS = 30;
+
+export function parseApprovalCounts(raw: unknown): ApprovalCounts {
+  const parsed = approvalCountsSchema.safeParse(raw ?? {});
+  return parsed.success ? parsed.data : approvalCountsSchema.parse({});
+}
+
+function countMetric<S extends "attention_summary" | "approval_counts">(
+  source: S,
+  def: Omit<MetricDefinition<S>, "source" | "ownerOnly" | "unit">,
+): MetricDefinition<S> {
+  return { ownerOnly: false, unit: "count", ...def, source };
+}
+
+export const ATTENTION_METRICS = {
+  "attention.open": countMetric("attention_summary", {
+    id: "attention.open",
+    label: "Open Items",
+    description: "Attention items you can see that aren't resolved.",
+    caption: "Pending, in progress or snoozed",
+    compute: (s) => s.open,
+  }),
+  "attention.now": countMetric("attention_summary", {
+    id: "attention.now",
+    label: "Needs Attention Now",
+    description: "Critical and high items that are pending and not snoozed.",
+    caption: "Critical and high items still pending",
+    compute: (s) => s.now,
+  }),
+  "attention.overdue": countMetric("attention_summary", {
+    id: "attention.overdue",
+    label: "Overdue / At-Risk",
+    description: "Open items whose due time has passed.",
+    caption: "Open items past their due time",
+    compute: (s) => s.overdue,
+  }),
+  "attention.awaiting_response": countMetric("attention_summary", {
+    id: "attention.awaiting_response",
+    label: "Awaiting Response",
+    description: "Open communication items: customers waiting on us.",
+    caption: "Open communication items (customers waiting on us)",
+    compute: (s) => s.awaiting_response,
+  }),
+  "attention.in_progress": countMetric("attention_summary", {
+    id: "attention.in_progress",
+    label: "In Progress",
+    description: "Open items someone has started.",
+    caption: "Someone has started",
+    compute: (s) => s.in_progress,
+  }),
+  "attention.snoozed": countMetric("attention_summary", {
+    id: "attention.snoozed",
+    label: "Snoozed",
+    description: "Open items snoozed until later.",
+    caption: "Snoozed until later",
+    compute: (s) => s.snoozed,
+  }),
+} as const satisfies Record<string, MetricDefinition<"attention_summary">>;
+
+export const APPROVAL_METRICS = {
+  "approvals.total": countMetric("approval_counts", {
+    id: "approvals.total",
+    label: "Total",
+    description: "Every approval request in this view, any status.",
+    caption: "All requests",
+    compute: (c) => c.total,
+  }),
+  "approvals.pending": countMetric("approval_counts", {
+    id: "approvals.pending",
+    label: "Pending",
+    description: "Requests waiting for an owner's decision.",
+    caption: "Waiting for an owner's decision",
+    compute: (c) => c.pending,
+  }),
+  "approvals.approved_30d": countMetric("approval_counts", {
+    id: "approvals.approved_30d",
+    label: "Approved",
+    description: `Requests approved in the last ${APPROVAL_DECIDED_WINDOW_DAYS} days.`,
+    caption: `Approved in the last ${APPROVAL_DECIDED_WINDOW_DAYS} days`,
+    compute: (c) => c.approved_30d,
+  }),
+  "approvals.rejected_30d": countMetric("approval_counts", {
+    id: "approvals.rejected_30d",
+    label: "Rejected",
+    description: `Requests rejected in the last ${APPROVAL_DECIDED_WINDOW_DAYS} days.`,
+    caption: `Rejected in the last ${APPROVAL_DECIDED_WINDOW_DAYS} days`,
+    compute: (c) => c.rejected_30d,
+  }),
+  "approvals.overrides_pending": countMetric("approval_counts", {
+    id: "approvals.overrides_pending",
+    label: "Pending Stage Overrides",
+    description: "Pending requests to override a stage gate.",
+    caption: "Pending stage overrides · discounts and change orders join in Phase 4",
+    compute: (c) => c.overrides_pending,
+  }),
+} as const satisfies Record<string, MetricDefinition<"approval_counts">>;
+
+export type AttentionMetricId = keyof typeof ATTENTION_METRICS;
+export type ApprovalMetricId = keyof typeof APPROVAL_METRICS;
+
+export function attentionMetricValue(id: AttentionMetricId, s: AttentionSummary): number {
+  const m: MetricDefinition<"attention_summary"> = ATTENTION_METRICS[id];
+  return m.compute(s) ?? 0;
+}
+
+export function approvalMetricValue(id: ApprovalMetricId, c: ApprovalCounts): number {
+  const m: MetricDefinition<"approval_counts"> = APPROVAL_METRICS[id];
+  return m.compute(c) ?? 0;
+}
+
+// ---------------------------------------------------------------------------
 // All metrics
 // ---------------------------------------------------------------------------
 
 /** Every registered metric, by id. Later phases spread their groups in here. */
-export const METRICS = { ...LEAD_METRICS, ...JOB_METRICS, ...JOB_COUNT_METRICS } as const;
+export const METRICS = {
+  ...LEAD_METRICS,
+  ...JOB_METRICS,
+  ...JOB_COUNT_METRICS,
+  ...ATTENTION_METRICS,
+  ...APPROVAL_METRICS,
+} as const;
 export type MetricId = keyof typeof METRICS;
 
 /** A metric of any source (each definition keeps its own source type). */

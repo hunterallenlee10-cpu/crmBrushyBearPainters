@@ -35,9 +35,9 @@ test.describe("app shell (owner)", () => {
     test.skip(isMobile(page), "desktop only");
     await page.goto("/");
     const nav = page.getByRole("navigation", { name: "Main" });
-    for (const label of ["Home", "Attention"]) {
-      await expect(nav.getByRole("link", { name: label, exact: true })).toBeVisible();
-    }
+    await expect(nav.getByRole("link", { name: "Home", exact: true })).toBeVisible();
+    // The Attention link carries a "needs attention now" count.
+    await expect(nav.getByRole("link", { name: /^Attention\b/ })).toBeVisible();
     for (const label of ["Leads", "Jobs", "Schedule", "More", "Admin"]) {
       await expect(nav.getByRole("button", { name: label })).toBeVisible();
     }

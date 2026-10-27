@@ -412,3 +412,24 @@ Every non-obvious decision, newest at the bottom. Format: date · decision · re
 
 - **Decision:** Notification Settings moves to Phase 8 (with messaging and workflows) and Job Recovery to Phase 10 (hardening); the job's own Admin section covers fixing dates and stages now. Admin → Attention Rules is new in Phase 3.
 - **Reason:** Their data and use cases arrive with those phases.
+
+### 2026-10-27 · Attention and Approvals counts are registry metrics
+
+- **Decision:** The Attention Center cards, the Attention nav badge and the Approvals cards read `ATTENTION_METRICS` / `APPROVAL_METRICS` in `lib/metrics/registry.ts`. Attention counts come from `attention_summary()` (one Postgres query, row-security scoped). Approval counts are server-side `count: "exact", head: true` queries; decided counts cover the last 30 days (`APPROVAL_DECIDED_WINDOW_DAYS`).
+- **Reason:** CLAUDE.md "Every KPI comes from lib/metrics/registry.ts". The first build of these screens counted inline; this moves them before the phase closes.
+
+### 2026-10-27 · Record-level totals aren't registry KPIs
+
+- **Decision:** The Customer section's "Lifetime contract value" is the sum of contract baselines on that account's jobs, computed by a tested helper (`app/(app)/jobs/[id]/_sections/feed-utils.ts`). It isn't a dashboard KPI, so it doesn't go through the registry. Lost jobs are left out, and people without `financials:read` don't see it.
+- **Reason:** The registry holds aggregate KPIs across many records. A total on one record page is a display figure. Owners to confirm whether lost jobs should count.
+
+### 2026-10-27 · Job screens details
+
+- **Jobs Dashboard:** "Closing This Month" = open jobs whose estimated completion date falls in the period. Pipeline value and In Progress are "right now" figures with no prior-period comparison (`job_stats()` keeps no history). Win rate counts every closed job, overrides included.
+- **Job List:** stage chips cover all 14 stages; the closed stages' chips appear only on the All tab. On phones the list starts as cards. Filters, view and layout live in the URL like the Lead List.
+- **Job Detail:** 16 sections in a left rail (a select on phones). Overview, Admin, Notes, Activity, Customer, Messages, Tasks and Schedule (appointments) work now; Onboarding, Estimate, Financial, Photos, Documents, Work Orders, Daily Logs and Punch List show what arrives in which phase. Calendar dates (promised and actual start) display as plain dates, not converted from UTC, so they don't shift a day. "Release all holds" needs a note; releasing one hold doesn't. Appointments with no assignee go to the job owner, or else the person booking.
+- **Job messages:** `lib/jobs/messaging.ts` is separate from lead messaging because the recipient is the job's primary contact. SMS goes to the mobile number only; calls use mobile or phone. Everything goes through the outbox as simulated.
+- **Approvals:** requesters see their own requests; owners see everyone's. If the job has already moved since the request, Approve is turned off ("out of date") and the owner rejects or the requester cancels it.
+- **Attention Center:** "Prioritize" ranks up to 2,000 matching items by urgency score on the server (scores depend on the current time, so they can't be a stored sort column). Past 2,000 the page says the ranking is partial and suggests a filter; that's far beyond this company's volume. Snooze presets: 1 hour, tomorrow 8 am, next Monday 8 am (Pacific).
+- **New Job** starts from an existing customer (account, property, contact). Creating a customer inline waits for owner feedback. Accounts get a "New job" button; the New Lead wizard's "Save & Convert" saves the lead and converts it in one go.
+- **Reason:** SPEC §8.5–§8.9. Recorded so the owners can review the choices; open questions are in the Phase 3 report.

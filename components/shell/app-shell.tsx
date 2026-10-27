@@ -1,4 +1,5 @@
 import { Logo } from "@/components/shell/logo";
+import { attentionMetricValue, parseAttentionSummary } from "@/lib/metrics/registry";
 import { TopNav, type RecentItems } from "@/components/shell/top-nav";
 import { MobileMenu } from "@/components/shell/mobile-menu";
 import { SearchProvider, SearchTrigger } from "@/components/shell/search";
@@ -61,8 +62,10 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
       viewer.can("attention:read") ? supabase.rpc("attention_summary") : Promise.resolve(null),
     ]);
   // Badge: open items that need someone now (critical/high, not snoozed).
-  const attentionCounts = (attention?.data ?? null) as { now?: number } | null;
-  const attentionCount = attentionCounts?.now ?? 0;
+  const attentionCount = attentionMetricValue(
+    "attention.now",
+    parseAttentionSummary(attention?.data ?? null),
+  );
   const notificationItems: NotificationItem[] = (notifications.data ?? []).map((n) => ({
     id: n.id,
     title: n.title,
