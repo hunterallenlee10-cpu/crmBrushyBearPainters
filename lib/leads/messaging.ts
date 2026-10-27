@@ -230,7 +230,7 @@ export async function sendLeadEmail(
 export async function logLeadCall(
   db: Db,
   lead: MessagingLead,
-  input: { outcome: string; durationSeconds: number | null; notes: string | null },
+  input: { outcome: string | null; durationSeconds: number | null; notes: string | null },
 ): Promise<{ messageId: string }> {
   const messageId = await insertMessage(db, {
     org_id: lead.orgId,

@@ -180,7 +180,7 @@ export async function sendJobEmail(
 export async function logJobCall(
   db: Db,
   job: MessagingJob,
-  input: { outcome: string; durationSeconds: number | null; notes: string | null },
+  input: { outcome: string | null; durationSeconds: number | null; notes: string | null },
 ): Promise<{ messageId: string }> {
   const messageId = await insertMessage(db, {
     org_id: job.orgId,
