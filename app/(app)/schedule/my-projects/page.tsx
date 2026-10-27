@@ -129,8 +129,26 @@ export default async function MyProjectsPage({ searchParams }: { searchParams: S
         }
       />
       {jobs.length === 0 ? (
-        <EmptyState icon={FolderKanban} title="No projects yet">
-          <p>Jobs you&apos;re on show up here once they&apos;re ready to schedule.</p>
+        <EmptyState
+          icon={FolderKanban}
+          title="No projects yet"
+          action={
+            <div className="flex flex-wrap justify-center gap-2">
+              <Button asChild variant="outline" size="touch">
+                <Link href="/field/today">Today&apos;s jobs</Link>
+              </Button>
+              {viewer.can("schedule:manage") && (
+                <Button asChild variant="cta" size="touch">
+                  <Link href="/schedule/master">Open the Master Schedule</Link>
+                </Button>
+              )}
+            </div>
+          }
+        >
+          <p>
+            Jobs you&apos;re on (as project manager, point of contact or on the crew) show up here
+            once they&apos;re ready to schedule.
+          </p>
         </EmptyState>
       ) : (
         <div className="grid gap-4 lg:grid-cols-[minmax(320px,400px)_1fr]">

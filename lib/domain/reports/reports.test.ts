@@ -21,7 +21,12 @@ import {
   summarizeReport,
 } from "@/lib/domain/reports/summarize";
 import { csvCell, csvFileName, toCsv } from "@/lib/domain/reports/csv";
-import { describeSchedule, nextRunAt } from "@/lib/domain/reports/schedule";
+import {
+  deliveryAccess,
+  deliveryEmail,
+  describeSchedule,
+  nextRunAt,
+} from "@/lib/domain/reports/schedule";
 
 describe("report templates (SPEC §8.14)", () => {
   it("are the ten seeded templates, each valid for its module", () => {
@@ -293,5 +298,53 @@ describe("delivery schedules", () => {
     expect(describeSchedule({ frequency: "monthly", weekday: null, monthDay: 15, hour: 13 })).toBe(
       "Monthly on day 15 at 1:00 PM",
     );
+  });
+});
+
+describe("scheduled delivery access and email", () => {
+  it("needs reports:build and an all-records scope on the module", () => {
+    expect(deliveryAccess({ "jobs:read": "all" }, "jobs:read", "Jobs")).toEqual({
+      ok: false,
+      note: "The person who scheduled this can no longer build reports.",
+    });
+    const own = deliveryAccess({ "reports:build": "all", "jobs:read": "own" }, "jobs:read", "Jobs");
+    expect(own.ok).toBe(false);
+    if (!own.ok) expect(own.note).toContain("access to all jobs");
+    expect(
+      deliveryAccess({ "reports:build": "all", "jobs:read": "all" }, "jobs:read", "Jobs"),
+    ).toEqual({ ok: true });
+  });
+
+  it("writes a plain-text email with totals, a preview and the link", () => {
+    const email = deliveryEmail({
+      reportName: "Open AR",
+      rowCount: 3,
+      truncated: false,
+      totals: [{ label: "Balance", value: "$1,200.00" }],
+      preview: { header: ["Invoice", "Balance"], rows: [["INV-1", "$400.00"]] },
+      link: "https://example.test/analytics/reports/1",
+      schedule: "Every Monday at 7 AM",
+    });
+    expect(email.subject).toBe("Scheduled report: Open AR");
+    expect(email.body).toContain("Every Monday at 7 AM · 3 rows");
+    expect(email.body).toContain("Balance: $1,200.00");
+    expect(email.body).toContain("INV-1 | $400.00");
+    expect(email.body).toContain("… and 2 more");
+    expect(email.body).toContain("https://example.test/analytics/reports/1");
+  });
+
+  it("says so when nothing matches", () => {
+    const email = deliveryEmail({
+      reportName: "Open AR",
+      rowCount: 0,
+      truncated: false,
+      totals: [],
+      preview: { header: ["Invoice"], rows: [] },
+      link: "x",
+      schedule: "Daily",
+    });
+    expect(email.body).toContain("0 rows");
+    expect(email.body).toContain("No records match this report right now.");
+    expect(email.body).not.toContain("NaN");
   });
 });

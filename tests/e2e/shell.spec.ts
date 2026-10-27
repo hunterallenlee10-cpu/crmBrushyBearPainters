@@ -24,7 +24,12 @@ test.describe("app shell (owner)", () => {
   test("home renders the shell", async ({ page }) => {
     await page.goto("/");
     await expect(page.getByRole("link", { name: "Brushy Bear CRM home" })).toBeVisible();
-    await expect(page.getByRole("heading", { level: 1, name: "Home" })).toBeVisible();
+    await expect(
+      page.getByRole("heading", {
+        level: 1,
+        name: /Executive Overview|Good (morning|afternoon|evening)/,
+      }),
+    ).toBeVisible();
     await expect(page.getByRole("button", { name: "Notifications" })).toBeVisible();
     await expect(page.getByRole("button", { name: "User menu" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Help" })).toBeVisible();
