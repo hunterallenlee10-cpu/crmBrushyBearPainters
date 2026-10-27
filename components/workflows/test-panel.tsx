@@ -52,25 +52,33 @@ export function WorkflowTestPanel({
   };
 
   return (
-    <section id="test" aria-labelledby="test-heading" className="flex flex-col gap-4 rounded-2xl border bg-card p-4">
+    <section
+      id="test"
+      aria-labelledby="test-heading"
+      className="flex flex-col gap-4 rounded-2xl border bg-card p-4"
+    >
       <div>
         <h2 id="test-heading" className="flex items-center gap-2 text-lg font-semibold">
           <FlaskConical className="size-5 text-bb-forest" aria-hidden /> Test
         </h2>
         <p className="text-sm text-muted-foreground">
-          A dry run against a real {subjectWords}: every step, the messages exactly as they'd be
-          written, consent and quiet hours. Nothing is sent and nothing changes.
+          A dry run against a real {subjectWords}: every step, the messages exactly as they&apos;d
+          be written, consent and quiet hours. Nothing is sent and nothing changes.
         </p>
       </div>
       {candidates.length === 0 ? (
         <p className="rounded-xl bg-muted/50 p-3 text-sm">
-          There's no {subjectWords} to test with yet. Once there is one, pick it here.
+          There&apos;s no {subjectWords} to test with yet. Once there is one, pick it here.
         </p>
       ) : (
         <div className="grid gap-3 sm:grid-cols-[1fr_16rem_auto] sm:items-end">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="test-subject">Record</Label>
-            <NativeSelect id="test-subject" value={subjectId} onChange={(e) => setSubjectId(e.target.value)}>
+            <NativeSelect
+              id="test-subject"
+              value={subjectId}
+              onChange={(e) => setSubjectId(e.target.value)}
+            >
               {candidates.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.label}
@@ -80,10 +88,19 @@ export function WorkflowTestPanel({
           </div>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="test-at">As if it were (Pacific, optional)</Label>
-            <Input id="test-at" type="datetime-local" value={at} onChange={(e) => setAt(e.target.value)} />
+            <Input
+              id="test-at"
+              type="datetime-local"
+              value={at}
+              onChange={(e) => setAt(e.target.value)}
+            />
           </div>
           <Button onClick={go} disabled={pending || readOnly || !subjectId}>
-            {pending ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <FlaskConical className="size-4" aria-hidden />}
+            {pending ? (
+              <Loader2 className="size-4 animate-spin" aria-hidden />
+            ) : (
+              <FlaskConical className="size-4" aria-hidden />
+            )}
             Run test
           </Button>
         </div>
@@ -93,14 +110,16 @@ export function WorkflowTestPanel({
         <div className="flex flex-col gap-3" aria-live="polite">
           {!result.matched ? (
             <p className="rounded-xl bg-warning-bg p-3 text-sm text-warning">
-              It wouldn't start for this record. {result.reason}
+              It wouldn&apos;t start for this record. {result.reason}
             </p>
           ) : (
             <ol className="flex flex-col gap-3">
               {result.steps.map((s) => (
                 <li key={s.actionId} className="rounded-xl border p-3">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-xs text-muted-foreground tabular-nums">{s.index + 1}.</span>
+                    <span className="text-xs text-muted-foreground tabular-nums">
+                      {s.index + 1}.
+                    </span>
                     <span className="font-medium">{s.label}</span>
                     <StepOutcomeBadge outcome={s.outcome} />
                     <span className="text-xs text-muted-foreground">{formatDateTime(s.at)}</span>
@@ -114,9 +133,15 @@ export function WorkflowTestPanel({
                           To {m.to ?? "—"}
                           {m.address ? ` (${m.address})` : ""}
                         </span>
-                        {m.templateStatus === "draft" && <Badge variant="sample">Draft – owner to approve</Badge>}
+                        {m.templateStatus === "draft" && (
+                          <Badge variant="sample">Draft – owner to approve</Badge>
+                        )}
                         {m.messageType === "marketing" && <Badge variant="info">Marketing</Badge>}
-                        {m.deferredUntil && <Badge variant="info">Quiet hours: {formatDateTime(m.deferredUntil)}</Badge>}
+                        {m.deferredUntil && (
+                          <Badge variant="info">
+                            Quiet hours: {formatDateTime(m.deferredUntil)}
+                          </Badge>
+                        )}
                       </div>
                       {m.blocked ? (
                         <p className="mt-2 text-warning">Not sent: {m.blocked}</p>
@@ -125,7 +150,9 @@ export function WorkflowTestPanel({
                           {m.subject && <p className="mt-2 font-medium">{m.subject}</p>}
                           <p className="mt-1 whitespace-pre-line">{m.body}</p>
                           {m.channel === "sms" && (
-                            <p className="mt-1 text-xs text-muted-foreground">{describeSmsCount(countSms(m.body))}</p>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              {describeSmsCount(countSms(m.body))}
+                            </p>
                           )}
                         </>
                       )}
@@ -139,7 +166,9 @@ export function WorkflowTestPanel({
                   {s.notify && (
                     <div className="mt-2 rounded-lg bg-muted/40 p-3 text-sm">
                       <p className="font-medium">{s.notify.title}</p>
-                      {s.notify.body && <p className="whitespace-pre-line text-muted-foreground">{s.notify.body}</p>}
+                      {s.notify.body && (
+                        <p className="whitespace-pre-line text-muted-foreground">{s.notify.body}</p>
+                      )}
                     </div>
                   )}
                 </li>
@@ -158,5 +187,7 @@ export function WorkflowTestPanel({
 
 /** ISO times inside step details → Pacific. */
 function prettyDetail(detail: string): string {
-  return detail.replace(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z/g, (iso) => formatDateTime(iso));
+  return detail.replace(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z/g, (iso) =>
+    formatDateTime(iso),
+  );
 }

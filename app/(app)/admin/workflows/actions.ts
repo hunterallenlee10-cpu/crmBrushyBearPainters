@@ -4,7 +4,11 @@ import { revalidatePath } from "next/cache";
 import { defineAction } from "@/lib/actions/define-action";
 import { ActionFailure, actionError, check } from "@/lib/actions/errors";
 import { getWorkflow } from "@/lib/domain/workflows/catalog";
-import { retryRunSchema, testWorkflowSchema, toggleWorkflowSchema } from "@/lib/validation/communication";
+import {
+  retryRunSchema,
+  testWorkflowSchema,
+  toggleWorkflowSchema,
+} from "@/lib/validation/communication";
 import { dryRunWorkflow, retryRun } from "@/lib/workflows/engine";
 
 /**
@@ -66,7 +70,9 @@ export const retryWorkflowRun = defineAction({
   permissions: ["workflows:manage"],
   handler: async (v, ctx) => {
     // Row security: the person must be able to see the run.
-    const run = check(await ctx.supabase.from("workflow_runs").select("id, status").eq("id", v.runId).maybeSingle());
+    const run = check(
+      await ctx.supabase.from("workflow_runs").select("id, status").eq("id", v.runId).maybeSingle(),
+    );
     if (!run) throw new ActionFailure(actionError("not_found", "That run isn't available."));
     if (run.status !== "failed") {
       throw new ActionFailure(actionError("conflict", "Only a failed run can be retried."));

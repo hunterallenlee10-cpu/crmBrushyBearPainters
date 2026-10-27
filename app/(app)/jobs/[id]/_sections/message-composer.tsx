@@ -25,6 +25,7 @@ import {
 } from "@/lib/jobs/messaging";
 import type { Option } from "@/lib/leads/service";
 import { selectClass } from "@/app/(app)/leads/[id]/labels";
+import { TemplatePicker, type TemplateOption } from "@/components/messaging/template-picker";
 import { logJobCallAction, sendJobEmailAction, sendJobSmsAction } from "./actions";
 import { jobCallSchema, jobEmailSchema, jobSmsSchema } from "./schemas";
 
@@ -59,12 +60,14 @@ export function MessageComposer({
   contact,
   leadDisposition,
   outcomes,
+  templates = [],
   readOnly,
 }: {
   jobId: string;
   contact: JobRecipient | null;
   leadDisposition: string | null;
   outcomes: Option[];
+  templates?: readonly TemplateOption[];
   readOnly: boolean;
 }) {
   const [mode, setMode] = React.useState<Mode>("sms");
@@ -183,11 +186,21 @@ export function MessageComposer({
 
       <form onSubmit={onSubmit} noValidate className="flex flex-col gap-3">
         {mode !== "call" && (
-          <Field id="job-composer-template" label="Template">
-            <select id="job-composer-template" className={selectClass} disabled>
-              <option>Templates arrive in Phase 8</option>
-            </select>
-          </Field>
+          <TemplatePicker
+            subjectType="job"
+            subjectId={jobId}
+            channel={mode}
+            templates={templates}
+            disabled={disabled}
+            idPrefix="job-composer-template"
+            onPick={(t) => {
+              if (mode === "sms") setSms(t.body);
+              else {
+                setSubject(t.subject ?? "");
+                setEmailBody(t.body);
+              }
+            }}
+          />
         )}
 
         {(readOnlyReason || blocked) && (

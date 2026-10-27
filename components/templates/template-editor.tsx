@@ -48,7 +48,12 @@ export type EditableTemplate = {
   isSystem: boolean;
 };
 
-type PreviewResult = { subject: string | null; body: string; missing: string[]; placeholders: string[] };
+type PreviewResult = {
+  subject: string | null;
+  body: string;
+  missing: string[];
+  placeholders: string[];
+};
 
 const GROUPS = [...new Set(MERGE_FIELDS.map((f) => f.group))];
 
@@ -86,7 +91,9 @@ export function TemplateEditor({
 
   const sample = React.useMemo(() => sampleContext({ company }), [company]);
   const local = renderTemplate(t.body, sample, { missingAs: "marker" });
-  const localSubject = t.subject ? renderTemplate(t.subject, sample, { missingAs: "marker" }) : null;
+  const localSubject = t.subject
+    ? renderTemplate(t.subject, sample, { missingAs: "marker" })
+    : null;
   const preview = real ?? {
     subject: localSubject?.text ?? null,
     body: t.channel === "sms" ? asciiPunctuation(local.text) : local.text,
@@ -142,7 +149,11 @@ export function TemplateEditor({
           else router.refresh();
         },
         onError: (e) =>
-          setErrors(Object.fromEntries(Object.entries(e.fieldErrors ?? {}).map(([k, v]) => [k, v[0] ?? ""]))),
+          setErrors(
+            Object.fromEntries(
+              Object.entries(e.fieldErrors ?? {}).map(([k, v]) => [k, v[0] ?? ""]),
+            ),
+          ),
       },
     );
 
@@ -176,12 +187,20 @@ export function TemplateEditor({
           )}
           {t.isSystem && <Badge variant="outline">System template</Badge>}
           {!t.active && <Badge variant="neutral">Off</Badge>}
-          {usedBy.length > 0 && <span className="text-xs text-muted-foreground">Used by {usedBy.join(", ")}</span>}
+          {usedBy.length > 0 && (
+            <span className="text-xs text-muted-foreground">Used by {usedBy.join(", ")}</span>
+          )}
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="tpl-name">Name</Label>
-            <Input id="tpl-name" value={t.name} onChange={(e) => set("name", e.target.value)} aria-invalid={!!errors.name} disabled={readOnly} />
+            <Input
+              id="tpl-name"
+              value={t.name}
+              onChange={(e) => set("name", e.target.value)}
+              aria-invalid={!!errors.name}
+              disabled={readOnly}
+            />
             {errors.name && <p className="text-sm text-destructive">{errors.name}</p>}
           </div>
           <div className="flex flex-col gap-1.5">
@@ -195,20 +214,32 @@ export function TemplateEditor({
               aria-describedby="tpl-key-help"
             />
             <p id="tpl-key-help" className="text-xs text-muted-foreground">
-              {isNew ? "Lowercase letters, numbers and _. It can't change later." : "Messages remember the key they came from."}
+              {isNew
+                ? "Lowercase letters, numbers and _. It can't change later."
+                : "Messages remember the key they came from."}
             </p>
             {errors.key && <p className="text-sm text-destructive">{errors.key}</p>}
           </div>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="tpl-channel">Channel</Label>
-            <NativeSelect id="tpl-channel" value={t.channel} onChange={(e) => set("channel", e.target.value as "sms" | "email")} disabled={!isNew || readOnly}>
+            <NativeSelect
+              id="tpl-channel"
+              value={t.channel}
+              onChange={(e) => set("channel", e.target.value as "sms" | "email")}
+              disabled={!isNew || readOnly}
+            >
               <option value="sms">Text (SMS)</option>
               <option value="email">Email</option>
             </NativeSelect>
           </div>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="tpl-cat">Category</Label>
-            <NativeSelect id="tpl-cat" value={t.category} onChange={(e) => set("category", e.target.value as TemplateCategory)} disabled={readOnly}>
+            <NativeSelect
+              id="tpl-cat"
+              value={t.category}
+              onChange={(e) => set("category", e.target.value as TemplateCategory)}
+              disabled={readOnly}
+            >
               {TEMPLATE_CATEGORIES.map((c) => (
                 <option key={c} value={c}>
                   {TEMPLATE_CATEGORY_LABELS[c]}
@@ -229,12 +260,18 @@ export function TemplateEditor({
               <option value="marketing">Marketing</option>
             </NativeSelect>
             <p id="tpl-type-help" className="text-xs text-muted-foreground">
-              Marketing needs an opt-in for texts, gets “Reply STOP to opt out” or the unsubscribe footer, and never goes to anyone who opted out.
+              Marketing needs an opt-in for texts, gets “Reply STOP to opt out” or the unsubscribe
+              footer, and never goes to anyone who opted out.
             </p>
           </div>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="tpl-desc">Description</Label>
-            <Input id="tpl-desc" value={t.description} onChange={(e) => set("description", e.target.value)} disabled={readOnly} />
+            <Input
+              id="tpl-desc"
+              value={t.description}
+              onChange={(e) => set("description", e.target.value)}
+              disabled={readOnly}
+            />
           </div>
         </div>
         {t.channel === "email" && (
@@ -275,14 +312,23 @@ export function TemplateEditor({
           />
           <div id="tpl-body-issues">
             {issues.map((i) => (
-              <p key={i.detail} className="text-sm text-destructive">{i.detail}</p>
+              <p key={i.detail} className="text-sm text-destructive">
+                {i.detail}
+              </p>
             ))}
             {errors.body && <p className="text-sm text-destructive">{errors.body}</p>}
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button onClick={save} disabled={pending || readOnly || issues.length > 0 || (!dirty && !isNew)}>
-            {pending ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <Save className="size-4" aria-hidden />}
+          <Button
+            onClick={save}
+            disabled={pending || readOnly || issues.length > 0 || (!dirty && !isNew)}
+          >
+            {pending ? (
+              <Loader2 className="size-4 animate-spin" aria-hidden />
+            ) : (
+              <Save className="size-4" aria-hidden />
+            )}
             {isNew ? "Create template" : "Save"}
           </Button>
           {!isNew && canApprove && t.status === "draft" && (
@@ -306,7 +352,9 @@ export function TemplateEditor({
               disabled={pending || readOnly}
               onClick={() =>
                 run(() => setTemplateActive({ id: t.id as string, active: !template.active }), {
-                  success: template.active ? "Turned off: steps that use it are skipped." : "Turned on.",
+                  success: template.active
+                    ? "Turned off: steps that use it are skipped."
+                    : "Turned on.",
                   onOk: () => router.refresh(),
                 })
               }
@@ -334,15 +382,20 @@ export function TemplateEditor({
             </NativeSelect>
           </div>
           <div className="mt-3 rounded-xl bg-muted/40 p-3 text-sm">
-            {t.channel === "email" && preview.subject && <p className="font-medium">{preview.subject}</p>}
+            {t.channel === "email" && preview.subject && (
+              <p className="font-medium">{preview.subject}</p>
+            )}
             <p className="mt-1 whitespace-pre-line">{preview.body}</p>
           </div>
           {preview.placeholders.length > 0 && (
-            <p className="mt-2 text-xs text-warning">Still placeholders: {preview.placeholders.join(", ")}</p>
+            <p className="mt-2 text-xs text-warning">
+              Still placeholders: {preview.placeholders.join(", ")}
+            </p>
           )}
           {real && real.missing.length > 0 && (
             <p className="mt-2 text-xs text-warning">
-              This record has no value for {real.missing.map((m) => `{{${m}}}`).join(", ")}. A send would be held back.
+              This record has no value for {real.missing.map((m) => `{{${m}}}`).join(", ")}. A send
+              would be held back.
             </p>
           )}
         </section>

@@ -14,7 +14,10 @@ export default async function NewTemplatePage() {
   const ctx = await loadTemplateEditorContext(await createSupabaseServerClient());
   return (
     <div className="flex flex-col gap-4">
-      <Link href="/admin/templates" className="flex w-fit items-center gap-1 text-sm text-bb-forest hover:underline">
+      <Link
+        href="/admin/templates"
+        className="flex w-fit items-center gap-1 text-sm text-bb-forest hover:underline"
+      >
         <ArrowLeft className="size-4" aria-hidden /> Messaging &amp; Templates
       </Link>
       <h1 className="text-2xl font-bold tracking-tight">New template</h1>
@@ -28,7 +31,7 @@ export default async function NewTemplatePage() {
           category: "marketing",
           messageType: "transactional",
           subject: "",
-          body: "Hi {{contact.first_name | default:\"there\"}}, ",
+          body: 'Hi {{contact.first_name | default:"there"}}, ',
           active: true,
           status: "draft",
           approvedBy: null,

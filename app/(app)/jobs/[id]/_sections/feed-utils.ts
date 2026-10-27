@@ -45,6 +45,8 @@ export type FeedMessage = FeedBase & {
   body: string | null;
   callOutcome: string | null;
   callDurationSeconds: number | null;
+  /** Sent by a workflow or campaign rather than typed by a person. */
+  automatic?: boolean;
 };
 
 export type FeedItem = FeedNote | FeedComment | FeedEvent | FeedMessage;

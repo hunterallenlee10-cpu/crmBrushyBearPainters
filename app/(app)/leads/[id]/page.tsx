@@ -41,7 +41,7 @@ const LIMIT = 200;
 const SIGNED_URL_SECONDS = 600;
 
 const LEAD_SELECT =
-  "id, org_id, first_name, last_name, company, mobile, phone, email, street, unit, city, state, zip, out_of_area, territory_id, services, timeline, home_built, year_built, property_type, stories, siding_type, has_hoa, customer_notes, status, disposition, lost_reason, lead_source, lead_sub_source, lead_set_by, owner_id, created_by, score, grade, temperature, score_factors, scored_at, walkthrough_at, nurture_until, first_contacted_at, speed_to_lead_seconds, intake_channel, created_at, updated_at, last_activity_at, owner:profiles!leads_owner_id_fkey(full_name), set_by:profiles!leads_lead_set_by_fkey(full_name), territory:territories(name)";
+  "id, org_id, first_name, last_name, company, mobile, phone, email, street, unit, city, state, zip, out_of_area, territory_id, services, timeline, home_built, year_built, property_type, stories, siding_type, has_hoa, customer_notes, status, disposition, sms_opted_out_at, lost_reason, lead_source, lead_sub_source, lead_set_by, owner_id, created_by, score, grade, temperature, score_factors, scored_at, walkthrough_at, nurture_until, first_contacted_at, speed_to_lead_seconds, intake_channel, created_at, updated_at, last_activity_at, owner:profiles!leads_owner_id_fkey(full_name), set_by:profiles!leads_lead_set_by_fkey(full_name), territory:territories(name)";
 
 export default async function LeadDetailPage({
   params,
@@ -72,63 +72,83 @@ export default async function LeadDetailPage({
   };
   const none = Promise.resolve({ data: null, error: null });
 
-  const [options, me, messages, activity, notes, comments, tasks, attachments] = await Promise.all([
-    loadLeadOptions(supabase),
-    supabase.from("profiles").select("default_territory_id").eq("id", viewer.id).maybeSingle(),
-    can.readMessages
-      ? supabase
-          .from("messages")
-          .select(
-            "id, channel, direction, status, simulated, to_address, email_subject, body, call_outcome, call_duration_seconds, sent_by, created_at",
-          )
-          .eq("subject_type", "lead")
-          .eq("subject_id", id)
-          .order("created_at", { ascending: false })
-          .limit(LIMIT)
-      : none,
-    supabase
-      .from("activity")
-      .select("id, type, summary, actor_id, created_at")
-      .eq("subject_type", "lead")
-      .eq("subject_id", id)
-      .order("created_at", { ascending: false })
-      .limit(LIMIT),
-    can.readNotes
-      ? supabase
-          .from("notes")
-          .select("id, body, pinned, priority, created_at, updated_at, created_by")
-          .eq("subject_type", "lead")
-          .eq("subject_id", id)
-          .order("pinned", { ascending: false })
-          .order("created_at", { ascending: false })
-          .limit(LIMIT)
-      : none,
-    can.readNotes
-      ? supabase
-          .from("comments")
-          .select("id, body, category, mentions, created_at, edited_at, created_by")
-          .eq("subject_type", "lead")
-          .eq("subject_id", id)
-          .order("created_at", { ascending: false })
-          .limit(LIMIT)
-      : none,
-    can.readTasks
-      ? supabase
-          .from("tasks")
-          .select("id, title, due_at, status, priority, assignee_id, completed_at")
-          .eq("subject_type", "lead")
-          .eq("subject_id", id)
-          .order("status", { ascending: false }) // open before done
-          .order("due_at", { ascending: true, nullsFirst: false })
-          .limit(LIMIT)
-      : none,
-    supabase
-      .from("lead_attachments")
-      .select("id, storage_path, file_name, content_type, source, created_at")
-      .eq("lead_id", id)
-      .order("created_at", { ascending: true })
-      .limit(50),
-  ]);
+  const [options, me, messages, activity, notes, comments, tasks, attachments, convo, templates] =
+    await Promise.all([
+      loadLeadOptions(supabase),
+      supabase.from("profiles").select("default_territory_id").eq("id", viewer.id).maybeSingle(),
+      can.readMessages
+        ? supabase
+            .from("messages")
+            .select(
+              "id, channel, direction, status, simulated, to_address, email_subject, body, call_outcome, call_duration_seconds, sent_by, created_at, workflow_run_id, campaign_id",
+            )
+            .eq("subject_type", "lead")
+            .eq("subject_id", id)
+            .order("created_at", { ascending: false })
+            .limit(LIMIT)
+        : none,
+      supabase
+        .from("activity")
+        .select("id, type, summary, actor_id, created_at")
+        .eq("subject_type", "lead")
+        .eq("subject_id", id)
+        .order("created_at", { ascending: false })
+        .limit(LIMIT),
+      can.readNotes
+        ? supabase
+            .from("notes")
+            .select("id, body, pinned, priority, created_at, updated_at, created_by")
+            .eq("subject_type", "lead")
+            .eq("subject_id", id)
+            .order("pinned", { ascending: false })
+            .order("created_at", { ascending: false })
+            .limit(LIMIT)
+        : none,
+      can.readNotes
+        ? supabase
+            .from("comments")
+            .select("id, body, category, mentions, created_at, edited_at, created_by")
+            .eq("subject_type", "lead")
+            .eq("subject_id", id)
+            .order("created_at", { ascending: false })
+            .limit(LIMIT)
+        : none,
+      can.readTasks
+        ? supabase
+            .from("tasks")
+            .select("id, title, due_at, status, priority, assignee_id, completed_at")
+            .eq("subject_type", "lead")
+            .eq("subject_id", id)
+            .order("status", { ascending: false }) // open before done
+            .order("due_at", { ascending: true, nullsFirst: false })
+            .limit(LIMIT)
+        : none,
+      supabase
+        .from("lead_attachments")
+        .select("id, storage_path, file_name, content_type, source, created_at")
+        .eq("lead_id", id)
+        .order("created_at", { ascending: true })
+        .limit(50),
+      can.readMessages
+        ? supabase
+            .from("message_threads")
+            .select("id, unread, last_inbound_at")
+            .eq("subject_type", "lead")
+            .eq("subject_id", id)
+            .maybeSingle()
+        : none,
+      viewer.can("messages:send")
+        ? supabase
+            .from("message_templates")
+            .select("key, name, channel")
+            .eq("active", true)
+            .neq("category", "internal")
+            .order("name")
+        : Promise.resolve({
+            data: [] as { key: string; name: string; channel: string }[],
+            error: null,
+          }),
+    ]);
 
   // Names for everyone who appears on the page (authors, actors, assignees, mentions).
   const personIds = new Set<string>();
@@ -185,6 +205,7 @@ export default async function LeadDetailPage({
       callOutcome: m.call_outcome,
       callDurationSeconds: m.call_duration_seconds,
       byName: nameOf(m.sent_by),
+      automatic: !!m.workflow_run_id || !!m.campaign_id,
     })),
     ...(activity.data ?? []).map((a): ThreadItem => ({
       kind: "event",
@@ -251,6 +272,7 @@ export default async function LeadDetailPage({
       customerNotes: l.customer_notes,
       status: l.status as LeadStatus,
       disposition: l.disposition,
+      smsOptedOutAt: l.sms_opted_out_at,
       lostReason: l.lost_reason,
       leadSource: l.lead_source,
       leadSubSource: l.lead_sub_source,
@@ -274,6 +296,18 @@ export default async function LeadDetailPage({
     },
     options,
     thread,
+    conversation: convo.data
+      ? {
+          id: convo.data.id,
+          unread: !!convo.data.unread,
+          lastInboundAt: convo.data.last_inbound_at,
+        }
+      : null,
+    templates: (templates.data ?? []).map((t) => ({
+      key: t.key,
+      name: t.name,
+      channel: t.channel === "email" ? ("email" as const) : ("sms" as const),
+    })),
     notes: (notes.data ?? []).map((n) => ({
       id: n.id,
       body: n.body,

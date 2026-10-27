@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { AlertTriangle, Clock, PlayCircle, Workflow } from "lucide-react";
+import { AlertTriangle, Clock, PlayCircle, type Workflow } from "lucide-react";
 import { KpiCard } from "@/components/kpi/kpi-card";
 import { PageHeader } from "@/components/layout/page-header";
 import { RunStatusBadge } from "@/components/workflows/run-status";
@@ -17,7 +17,11 @@ import { loadRecentRuns, loadWorkflowList } from "@/lib/workflows/admin";
 
 export const metadata: Metadata = { title: "Workflows" };
 
-const KPIS: { id: CommunicationMetricId; icon: typeof Workflow; tone: "brand" | "info" | "danger" }[] = [
+const KPIS: {
+  id: CommunicationMetricId;
+  icon: typeof Workflow;
+  tone: "brand" | "info" | "danger";
+}[] = [
   { id: "workflows.runs", icon: PlayCircle, tone: "brand" },
   { id: "workflows.waiting", icon: Clock, tone: "info" },
   { id: "workflows.failed", icon: AlertTriangle, tone: "danger" },
@@ -82,33 +86,54 @@ export default async function WorkflowsPage() {
           <caption className="sr-only">System workflows</caption>
           <thead className="border-b bg-muted/40 text-left text-xs text-muted-foreground uppercase">
             <tr>
-              <th scope="col" className="px-3 py-2">#</th>
-              <th scope="col" className="px-3 py-2">Workflow</th>
-              <th scope="col" className="px-3 py-2">Trigger</th>
-              <th scope="col" className="px-3 py-2 text-right">Runs</th>
-              <th scope="col" className="px-3 py-2">Last run</th>
-              <th scope="col" className="px-3 py-2">On</th>
+              <th scope="col" className="px-3 py-2">
+                #
+              </th>
+              <th scope="col" className="px-3 py-2">
+                Workflow
+              </th>
+              <th scope="col" className="px-3 py-2">
+                Trigger
+              </th>
+              <th scope="col" className="px-3 py-2 text-right">
+                Runs
+              </th>
+              <th scope="col" className="px-3 py-2">
+                Last run
+              </th>
+              <th scope="col" className="px-3 py-2">
+                On
+              </th>
             </tr>
           </thead>
           <tbody>
             {rows.map((r) => (
-              <tr key={r.def.key} className="border-b last:border-0 align-top">
+              <tr key={r.def.key} className="border-b align-top last:border-0">
                 <td className="px-3 py-3 text-muted-foreground tabular-nums">{r.def.number}</td>
                 <td className="px-3 py-3">
-                  <Link href={`/admin/workflows/${r.def.key}`} className="font-medium text-bb-forest hover:underline">
+                  <Link
+                    href={`/admin/workflows/${r.def.key}`}
+                    className="font-medium text-bb-forest hover:underline"
+                  >
                     {r.def.name}
                   </Link>
-                  <p className="mt-0.5 max-w-xl text-xs text-muted-foreground">{r.def.description}</p>
+                  <p className="mt-0.5 max-w-xl text-xs text-muted-foreground">
+                    {r.def.description}
+                  </p>
                   {!r.enabled && r.disabledReason && (
                     <p className="mt-1 text-xs text-warning">Off: {r.disabledReason}</p>
                   )}
                 </td>
                 <td className="px-3 py-3">
-                  <code className="rounded bg-muted px-1.5 py-0.5 text-xs">{r.def.triggerLabel}</code>
+                  <code className="rounded bg-muted px-1.5 py-0.5 text-xs">
+                    {r.def.triggerLabel}
+                  </code>
                 </td>
                 <td className="px-3 py-3 text-right tabular-nums">
                   {r.runs}
-                  {r.waiting > 0 && <span className="block text-xs text-muted-foreground">{r.waiting} waiting</span>}
+                  {r.waiting > 0 && (
+                    <span className="block text-xs text-muted-foreground">{r.waiting} waiting</span>
+                  )}
                 </td>
                 <td className="px-3 py-3 whitespace-nowrap">
                   {r.lastRunAt ? (
@@ -128,7 +153,10 @@ export default async function WorkflowsPage() {
                       enabled={r.enabled}
                       readOnly={viewer.impersonating}
                     />
-                    <Link href={`/admin/workflows/${r.def.key}#test`} className="text-xs text-bb-forest underline">
+                    <Link
+                      href={`/admin/workflows/${r.def.key}#test`}
+                      className="text-xs text-bb-forest underline"
+                    >
                       Test
                     </Link>
                   </div>
@@ -143,8 +171,8 @@ export default async function WorkflowsPage() {
         <Link href="/admin/templates" className="underline">
           Messaging &amp; Templates
         </Link>{" "}
-        (all “Draft – owner to approve” until an owner approves them). Quiet hours and the
-        review and referral delays are in Messaging settings.
+        (all “Draft – owner to approve” until an owner approves them). Quiet hours and the review
+        and referral delays are in Messaging settings.
       </p>
     </div>
   );

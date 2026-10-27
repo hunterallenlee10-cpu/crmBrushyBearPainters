@@ -59,8 +59,8 @@ export function WorkflowSwitch({
           <DialogHeader>
             <DialogTitle>Turn off “{name}”?</DialogTitle>
             <DialogDescription>
-              While it's off, the events it listens to are logged as skipped and nothing is sent.
-              Turning it back on doesn't replay them.
+              While it&apos;s off, the events it listens to are logged as skipped and nothing is
+              sent. Turning it back on doesn&apos;t replay them.
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-1.5">

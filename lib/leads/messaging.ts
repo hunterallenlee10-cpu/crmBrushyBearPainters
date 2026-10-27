@@ -87,12 +87,17 @@ export type ReachableLead = {
   phone: string | null;
   email: string | null;
   disposition: string | null;
+  /** Set when they replied STOP to a text (Phase 8 inbound handler). */
+  smsOptedOutAt?: string | null;
 };
 
 /** Why a person can't reach this lead on a channel, or null when they can. */
 export function contactBlockReason(lead: ReachableLead, channel: ContactChannel): string | null {
   if (lead.disposition === DO_NOT_CONTACT) {
     return "This lead asked not to be contacted. Change the disposition first if that has changed.";
+  }
+  if (channel === "sms" && lead.smsOptedOutAt) {
+    return "They replied STOP to texts. They have to text START before you can text them again.";
   }
   if (channel === "sms" && !lead.mobile && !lead.phone)
     return "Add a mobile number to send a text.";

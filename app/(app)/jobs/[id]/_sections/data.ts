@@ -109,10 +109,12 @@ type MessageRow = {
   call_duration_seconds: number | null;
   sent_by: string | null;
   created_at: string;
+  workflow_run_id: string | null;
+  campaign_id: string | null;
 };
 
 const MESSAGE_SELECT =
-  "id, channel, direction, status, to_address, email_subject, body, call_outcome, call_duration_seconds, sent_by, created_at";
+  "id, channel, direction, status, to_address, email_subject, body, call_outcome, call_duration_seconds, sent_by, created_at, workflow_run_id, campaign_id";
 
 function toMessage(m: MessageRow, fromLead: boolean, names: Map<string, string>): FeedMessage {
   return {
@@ -129,6 +131,7 @@ function toMessage(m: MessageRow, fromLead: boolean, names: Map<string, string>)
     body: m.body,
     callOutcome: m.call_outcome,
     callDurationSeconds: m.call_duration_seconds,
+    automatic: !!m.workflow_run_id || !!m.campaign_id,
   };
 }
 

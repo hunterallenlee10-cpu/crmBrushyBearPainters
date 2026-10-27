@@ -28,6 +28,8 @@ import { formatPhone } from "@/lib/domain/leads/normalize";
 import { formatDuration } from "@/lib/domain/leads/speed-to-lead";
 import { smsRecipient, type ContactChannel } from "@/lib/leads/messaging";
 import { cn } from "@/lib/utils";
+import { TemplatePicker } from "@/components/messaging/template-picker";
+import { ThreadReadBanner } from "@/components/messaging/thread-read-banner";
 import { choices, selectClass, type Labeler } from "./labels";
 import { logCall, sendEmail, sendSms } from "./actions";
 import { logCallSchema, sendEmailSchema, sendSmsSchema } from "./schemas";
@@ -230,11 +232,21 @@ function Composer({
 
       <form onSubmit={onSubmit} noValidate className="flex flex-col gap-3">
         {mode !== "call" && (
-          <Field id="composer-template" label="Template">
-            <select id="composer-template" className={selectClass} disabled>
-              <option>Templates arrive in Phase 8</option>
-            </select>
-          </Field>
+          <TemplatePicker
+            subjectType="lead"
+            subjectId={lead.id}
+            channel={mode}
+            templates={data.templates}
+            disabled={disabled}
+            idPrefix="composer-template"
+            onPick={(t) => {
+              if (mode === "sms") setSms(t.body);
+              else {
+                setSubject(t.subject ?? "");
+                setEmailBody(t.body);
+              }
+            }}
+          />
         )}
 
         {(readOnlyReason || blocked) && (
@@ -425,6 +437,16 @@ function Thread({ data, label }: { data: LeadDetailData; label: Labeler }) {
         </h2>
         <span className="text-xs text-muted-foreground">Newest first · Pacific time</span>
       </div>
+      {data.conversation && (
+        <div className="mb-3">
+          <ThreadReadBanner
+            threadId={data.conversation.id}
+            unread={data.conversation.unread}
+            lastInboundAt={data.conversation.lastInboundAt}
+            canMark={data.can.send}
+          />
+        </div>
+      )}
       {!data.can.readMessages && (
         <p className="mb-3 text-xs text-muted-foreground">
           Customer messages are hidden for your role; system activity is shown.
@@ -481,6 +503,7 @@ function Thread({ data, label }: { data: LeadDetailData; label: Labeler }) {
                       <Badge variant="sample">Simulated – not sent</Badge>
                     )}
                     {item.status === "failed" && <Badge variant="danger">Failed</Badge>}
+                    {item.automatic && <Badge variant="neutral">Workflow</Badge>}
                   </div>
                   {item.channel === "call" && (
                     <p className="mt-1 text-muted-foreground">

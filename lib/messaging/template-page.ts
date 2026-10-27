@@ -12,7 +12,10 @@ export async function loadTemplateEditorContext(db: Db): Promise<{
   jobs: { id: string; label: string }[];
 }> {
   const [company, jobs] = await Promise.all([
-    db.from("company_settings").select("company_name, phone, email, hours_text, website_url").maybeSingle(),
+    db
+      .from("company_settings")
+      .select("company_name, phone, email, hours_text, website_url")
+      .maybeSingle(),
     db
       .from("jobs")
       .select("id, name, job_number")
@@ -34,5 +37,7 @@ export async function loadTemplateEditorContext(db: Db): Promise<{
 }
 
 export function workflowsUsing(key: string): string[] {
-  return WORKFLOWS.filter((w) => templatesUsed(w).includes(key)).map((w) => `${w.number}. ${w.name}`);
+  return WORKFLOWS.filter((w) => templatesUsed(w).includes(key)).map(
+    (w) => `${w.number}. ${w.name}`,
+  );
 }

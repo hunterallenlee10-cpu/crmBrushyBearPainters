@@ -47,5 +47,7 @@ const STEP_LABELS: Record<string, string> = {
 };
 
 export function StepOutcomeBadge({ outcome }: { outcome: string }) {
-  return <Badge variant={STEP_TONES[outcome] ?? "neutral"}>{STEP_LABELS[outcome] ?? outcome}</Badge>;
+  return (
+    <Badge variant={STEP_TONES[outcome] ?? "neutral"}>{STEP_LABELS[outcome] ?? outcome}</Badge>
+  );
 }

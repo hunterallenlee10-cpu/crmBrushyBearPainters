@@ -40,8 +40,11 @@ export const saveTemplate = defineAction({
       active: v.active,
     };
     if (v.id) {
-      const rows = check(await supabase.from("message_templates").update(fields).eq("id", v.id).select("id"));
-      if (!rows?.length) throw new ActionFailure(actionError("not_found", "That template isn't available."));
+      const rows = check(
+        await supabase.from("message_templates").update(fields).eq("id", v.id).select("id"),
+      );
+      if (!rows?.length)
+        throw new ActionFailure(actionError("not_found", "That template isn't available."));
       revalidatePath(pathFor(v.id));
       revalidatePath("/admin/templates");
       return { id: v.id };
@@ -85,9 +88,14 @@ export const setTemplateActive = defineAction({
   permissions: ["templates:manage"],
   handler: async (v, { supabase }) => {
     const rows = check(
-      await supabase.from("message_templates").update({ active: v.active }).eq("id", v.id).select("id"),
+      await supabase
+        .from("message_templates")
+        .update({ active: v.active })
+        .eq("id", v.id)
+        .select("id"),
     );
-    if (!rows?.length) throw new ActionFailure(actionError("not_found", "That template isn't available."));
+    if (!rows?.length)
+      throw new ActionFailure(actionError("not_found", "That template isn't available."));
     revalidatePath(pathFor(v.id));
     revalidatePath("/admin/templates");
     return { active: v.active };
@@ -110,7 +118,8 @@ export const previewTemplate = defineAction({
       const table = v.jobId ? "jobs" : "leads";
       const id = (v.jobId ?? v.leadId) as string;
       const visible = check(await ctx.supabase.from(table).select("id").eq("id", id).maybeSingle());
-      if (!visible) throw new ActionFailure(actionError("not_found", "That record isn't available."));
+      if (!visible)
+        throw new ActionFailure(actionError("not_found", "That record isn't available."));
       const run = await loadRunContext(
         service,
         ctx.viewer.orgId,
@@ -167,7 +176,8 @@ export const saveMessagingSettings = defineAction({
         .not("org_id", "is", null)
         .select("org_id"),
     );
-    if (!rows?.length) throw new ActionFailure(actionError("forbidden", "You can't change messaging settings."));
+    if (!rows?.length)
+      throw new ActionFailure(actionError("forbidden", "You can't change messaging settings."));
     revalidatePath("/admin/templates/settings");
     return { saved: true };
   },

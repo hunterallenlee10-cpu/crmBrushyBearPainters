@@ -126,6 +126,7 @@ export function MessageEntry({
           {item.status === "simulated" && <Badge variant="sample">Simulated – not sent</Badge>}
           {item.status === "failed" && <Badge variant="danger">Failed</Badge>}
           {item.fromLead && <FromLeadBadge />}
+          {item.automatic && <Badge variant="neutral">Workflow</Badge>}
         </div>
         {item.channel === "call" && (
           <p className="mt-1 text-muted-foreground">

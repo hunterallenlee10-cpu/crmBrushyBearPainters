@@ -14,7 +14,10 @@ export default async function MessagingSettingsPage() {
   const { data: s } = await supabase.from("messaging_settings").select("*").maybeSingle();
   return (
     <div className="flex flex-col gap-6">
-      <Link href="/admin/templates" className="flex w-fit items-center gap-1 text-sm text-bb-forest hover:underline">
+      <Link
+        href="/admin/templates"
+        className="flex w-fit items-center gap-1 text-sm text-bb-forest hover:underline"
+      >
         <ArrowLeft className="size-4" aria-hidden /> Messaging &amp; Templates
       </Link>
       <PageHeader

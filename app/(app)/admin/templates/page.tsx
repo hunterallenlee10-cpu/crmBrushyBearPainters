@@ -31,7 +31,8 @@ export default async function TemplatesPage({ searchParams }: { searchParams: Se
   const sp = await searchParams;
   const q = (one(sp.q) ?? "").trim().slice(0, 80);
   const channel = one(sp.channel) === "sms" || one(sp.channel) === "email" ? one(sp.channel) : null;
-  const status = one(sp.status) === "draft" || one(sp.status) === "approved" ? one(sp.status) : null;
+  const status =
+    one(sp.status) === "draft" || one(sp.status) === "approved" ? one(sp.status) : null;
   const supabase = await createSupabaseServerClient();
   let query = supabase
     .from("message_templates")
@@ -42,7 +43,10 @@ export default async function TemplatesPage({ searchParams }: { searchParams: Se
     .limit(500);
   if (channel) query = query.eq("channel", channel);
   if (status) query = query.eq("status", status);
-  if (q) query = query.or(`name.ilike.%${q.replace(/[%_,()]/g, "")}%,key.ilike.%${q.replace(/[%_,()]/g, "")}%`);
+  if (q)
+    query = query.or(
+      `name.ilike.%${q.replace(/[%_,()]/g, "")}%,key.ilike.%${q.replace(/[%_,()]/g, "")}%`,
+    );
   const { data, error } = await query;
   if (error) throw error;
   const rows = data ?? [];
@@ -81,11 +85,15 @@ export default async function TemplatesPage({ searchParams }: { searchParams: Se
       )}
       <form className="flex flex-wrap items-end gap-2" role="search">
         <div className="flex flex-col gap-1">
-          <label htmlFor="tq" className="text-xs text-muted-foreground">Search</label>
+          <label htmlFor="tq" className="text-xs text-muted-foreground">
+            Search
+          </label>
           <Input id="tq" name="q" defaultValue={q} placeholder="Name or key" className="w-56" />
         </div>
         <div className="flex flex-col gap-1">
-          <label htmlFor="tc" className="text-xs text-muted-foreground">Channel</label>
+          <label htmlFor="tc" className="text-xs text-muted-foreground">
+            Channel
+          </label>
           <NativeSelect id="tc" name="channel" defaultValue={channel ?? ""} className="w-36">
             <option value="">Text and email</option>
             <option value="sms">Text</option>
@@ -93,14 +101,18 @@ export default async function TemplatesPage({ searchParams }: { searchParams: Se
           </NativeSelect>
         </div>
         <div className="flex flex-col gap-1">
-          <label htmlFor="ts" className="text-xs text-muted-foreground">Status</label>
+          <label htmlFor="ts" className="text-xs text-muted-foreground">
+            Status
+          </label>
           <NativeSelect id="ts" name="status" defaultValue={status ?? ""} className="w-36">
             <option value="">Any</option>
             <option value="draft">Draft</option>
             <option value="approved">Approved</option>
           </NativeSelect>
         </div>
-        <Button type="submit" variant="outline">Apply</Button>
+        <Button type="submit" variant="outline">
+          Apply
+        </Button>
       </form>
 
       {rows.length === 0 ? (
@@ -117,13 +129,19 @@ export default async function TemplatesPage({ searchParams }: { searchParams: Se
               {rows
                 .filter((r) => r.category === cat)
                 .map((r) => (
-                  <li key={r.id} className="flex flex-wrap items-center gap-2 border-b px-4 py-2 last:border-0">
+                  <li
+                    key={r.id}
+                    className="flex flex-wrap items-center gap-2 border-b px-4 py-2 last:border-0"
+                  >
                     {r.channel === "sms" ? (
                       <MessageSquare className="size-4 text-muted-foreground" aria-label="Text" />
                     ) : (
                       <Mail className="size-4 text-muted-foreground" aria-label="Email" />
                     )}
-                    <Link href={`/admin/templates/${r.id}`} className="font-medium text-bb-forest hover:underline">
+                    <Link
+                      href={`/admin/templates/${r.id}`}
+                      className="font-medium text-bb-forest hover:underline"
+                    >
                       {r.name}
                     </Link>
                     <code className="text-xs text-muted-foreground">{r.key}</code>

@@ -52,7 +52,7 @@ async function loadMessagingLead(ctx: ActionContext, id: string): Promise<Messag
   const lead = check(
     await ctx.supabase
       .from("leads")
-      .select("id, org_id, mobile, phone, email, disposition")
+      .select("id, org_id, mobile, phone, email, disposition, sms_opted_out_at")
       .eq("id", id)
       .maybeSingle(),
   );
@@ -64,6 +64,7 @@ async function loadMessagingLead(ctx: ActionContext, id: string): Promise<Messag
     phone: lead.phone,
     email: lead.email,
     disposition: lead.disposition,
+    smsOptedOutAt: lead.sms_opted_out_at,
   };
 }
 

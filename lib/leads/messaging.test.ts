@@ -161,3 +161,18 @@ describe("sendLeadSms", () => {
     await expect(sendLeadSms(fakeDb([]), real, lead, "Hi")).rejects.toBeInstanceOf(ActionFailure);
   });
 });
+
+describe("STOP replies on leads (Phase 8)", () => {
+  it("blocks texts but not email or calls", () => {
+    const lead = {
+      mobile: "+14255550100",
+      phone: null,
+      email: "a@b.co",
+      disposition: null,
+      smsOptedOutAt: "2026-10-27T10:00:00Z",
+    };
+    expect(contactBlockReason(lead, "sms")).toMatch(/replied STOP/);
+    expect(contactBlockReason(lead, "email")).toBeNull();
+    expect(contactBlockReason(lead, "call")).toBeNull();
+  });
+});

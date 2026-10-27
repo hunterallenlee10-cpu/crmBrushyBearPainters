@@ -16,6 +16,8 @@ import {
 import { MessageEntry } from "./entries";
 import { JobFeed } from "./feed";
 import { MessageComposer } from "./message-composer";
+import { ThreadReadBanner } from "@/components/messaging/thread-read-banner";
+import type { TemplateOption } from "@/components/messaging/template-picker";
 import { NoAccess, Unavailable } from "./section-card";
 import { JobTasks, type JobTask } from "./tasks";
 import { loadChecklists } from "@/lib/production/job";
@@ -41,7 +43,7 @@ export async function MessagesSection({ jobId }: SectionProps): Promise<React.Re
     );
   }
   const supabase = await createSupabaseServerClient();
-  const [messages, outcomes, contactRes, leadRes] = await Promise.all([
+  const [messages, outcomes, contactRes, leadRes, threadRes, templatesRes] = await Promise.all([
     loadMessages(job),
     loadCallOutcomes(),
     job.primaryContactId
@@ -54,7 +56,25 @@ export async function MessagesSection({ jobId }: SectionProps): Promise<React.Re
     job.leadId
       ? supabase.from("leads").select("disposition").eq("id", job.leadId).maybeSingle()
       : Promise.resolve({ data: null }),
+    supabase
+      .from("message_threads")
+      .select("id, unread, last_inbound_at")
+      .eq("subject_type", "job")
+      .eq("subject_id", job.id)
+      .maybeSingle(),
+    supabase
+      .from("message_templates")
+      .select("key, name, channel")
+      .eq("active", true)
+      .neq("category", "internal")
+      .order("name"),
   ]);
+  const thread = threadRes.data;
+  const templates: TemplateOption[] = (templatesRes.data ?? []).map((t) => ({
+    key: t.key,
+    name: t.name,
+    channel: t.channel === "email" ? "email" : "sms",
+  }));
   const c = contactRes.data;
   const contact: JobRecipient | null = c
     ? {
@@ -79,6 +99,14 @@ export async function MessagesSection({ jobId }: SectionProps): Promise<React.Re
         <Info className="mt-0.5 size-4 shrink-0" aria-hidden />
         Customer-facing. Internal notes and comments stay separate.
       </p>
+      {thread && (
+        <ThreadReadBanner
+          threadId={thread.id}
+          unread={!!thread.unread}
+          lastInboundAt={thread.last_inbound_at}
+          canMark={canSend && !viewer.impersonating}
+        />
+      )}
       <div className="grid gap-4 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)] xl:grid-cols-[minmax(0,30rem)_minmax(0,1fr)]">
         <div>
           {canSend ? (
@@ -87,6 +115,7 @@ export async function MessagesSection({ jobId }: SectionProps): Promise<React.Re
               contact={contact}
               leadDisposition={leadRes.data?.disposition ?? null}
               outcomes={outcomes}
+              templates={templates}
               readOnly={viewer.impersonating}
             />
           ) : (

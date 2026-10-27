@@ -42,6 +42,7 @@ export type LeadRecord = {
   customerNotes: string | null;
   status: LeadStatus;
   disposition: string | null;
+  smsOptedOutAt: string | null;
   lostReason: string | null;
   leadSource: string;
   leadSubSource: string | null;
@@ -79,6 +80,8 @@ export type ThreadItem =
       callOutcome: string | null;
       callDurationSeconds: number | null;
       byName: string | null;
+      /** Sent by a workflow or campaign. */
+      automatic: boolean;
     }
   | {
       kind: "event";
@@ -151,6 +154,9 @@ export type LeadDetailData = {
   lead: LeadRecord;
   options: LeadOptions;
   thread: ThreadItem[];
+  /** The customer conversation's read state (SPEC §5.7), when one exists. */
+  conversation: { id: string; unread: boolean; lastInboundAt: string | null } | null;
+  templates: { key: string; name: string; channel: "sms" | "email" }[];
   notes: NoteItem[];
   comments: CommentItem[];
   tasks: TaskItem[];

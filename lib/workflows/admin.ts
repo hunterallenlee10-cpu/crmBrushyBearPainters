@@ -97,7 +97,10 @@ export async function loadRecentRuns(
 export type TestCandidate = { id: string; label: string };
 
 /** Records a Test can run against, newest first (the subject type of the workflow). */
-export async function loadTestCandidates(db: Db, subject: WorkflowSubject): Promise<TestCandidate[]> {
+export async function loadTestCandidates(
+  db: Db,
+  subject: WorkflowSubject,
+): Promise<TestCandidate[]> {
   switch (subject) {
     case "lead": {
       const { data } = await db
@@ -119,7 +122,10 @@ export async function loadTestCandidates(db: Db, subject: WorkflowSubject): Prom
         .is("deleted_at", null)
         .order("updated_at", { ascending: false })
         .limit(40);
-      return (data ?? []).map((j) => ({ id: j.id, label: `${j.job_number} · ${j.name} · ${j.stage.replace(/_/g, " ")}` }));
+      return (data ?? []).map((j) => ({
+        id: j.id,
+        label: `${j.job_number} · ${j.name} · ${j.stage.replace(/_/g, " ")}`,
+      }));
     }
     case "appointment": {
       const { data } = await db
@@ -142,7 +148,10 @@ export async function loadTestCandidates(db: Db, subject: WorkflowSubject): Prom
         .not("sent_at", "is", null)
         .order("sent_at", { ascending: false })
         .limit(40);
-      return (data ?? []).map((e) => ({ id: e.id, label: `${e.estimate_number} · ${e.job?.name ?? ""} · ${e.status}` }));
+      return (data ?? []).map((e) => ({
+        id: e.id,
+        label: `${e.estimate_number} · ${e.job?.name ?? ""} · ${e.status}`,
+      }));
     }
     case "daily_log": {
       const { data } = await db
@@ -151,7 +160,10 @@ export async function loadTestCandidates(db: Db, subject: WorkflowSubject): Prom
         .is("deleted_at", null)
         .order("created_at", { ascending: false })
         .limit(40);
-      return (data ?? []).map((l) => ({ id: l.id, label: `${formatDate(`${l.log_date}T12:00:00Z`)} · ${l.job?.name ?? ""}` }));
+      return (data ?? []).map((l) => ({
+        id: l.id,
+        label: `${formatDate(`${l.log_date}T12:00:00Z`)} · ${l.job?.name ?? ""}`,
+      }));
     }
     case "invoice": {
       const { data } = await db
@@ -159,7 +171,10 @@ export async function loadTestCandidates(db: Db, subject: WorkflowSubject): Prom
         .select("id, invoice_number, status, job:jobs(name)")
         .order("created_at", { ascending: false })
         .limit(40);
-      return (data ?? []).map((i) => ({ id: i.id, label: `${i.invoice_number} · ${i.job?.name ?? ""} · ${i.status}` }));
+      return (data ?? []).map((i) => ({
+        id: i.id,
+        label: `${i.invoice_number} · ${i.job?.name ?? ""} · ${i.status}`,
+      }));
     }
     case "subcontractor": {
       const { data } = await db
@@ -221,7 +236,11 @@ export async function loadRun(db: Db, id: string): Promise<RunDetail | null> {
   const { data: r } = await db.from("workflow_runs").select("*").eq("id", id).maybeSingle();
   if (!r) return null;
   let href = subjectHref(r.subject_type, r.subject_id);
-  if (!href && r.subject_id && ["appointment", "estimate", "daily_log", "invoice"].includes(r.subject_type ?? "")) {
+  if (
+    !href &&
+    r.subject_id &&
+    ["appointment", "estimate", "daily_log", "invoice"].includes(r.subject_type ?? "")
+  ) {
     const table =
       r.subject_type === "appointment"
         ? "appointments"

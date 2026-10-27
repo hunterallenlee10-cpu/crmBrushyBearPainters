@@ -601,7 +601,10 @@ export async function loadRunContext(
   // Signature: the point of contact, else the owner of the record, else the first owner.
   const signer = pocName ?? people.owners?.[0]?.name ?? null;
   // (An empty company with no owners signs as "the team".)
-  merge.poc = { first_name: firstWord(signer) ?? "the team", full_name: signer ?? String(company.name) };
+  merge.poc = {
+    first_name: firstWord(signer) ?? "the team",
+    full_name: signer ?? String(company.name),
+  };
 
   // Review and referral bits.
   const reward =

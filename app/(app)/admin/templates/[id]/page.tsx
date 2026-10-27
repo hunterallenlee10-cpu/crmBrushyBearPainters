@@ -18,7 +18,11 @@ export default async function TemplatePage({ params }: { params: Params }) {
   const { id } = await params;
   if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
   const supabase = await createSupabaseServerClient();
-  const { data: t } = await supabase.from("message_templates").select("*").eq("id", id).maybeSingle();
+  const { data: t } = await supabase
+    .from("message_templates")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
   if (!t) notFound();
   const [ctx, approver] = await Promise.all([
     loadTemplateEditorContext(supabase),
@@ -31,7 +35,10 @@ export default async function TemplatePage({ params }: { params: Params }) {
     : "internal";
   return (
     <div className="flex flex-col gap-4">
-      <Link href="/admin/templates" className="flex w-fit items-center gap-1 text-sm text-bb-forest hover:underline">
+      <Link
+        href="/admin/templates"
+        className="flex w-fit items-center gap-1 text-sm text-bb-forest hover:underline"
+      >
         <ArrowLeft className="size-4" aria-hidden /> Messaging &amp; Templates
       </Link>
       <div>

@@ -110,3 +110,10 @@ export const replyThreadSchema = z.object({
   body: z.string().trim().min(1, "Write a message.").max(5000),
   templateKey: key.optional(),
 });
+
+export const renderForSchema = z.object({
+  subjectType: z.enum(["job", "lead"]),
+  subjectId: uuid,
+  key,
+  channel: z.enum(["sms", "email"]),
+});
