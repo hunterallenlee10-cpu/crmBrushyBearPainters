@@ -137,6 +137,12 @@ export type OwnProfileValues = z.output<typeof ownProfileSchema>;
 
 export const DEFAULT_HOMES = ["executive_overview", "my_day"] as const;
 export const TIME_FORMATS = ["12h", "24h"] as const;
+export const DENSITIES = ["comfortable", "compact"] as const;
+export type Density = (typeof DENSITIES)[number];
+export const DENSITY_LABELS: Record<Density, string> = {
+  comfortable: "Comfortable (roomier rows, easier on a tablet)",
+  compact: "Compact (more rows on screen)",
+};
 export type DefaultHome = (typeof DEFAULT_HOMES)[number];
 export type TimeFormat = (typeof TIME_FORMATS)[number];
 
@@ -152,6 +158,7 @@ export const TIME_FORMAT_LABELS: Record<TimeFormat, string> = {
 export const preferencesSchema = z.object({
   default_home: z.enum(DEFAULT_HOMES, "Pick a default home."),
   time_format: z.enum(TIME_FORMATS, "Pick a time format."),
+  density: z.enum(DENSITIES, "Pick a density."),
 });
 export type PreferencesValues = z.output<typeof preferencesSchema>;
 
@@ -182,7 +189,8 @@ export function readPreferences(
     raw && typeof raw === "object" && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {};
   const home = DEFAULT_HOMES.find((h) => h === o.default_home) ?? fallbackHome;
   const time = TIME_FORMATS.find((t) => t === o.time_format) ?? "12h";
-  return { default_home: home, time_format: time };
+  const density = DENSITIES.find((d) => d === o.density) ?? "comfortable";
+  return { default_home: home, time_format: time, density };
 }
 
 /** Merges new preference values into the stored object without dropping other keys. */

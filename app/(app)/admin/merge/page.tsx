@@ -282,7 +282,9 @@ export default async function MergePage({ searchParams }: { searchParams: Search
                         .join(" · ")}
                     </span>
                     <Button size="sm" variant="outline" asChild>
-                      <Link href={href({ a: g[0]!.id ?? null, b: g[1]!.id ?? null, q: null })}>Compare</Link>
+                      <Link href={href({ a: g[0]!.id ?? null, b: g[1]!.id ?? null, q: null })}>
+                        Compare
+                      </Link>
                     </Button>
                   </li>
                 ))}

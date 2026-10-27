@@ -181,3 +181,9 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* Settings → Preferences → Density: compact packs list and table rows tighter. */
+[data-density="compact"] table :is(td, th) {
+  padding-top: 0.25rem;
+  padding-bottom: 0.25rem;
+}

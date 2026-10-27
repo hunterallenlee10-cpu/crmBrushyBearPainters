@@ -23,6 +23,8 @@ const nextConfig: NextConfig = {
   // can't see; without this, PDF routes and the worker fail on Vercel.
   outputFileTracingIncludes: {
     "/**/*": ["./node_modules/.pnpm/pdfkit@*/node_modules/pdfkit/js/**/*"],
+    // Help → Release Notes reads the changelog at request time.
+    "/help/release-notes": ["./CHANGELOG.md"],
   },
   // Test sign-in locks and helper worktrees must not trigger dev rebuilds.
   webpack(config, { dev }) {

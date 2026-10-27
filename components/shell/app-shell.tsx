@@ -12,6 +12,7 @@ import {
 } from "@/components/shell/top-bar-actions";
 import { ViewAsBanner, ViewAsButton, type ViewAsUser } from "@/components/shell/view-as";
 import { HelpButton } from "@/components/shell/help-button";
+import { readPreferences } from "@/lib/validation/users";
 import { CrewTabBar } from "@/components/shell/crew-tab-bar";
 import { ExportProvider } from "@/components/kpi/export-context";
 import { requireViewer } from "@/lib/auth/viewer";
@@ -26,7 +27,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
   const groups = visibleNav((p) => viewer.can(p));
   const canViewAs = viewer.isOwner && !viewer.impersonating;
 
-  const [summary, people, notifications, unreadRes, recentLeads, recentJobs, attention] =
+  const [summary, people, notifications, unreadRes, recentLeads, recentJobs, attention, me] =
     await Promise.all([
       viewer.can("integrations:read") ? supabase.rpc("integration_summary") : Promise.resolve(null),
       canViewAs
@@ -61,6 +62,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
             .limit(10)
         : Promise.resolve(null),
       viewer.can("attention:read") ? supabase.rpc("attention_summary") : Promise.resolve(null),
+      supabase.from("profiles").select("preferences").eq("id", viewer.real.id).maybeSingle(),
     ]);
   // Badge: open items that need someone now (critical/high, not snoozed).
   const attentionCount = attentionMetricValue(
@@ -134,12 +136,16 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         </div>
       </header>
-      <main id="main" className={viewer.isCrew ? "pb-20 lg:pb-0" : undefined}>
+      <main
+        id="main"
+        data-density={readPreferences(me.data?.preferences).density}
+        className={viewer.isCrew ? "pb-36 lg:pb-20" : "pb-20"}
+      >
         <ExportProvider canExport={viewer.can("data:export") && !viewer.impersonating}>
           {children}
         </ExportProvider>
       </main>
-      <HelpButton aiConnected={false} />
+      <HelpButton aiConnected={false} raised={viewer.isCrew} />
       {viewer.isCrew && <CrewTabBar />}
     </SearchProvider>
   );

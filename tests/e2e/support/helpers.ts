@@ -10,7 +10,10 @@ export const isPhone = (page: Page) => (page.viewportSize()?.width ?? 1440) < 10
 export function screens(dir: string) {
   mkdirSync(dir, { recursive: true });
   return (page: Page, name: string) =>
-    page.screenshot({ path: `${dir}/${name}${isPhone(page) ? "-mobile" : ""}.png`, fullPage: true });
+    page.screenshot({
+      path: `${dir}/${name}${isPhone(page) ? "-mobile" : ""}.png`,
+      fullPage: true,
+    });
 }
 
 /** No serious or critical axe violations (WCAG 2 A/AA). */

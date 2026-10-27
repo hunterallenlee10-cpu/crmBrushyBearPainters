@@ -206,6 +206,22 @@ export const ADMIN_SECTIONS: readonly AdminSection[] = [
     description: "Monthly sold-revenue goals for the forecast and On Pace.",
   },
   {
+    label: "Commissions",
+    href: "/admin/commissions",
+    group: "Finance",
+    phase: 10,
+    requiresAny: ["commissions:manage"],
+    description: "Plans, payroll preview, exceptions and a simulator (off by default).",
+  },
+  {
+    label: "Demo Data",
+    href: "/admin/demo-data",
+    group: "Data",
+    phase: 10,
+    requiresAny: ["users:view_as"],
+    description: "See and purge sample records loaded for training (owners).",
+  },
+  {
     label: "Data Import",
     href: "/admin/import",
     group: "Data",

@@ -270,3 +270,34 @@ describe("reconcile, payroll, simulator", () => {
     });
   });
 });
+
+import { summarizeMyCommissions } from "@/lib/domain/commissions";
+
+describe("My Numbers commissions card", () => {
+  it("adds open entries now and paid ones in the period", () => {
+    expect(
+      summarizeMyCommissions(
+        [
+          { status: "pending", amountCents: 100, paidOn: null },
+          { status: "eligible", amountCents: 200, paidOn: null },
+          { status: "needs_review", amountCents: 50, paidOn: null },
+          { status: "approved", amountCents: 300, paidOn: null },
+          { status: "paid", amountCents: 400, paidOn: "2026-10-05" },
+          { status: "paid", amountCents: 999, paidOn: "2026-09-30" },
+          { status: "void", amountCents: 999, paidOn: null },
+        ],
+        [
+          { status: "approved", amountCents: -20, paidOn: null },
+          { status: "paid", amountCents: 10, paidOn: "2026-10-10" },
+        ],
+        { from: "2026-10-01", to: "2026-11-01" },
+      ),
+    ).toEqual({
+      pendingCents: 100,
+      eligibleCents: 250,
+      approvedCents: 280,
+      paidCents: 410,
+      jobs: 6,
+    });
+  });
+});

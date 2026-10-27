@@ -141,14 +141,19 @@ describe("preferences", () => {
     expect(readPreferences(null)).toEqual({
       default_home: "executive_overview",
       time_format: "12h",
+      density: "comfortable",
     });
-    expect(readPreferences({ default_home: "nope", time_format: 24 })).toEqual({
+    expect(readPreferences({ default_home: "nope", time_format: 24, density: "tiny" })).toEqual({
       default_home: "executive_overview",
       time_format: "12h",
+      density: "comfortable",
     });
-    expect(readPreferences({ default_home: "my_day", time_format: "24h" })).toEqual({
+    expect(
+      readPreferences({ default_home: "my_day", time_format: "24h", density: "compact" }),
+    ).toEqual({
       default_home: "my_day",
       time_format: "24h",
+      density: "compact",
     });
     // Phase 9: non-owners land on My Day until they pick otherwise.
     expect(readPreferences(null, roleDefaultHome(false)).default_home).toBe("my_day");
@@ -161,13 +166,25 @@ describe("preferences", () => {
   it("merges without dropping other keys", () => {
     expect(
       mergePreferences(
-        { density: "compact", default_home: "my_day" },
-        preferencesSchema.parse({ default_home: "executive_overview", time_format: "24h" }),
+        { list_columns: { leads: ["name"] }, default_home: "my_day" },
+        preferencesSchema.parse({
+          default_home: "executive_overview",
+          time_format: "24h",
+          density: "compact",
+        }),
       ),
-    ).toEqual({ density: "compact", default_home: "executive_overview", time_format: "24h" });
-    expect(mergePreferences([], { default_home: "my_day", time_format: "12h" })).toEqual({
+    ).toEqual({
+      list_columns: { leads: ["name"] },
+      default_home: "executive_overview",
+      time_format: "24h",
+      density: "compact",
+    });
+    expect(
+      mergePreferences([], { default_home: "my_day", time_format: "12h", density: "comfortable" }),
+    ).toEqual({
       default_home: "my_day",
       time_format: "12h",
+      density: "comfortable",
     });
   });
 });

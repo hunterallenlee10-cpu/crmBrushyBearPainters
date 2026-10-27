@@ -23,6 +23,9 @@ import {
   type MyNumbersMetricId,
 } from "@/lib/metrics/registry";
 import { RepPicker } from "./rep-picker";
+import { formatInTimeZone } from "date-fns-tz";
+import { loadCommissionSettings } from "@/lib/commissions/server";
+import { summarizeMyCommissions, type CommissionStatus } from "@/lib/domain/commissions";
 
 export const metadata: Metadata = { title: "My Numbers" };
 
@@ -42,7 +45,8 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 /**
  * My Numbers (SPEC §8.15): a personal scoreboard. Each card counts on its own
  * date field (the page says which); clicking a card lists its records. Owners
- * can view any rep. Commissions arrive with the commissions engine (Phase 10).
+ * can view any rep. When an owner turns commissions on, a commissions card
+ * shows the rep's own commissions (SPEC §8.15, §10).
  */
 export default async function MyNumbersPage({ searchParams }: { searchParams: SearchParams }) {
   const viewer = await requireViewer();
@@ -76,6 +80,36 @@ export default async function MyNumbersPage({ searchParams }: { searchParams: Se
     if (card !== id) q.set("card", id);
     return `/my-numbers?${q.toString()}#records`;
   };
+
+  // Commissions card (only when commissions are on and the viewer may see them).
+  let commissions: ReturnType<typeof summarizeMyCommissions> | null = null;
+  if (viewer.can("commissions:read")) {
+    const settings = await loadCommissionSettings(db);
+    if (settings.enabled) {
+      const [entries, adjustments] = await Promise.all([
+        db.from("commission_entries").select("status, amount_cents, paid_on").eq("user_id", rep),
+        db
+          .from("commission_adjustments")
+          .select("status, amount_cents, paid_on")
+          .eq("user_id", rep),
+      ]);
+      const day = (iso: string) =>
+        formatInTimeZone(new Date(iso), "America/Los_Angeles", "yyyy-MM-dd");
+      commissions = summarizeMyCommissions(
+        (entries.data ?? []).map((e) => ({
+          status: e.status as CommissionStatus,
+          amountCents: Number(e.amount_cents),
+          paidOn: e.paid_on,
+        })),
+        (adjustments.data ?? []).map((a) => ({
+          status: a.status,
+          amountCents: Number(a.amount_cents),
+          paidOn: a.paid_on,
+        })),
+        { from: day(range.from), to: day(range.to) },
+      );
+    }
+  }
 
   // Records behind the selected card (same date field as its count).
   let records: { columns: { key: string; label: string }[]; rows: DataRow[] } | null = null;
@@ -276,6 +310,36 @@ export default async function MyNumbersPage({ searchParams }: { searchParams: Se
           );
         })}
       </section>
+      {commissions && (
+        <section
+          aria-labelledby="commissions-title"
+          data-card="commissions"
+          className="rounded-2xl border bg-bb-cream-light p-4"
+        >
+          <h2 id="commissions-title" className="text-base font-semibold">
+            {repName === "You" ? "My commissions" : `${repName}'s commissions`}
+          </h2>
+          <dl className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {(
+              [
+                ["Paid this period", commissions.paidCents],
+                ["Approved, not paid yet", commissions.approvedCents],
+                ["Eligible (waiting for approval)", commissions.eligibleCents],
+                ["Not payable yet", commissions.pendingCents],
+              ] as const
+            ).map(([label, cents]) => (
+              <div key={label}>
+                <dt className="text-xs text-muted-foreground">{label}</dt>
+                <dd className="text-xl font-bold tabular-nums">{formatMoney(cents)}</dd>
+              </div>
+            ))}
+          </dl>
+          <p className="mt-2 text-xs text-muted-foreground">
+            A job pays commission once it&apos;s paid in full and the payments have cleared. “Paid
+            this period” uses the payroll date.
+          </p>
+        </section>
+      )}
       <section id="records" aria-labelledby="records-title" className="flex flex-col gap-2">
         <div className="flex items-center justify-between gap-2">
           <h2 id="records-title" className="text-base font-semibold">

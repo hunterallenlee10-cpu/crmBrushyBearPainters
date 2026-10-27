@@ -1,7 +1,9 @@
 "use client";
 
 import * as React from "react";
-import { Bell, Eye } from "lucide-react";
+import { Bell, CalendarDays, Eye } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { type OwnProfileInput, type PreferencesValues } from "@/lib/validation/users";
 import { OwnProfileForm } from "./own-profile-form";
@@ -14,6 +16,7 @@ const TABS = [
   { value: "security", label: "Security" },
   { value: "preferences", label: "Preferences" },
   { value: "notifications", label: "Notifications" },
+  { value: "integrations", label: "Integrations" },
 ] as const;
 type Tab = (typeof TABS)[number]["value"];
 
@@ -47,7 +50,7 @@ export function SettingsTabs({
     <Tabs value={tab} onValueChange={(v) => setTab(v as Tab)} className="gap-4">
       <TabsList
         aria-label="Settings sections"
-        className="grid h-auto! w-full grid-cols-2 gap-1 sm:flex sm:w-fit"
+        className="grid h-auto! w-full grid-cols-2 gap-1 sm:flex sm:w-fit sm:flex-wrap"
       >
         {TABS.map((t) => (
           <TabsTrigger
@@ -103,6 +106,28 @@ export function SettingsTabs({
                 : "Texts need a mobile number on your Profile (in +1 format, e.g. +14255550100)."
             }
           />
+        </section>
+      </TabsContent>
+      <TabsContent value="integrations">
+        <section aria-labelledby="personal-int" className="flex flex-col gap-3">
+          <h2 id="personal-int" className="text-base font-semibold">
+            Your connections
+          </h2>
+          <div className="flex flex-wrap items-center gap-4 rounded-2xl border bg-card p-5">
+            <CalendarDays className="size-6 text-bb-forest" aria-hidden />
+            <div className="min-w-0 flex-1">
+              <p className="font-medium">Personal calendar</p>
+              <p className="text-sm text-muted-foreground">
+                Puts your walkthroughs and visits on your own Google or Outlook calendar. The
+                company&apos;s calendar integration isn&apos;t connected yet, so nothing is synced;
+                an owner connects it in Admin → Integrations.
+              </p>
+            </div>
+            <Badge variant="neutral">Not connected</Badge>
+            <Button variant="outline" disabled aria-disabled>
+              Connect
+            </Button>
+          </div>
         </section>
       </TabsContent>
     </Tabs>

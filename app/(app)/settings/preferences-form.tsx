@@ -9,6 +9,8 @@ import {
   DEFAULT_HOMES,
   DEFAULT_HOME_LABELS,
   TIME_FORMATS,
+  DENSITIES,
+  DENSITY_LABELS,
   TIME_FORMAT_LABELS,
   preferencesSchema,
   type PreferencesValues,
@@ -106,6 +108,30 @@ export function PreferencesForm({
                     {...register("time_format")}
                   />
                   <span className="text-sm font-medium">{TIME_FORMAT_LABELS[t]}</span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
+        </section>
+        <section className="rounded-2xl border bg-card p-5">
+          <fieldset>
+            <legend className="text-base font-semibold">Density</legend>
+            <p className="mt-0.5 mb-3 text-sm text-muted-foreground">
+              How tightly lists and tables are packed on this account.
+            </p>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {DENSITIES.map((d) => (
+                <label
+                  key={d}
+                  className="flex min-h-11 cursor-pointer items-center gap-3 rounded-xl border p-3 has-[:checked]:border-bb-forest has-[:checked]:bg-accent"
+                >
+                  <input
+                    type="radio"
+                    value={d}
+                    className="size-4 accent-bb-forest"
+                    {...register("density")}
+                  />
+                  <span className="text-sm font-medium">{DENSITY_LABELS[d]}</span>
                 </label>
               ))}
             </div>

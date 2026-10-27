@@ -328,3 +328,45 @@ export const COMMISSION_STATUS_LABELS: Record<CommissionStatus, string> = {
   paid: "Paid",
   void: "Void",
 };
+
+export type MyCommissionSummary = {
+  pendingCents: number;
+  eligibleCents: number;
+  approvedCents: number;
+  paidCents: number;
+  jobs: number;
+};
+
+/**
+ * The commissions card on My Numbers: one person's entries (and approved or
+ * paid adjustments). "Paid" counts what was paid in the period
+ * (`paidOn` from–to, Pacific dates); the rest is what's open now.
+ */
+export function summarizeMyCommissions(
+  entries: readonly { status: CommissionStatus; amountCents: number; paidOn: string | null }[],
+  adjustments: readonly { status: string; amountCents: number; paidOn: string | null }[],
+  period: { from: string; to: string },
+): MyCommissionSummary {
+  const inPeriod = (d: string | null) => d !== null && d >= period.from && d < period.to;
+  const out: MyCommissionSummary = {
+    pendingCents: 0,
+    eligibleCents: 0,
+    approvedCents: 0,
+    paidCents: 0,
+    jobs: 0,
+  };
+  for (const e of entries) {
+    if (e.status === "void") continue;
+    out.jobs += 1;
+    if (e.status === "pending") out.pendingCents += e.amountCents;
+    else if (e.status === "eligible" || e.status === "needs_review")
+      out.eligibleCents += e.amountCents;
+    else if (e.status === "approved") out.approvedCents += e.amountCents;
+    else if (e.status === "paid" && inPeriod(e.paidOn)) out.paidCents += e.amountCents;
+  }
+  for (const a of adjustments) {
+    if (a.status === "approved") out.approvedCents += a.amountCents;
+    else if (a.status === "paid" && inPeriod(a.paidOn)) out.paidCents += a.amountCents;
+  }
+  return out;
+}
