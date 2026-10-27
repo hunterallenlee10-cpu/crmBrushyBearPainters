@@ -43,6 +43,7 @@ export default async function NewLeadPage() {
       <NewLeadWizard
         me={{ id: viewer.id, name: viewer.name }}
         canAssign={viewer.can("leads:assign")}
+        canConvert={viewer.can("jobs:create") && viewer.can("leads:update")}
         readOnly={viewer.impersonating}
         options={{
           sources: active(options.picklists.lead_source),

@@ -66,6 +66,7 @@ import {
   createLeadPhotoUploads,
   type DuplicateNotice,
 } from "./actions";
+import { convertLead } from "../[id]/actions";
 import {
   ChoiceGroup,
   CompletionMeter,
@@ -131,11 +132,14 @@ const str = (v: unknown) => (typeof v === "string" ? v : "");
 export function NewLeadWizard({
   me,
   canAssign,
+  canConvert,
   readOnly,
   options,
 }: {
   me: { id: string; name: string };
   canAssign: boolean;
+  /** Can create jobs: "Save & Convert" turns the new lead into a job right away. */
+  canConvert: boolean;
   readOnly: boolean;
   options: WizardOptions;
 }) {
@@ -146,7 +150,7 @@ export function NewLeadWizard({
   const movedRef = React.useRef(false);
   const [photos, setPhotos] = React.useState<File[]>([]);
   const [photoProblems, setPhotoProblems] = React.useState<string[]>([]);
-  const [saving, setSaving] = React.useState<null | "save" | "book">(null);
+  const [saving, setSaving] = React.useState<null | "save" | "book" | "convert">(null);
   const [duplicates, setDuplicates] = React.useState<DuplicateNotice[]>([]);
 
   const resolver = React.useMemo(
@@ -328,9 +332,10 @@ export function NewLeadWizard({
     return attached.ok ? files.length - attached.data.attached : files.length;
   }
 
-  async function save(book: boolean) {
+  async function save(mode: "save" | "book" | "convert") {
     if (readOnly) return;
-    setSaving(book ? "book" : "save");
+    const book = mode === "book";
+    setSaving(mode);
     try {
       const result = await createLead(getValues());
       if (!result.ok) {
@@ -350,6 +355,17 @@ export function NewLeadWizard({
       } else {
         toast.success("Lead saved.");
       }
+      if (mode === "convert") {
+        const converted = await convertLead({ id });
+        if (converted.ok) {
+          toast.success("Lead saved and converted to a job.");
+          router.push(`/jobs/${converted.data.jobId}`);
+        } else {
+          toast.warning(`Lead saved, but it couldn't be converted: ${converted.error.message}`);
+          router.push(`/leads/${id}`);
+        }
+        return;
+      }
       router.push(book ? `/leads/${id}?book=1` : `/leads/${id}`);
     } catch {
       toast.error("Something went wrong. Try again, and tell an owner if it keeps happening.");
@@ -361,7 +377,8 @@ export function NewLeadWizard({
   const onNext = handleSubmit(() => {
     if (stepRef.current < 3) goTo((stepRef.current + 1) as WizardStep);
   });
-  const onSave = (book: boolean) => handleSubmit(() => save(book));
+  const onSave = (book: boolean) => handleSubmit(() => save(book ? "book" : "save"));
+  const onConvert = handleSubmit(() => save("convert"));
 
   function onFormSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -859,10 +876,27 @@ export function NewLeadWizard({
             </Button>
           ) : (
             <>
-              <UnavailableButton reason="Convert to Job arrives in Phase 3">
-                <Shuffle aria-hidden />
-                Save &amp; Convert
-              </UnavailableButton>
+              {canConvert ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className={TOUCH}
+                  disabled={busy || readOnly}
+                  onClick={(e) => void onConvert(e)}
+                >
+                  {saving === "convert" ? (
+                    <Loader2 className="animate-spin" aria-hidden />
+                  ) : (
+                    <Shuffle aria-hidden />
+                  )}
+                  Save &amp; Convert
+                </Button>
+              ) : (
+                <UnavailableButton reason="You don't have permission to create jobs.">
+                  <Shuffle aria-hidden />
+                  Save &amp; Convert
+                </UnavailableButton>
+              )}
               <Button
                 type="button"
                 variant="outline"

@@ -18,6 +18,21 @@ const nextConfig: NextConfig = {
   // The dev-only badge sits on top of the Help button (bottom-left).
   devIndicators: false,
   reactStrictMode: true,
+  // Test sign-in locks and helper worktrees must not trigger dev rebuilds.
+  webpack(config, { dev }) {
+    if (dev) {
+      config.watchOptions = {
+        ...config.watchOptions,
+        ignored: [
+          "**/node_modules/**",
+          "**/.git/**",
+          "**/tests/e2e/.auth/**",
+          "**/.claude/worktrees/**",
+        ],
+      };
+    }
+    return config;
+  },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },

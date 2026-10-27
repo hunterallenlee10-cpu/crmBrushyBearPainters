@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
   ArrowLeft,
+  Briefcase,
   Building2,
   Clock,
   Home,
@@ -16,6 +17,7 @@ import {
 import { EmptyState } from "@/components/layout/empty-state";
 import { RememberRecent } from "@/components/shell/recent-records";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { LeadStatusBadge } from "@/components/leads/lead-badges";
 import { requirePermission } from "@/lib/auth/viewer";
 import { createSupabaseServerClient } from "@/lib/db/server";
@@ -158,6 +160,7 @@ export default async function AccountDetailPage({ params }: { params: Params }) 
   const readOnly = viewer.impersonating;
   const canUpdate = viewer.can("accounts:update") && !readOnly;
   const canDelete = viewer.can("accounts:delete") && !readOnly;
+  const canCreateJob = viewer.can("jobs:create") && !readOnly;
   const canAddContact = viewer.can("contacts:create") && !readOnly;
   const canEditContact = viewer.can("contacts:update") && !readOnly;
   const canDeleteContact = viewer.can("contacts:delete") && !readOnly;
@@ -225,8 +228,16 @@ export default async function AccountDetailPage({ params }: { params: Params }) 
             </div>
           </dl>
         </div>
-        {(canUpdate || canDelete) && (
+        {(canUpdate || canDelete || canCreateJob) && (
           <div className="flex shrink-0 flex-wrap gap-2">
+            {canCreateJob && (
+              <Button asChild variant="outline">
+                <Link href={`/jobs/new?account=${account.id}`}>
+                  <Briefcase aria-hidden />
+                  New job
+                </Link>
+              </Button>
+            )}
             {canUpdate && (
               <EditAccountDialog
                 accountId={account.id}

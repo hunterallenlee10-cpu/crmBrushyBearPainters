@@ -94,7 +94,12 @@ export const NAV: readonly NavGroup[] = [
         href: "/jobs/approvals",
         description: "Discounts, change orders and overrides waiting on an owner.",
         phase: 3,
-        requiresAny: ["estimates:approve_discount", "credits:approve", "job_admin:override"],
+        requiresAny: [
+          "jobs:advance_stage",
+          "estimates:approve_discount",
+          "credits:approve",
+          "job_admin:override",
+        ],
       },
       {
         label: "New Job",
