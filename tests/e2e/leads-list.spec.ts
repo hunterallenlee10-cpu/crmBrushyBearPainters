@@ -155,11 +155,16 @@ test.describe("Lead List", () => {
     await cols.getByRole("checkbox", { name: "Contact" }).uncheck();
     await cols.getByRole("button", { name: "Save columns" }).click();
     await expect(page.getByRole("columnheader", { name: "Contact" })).toHaveCount(0);
+    // Reopen only after the dialog closed and the list re-rendered with the saved columns;
+    // until then "Reset to default" is still disabled and gets replaced mid-click.
+    await expect(cols).toBeHidden();
+    await page.locator('[data-list-ready="true"]').waitFor();
     await page.getByRole("button", { name: "Columns" }).click();
-    await page
+    const reset = page
       .getByRole("dialog", { name: "Columns" })
-      .getByRole("button", { name: "Reset to default" })
-      .click();
+      .getByRole("button", { name: "Reset to default" });
+    await expect(reset).toBeEnabled();
+    await reset.click();
     await expect(page.getByRole("columnheader", { name: "Contact" })).toBeVisible();
   });
 
