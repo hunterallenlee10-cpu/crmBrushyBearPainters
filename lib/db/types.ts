@@ -235,6 +235,58 @@ export type Database = {
           },
         ];
       };
+      analytics_favorites: {
+        Row: {
+          created_at: string;
+          created_by: string | null;
+          id: string;
+          item_key: string;
+          item_type: string;
+          org_id: string;
+          updated_at: string;
+          updated_by: string | null;
+          user_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          item_key: string;
+          item_type: string;
+          org_id: string;
+          updated_at?: string;
+          updated_by?: string | null;
+          user_id: string;
+        };
+        Update: {
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          item_key?: string;
+          item_type?: string;
+          org_id?: string;
+          updated_at?: string;
+          updated_by?: string | null;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "analytics_favorites_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "analytics_favorites_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       appointments: {
         Row: {
           all_day: boolean;
@@ -341,10 +393,24 @@ export type Database = {
             referencedColumns: ["id"];
           },
           {
+            foreignKeyName: "appointments_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
+            referencedRelation: "report_jobs";
+            referencedColumns: ["id"];
+          },
+          {
             foreignKeyName: "appointments_lead_id_fkey";
             columns: ["lead_id"];
             isOneToOne: false;
             referencedRelation: "leads";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "appointments_lead_id_fkey";
+            columns: ["lead_id"];
+            isOneToOne: false;
+            referencedRelation: "report_leads";
             referencedColumns: ["id"];
           },
           {
@@ -426,6 +492,13 @@ export type Database = {
             columns: ["job_id"];
             isOneToOne: false;
             referencedRelation: "jobs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "approval_requests_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
+            referencedRelation: "report_jobs";
             referencedColumns: ["id"];
           },
           {
@@ -726,6 +799,13 @@ export type Database = {
             referencedColumns: ["id"];
           },
           {
+            foreignKeyName: "campaign_recipients_lead_id_fkey";
+            columns: ["lead_id"];
+            isOneToOne: false;
+            referencedRelation: "report_leads";
+            referencedColumns: ["id"];
+          },
+          {
             foreignKeyName: "campaign_recipients_message_id_fkey";
             columns: ["message_id"];
             isOneToOne: false;
@@ -941,6 +1021,13 @@ export type Database = {
             columns: ["job_id"];
             isOneToOne: false;
             referencedRelation: "jobs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "cases_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
+            referencedRelation: "report_jobs";
             referencedColumns: ["id"];
           },
           {
@@ -1206,6 +1293,13 @@ export type Database = {
             referencedColumns: ["id"];
           },
           {
+            foreignKeyName: "change_orders_estimate_id_fkey";
+            columns: ["estimate_id"];
+            isOneToOne: false;
+            referencedRelation: "report_estimates";
+            referencedColumns: ["id"];
+          },
+          {
             foreignKeyName: "change_orders_job_id_fkey";
             columns: ["job_id"];
             isOneToOne: false;
@@ -1217,6 +1311,13 @@ export type Database = {
             columns: ["job_id"];
             isOneToOne: false;
             referencedRelation: "jobs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "change_orders_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
+            referencedRelation: "report_jobs";
             referencedColumns: ["id"];
           },
           {
@@ -1288,6 +1389,13 @@ export type Database = {
             columns: ["job_id"];
             isOneToOne: false;
             referencedRelation: "jobs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "checklist_instances_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
+            referencedRelation: "report_jobs";
             referencedColumns: ["id"];
           },
           {
@@ -1538,6 +1646,13 @@ export type Database = {
             columns: ["job_id"];
             isOneToOne: false;
             referencedRelation: "jobs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "color_selections_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
+            referencedRelation: "report_jobs";
             referencedColumns: ["id"];
           },
           {
@@ -1934,6 +2049,13 @@ export type Database = {
             referencedColumns: ["id"];
           },
           {
+            foreignKeyName: "credits_invoice_id_fkey";
+            columns: ["invoice_id"];
+            isOneToOne: false;
+            referencedRelation: "report_invoices";
+            referencedColumns: ["id"];
+          },
+          {
             foreignKeyName: "credits_job_id_fkey";
             columns: ["job_id"];
             isOneToOne: false;
@@ -1945,6 +2067,13 @@ export type Database = {
             columns: ["job_id"];
             isOneToOne: false;
             referencedRelation: "jobs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "credits_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
+            referencedRelation: "report_jobs";
             referencedColumns: ["id"];
           },
           {
@@ -2387,6 +2516,13 @@ export type Database = {
             referencedColumns: ["id"];
           },
           {
+            foreignKeyName: "daily_logs_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
+            referencedRelation: "report_jobs";
+            referencedColumns: ["id"];
+          },
+          {
             foreignKeyName: "daily_logs_org_id_fkey";
             columns: ["org_id"];
             isOneToOne: false;
@@ -2405,6 +2541,64 @@ export type Database = {
             columns: ["work_order_id"];
             isOneToOne: false;
             referencedRelation: "work_orders";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      dashboards: {
+        Row: {
+          created_at: string;
+          created_by: string | null;
+          description: string | null;
+          id: string;
+          name: string;
+          org_id: string;
+          owner_id: string | null;
+          shared: boolean;
+          updated_at: string;
+          updated_by: string | null;
+          widgets: string[];
+        };
+        ComputedFields: never;
+        Insert: {
+          created_at?: string;
+          created_by?: string | null;
+          description?: string | null;
+          id?: string;
+          name: string;
+          org_id: string;
+          owner_id?: string | null;
+          shared?: boolean;
+          updated_at?: string;
+          updated_by?: string | null;
+          widgets?: string[];
+        };
+        Update: {
+          created_at?: string;
+          created_by?: string | null;
+          description?: string | null;
+          id?: string;
+          name?: string;
+          org_id?: string;
+          owner_id?: string | null;
+          shared?: boolean;
+          updated_at?: string;
+          updated_by?: string | null;
+          widgets?: string[];
+        };
+        Relationships: [
+          {
+            foreignKeyName: "dashboards_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "dashboards_owner_id_fkey";
+            columns: ["owner_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
             referencedColumns: ["id"];
           },
         ];
@@ -2518,6 +2712,13 @@ export type Database = {
             columns: ["job_id"];
             isOneToOne: false;
             referencedRelation: "jobs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "documents_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
+            referencedRelation: "report_jobs";
             referencedColumns: ["id"];
           },
           {
@@ -3252,6 +3453,13 @@ export type Database = {
             referencedColumns: ["id"];
           },
           {
+            foreignKeyName: "estimate_versions_estimate_id_fkey";
+            columns: ["estimate_id"];
+            isOneToOne: false;
+            referencedRelation: "report_estimates";
+            referencedColumns: ["id"];
+          },
+          {
             foreignKeyName: "estimate_versions_org_id_fkey";
             columns: ["org_id"];
             isOneToOne: false;
@@ -3370,6 +3578,13 @@ export type Database = {
             referencedColumns: ["id"];
           },
           {
+            foreignKeyName: "estimates_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
+            referencedRelation: "report_jobs";
+            referencedColumns: ["id"];
+          },
+          {
             foreignKeyName: "estimates_org_id_fkey";
             columns: ["org_id"];
             isOneToOne: false;
@@ -3447,6 +3662,64 @@ export type Database = {
             columns: ["org_id"];
             isOneToOne: false;
             referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      export_log: {
+        Row: {
+          created_at: string;
+          dataset: string;
+          filters: NonNullable<Json>;
+          format: string;
+          id: string;
+          impersonated_by: string | null;
+          kind: string;
+          org_id: string;
+          row_count: number;
+          title: string;
+          user_id: string | null;
+        };
+        ComputedFields: never;
+        Insert: {
+          created_at?: string;
+          dataset: string;
+          filters?: NonNullable<Json>;
+          format?: string;
+          id?: string;
+          impersonated_by?: string | null;
+          kind: string;
+          org_id: string;
+          row_count?: number;
+          title: string;
+          user_id?: string | null;
+        };
+        Update: {
+          created_at?: string;
+          dataset?: string;
+          filters?: NonNullable<Json>;
+          format?: string;
+          id?: string;
+          impersonated_by?: string | null;
+          kind?: string;
+          org_id?: string;
+          row_count?: number;
+          title?: string;
+          user_id?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "export_log_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "export_log_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
             referencedColumns: ["id"];
           },
         ];
@@ -3667,6 +3940,13 @@ export type Database = {
             referencedColumns: ["id"];
           },
           {
+            foreignKeyName: "intake_requests_lead_id_fkey";
+            columns: ["lead_id"];
+            isOneToOne: false;
+            referencedRelation: "report_leads";
+            referencedColumns: ["id"];
+          },
+          {
             foreignKeyName: "intake_requests_org_id_fkey";
             columns: ["org_id"];
             isOneToOne: false;
@@ -3873,6 +4153,13 @@ export type Database = {
             referencedColumns: ["id"];
           },
           {
+            foreignKeyName: "invoice_lines_invoice_id_fkey";
+            columns: ["invoice_id"];
+            isOneToOne: false;
+            referencedRelation: "report_invoices";
+            referencedColumns: ["id"];
+          },
+          {
             foreignKeyName: "invoice_lines_org_id_fkey";
             columns: ["org_id"];
             isOneToOne: false;
@@ -4002,6 +4289,13 @@ export type Database = {
             referencedColumns: ["id"];
           },
           {
+            foreignKeyName: "invoices_estimate_id_fkey";
+            columns: ["estimate_id"];
+            isOneToOne: false;
+            referencedRelation: "report_estimates";
+            referencedColumns: ["id"];
+          },
+          {
             foreignKeyName: "invoices_estimate_version_id_fkey";
             columns: ["estimate_version_id"];
             isOneToOne: false;
@@ -4020,6 +4314,13 @@ export type Database = {
             columns: ["job_id"];
             isOneToOne: false;
             referencedRelation: "jobs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "invoices_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
+            referencedRelation: "report_jobs";
             referencedColumns: ["id"];
           },
           {
@@ -4116,6 +4417,13 @@ export type Database = {
             referencedColumns: ["id"];
           },
           {
+            foreignKeyName: "job_expenses_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
+            referencedRelation: "report_jobs";
+            referencedColumns: ["id"];
+          },
+          {
             foreignKeyName: "job_expenses_org_id_fkey";
             columns: ["org_id"];
             isOneToOne: false;
@@ -4175,6 +4483,13 @@ export type Database = {
             columns: ["job_id"];
             isOneToOne: true;
             referencedRelation: "jobs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "job_financials_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: true;
+            referencedRelation: "report_jobs";
             referencedColumns: ["id"];
           },
           {
@@ -4246,6 +4561,13 @@ export type Database = {
             columns: ["job_id"];
             isOneToOne: false;
             referencedRelation: "jobs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "job_holds_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
+            referencedRelation: "report_jobs";
             referencedColumns: ["id"];
           },
           {
@@ -4381,6 +4703,13 @@ export type Database = {
             referencedColumns: ["id"];
           },
           {
+            foreignKeyName: "job_photos_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
+            referencedRelation: "report_jobs";
+            referencedColumns: ["id"];
+          },
+          {
             foreignKeyName: "job_photos_org_id_fkey";
             columns: ["org_id"];
             isOneToOne: false;
@@ -4435,6 +4764,13 @@ export type Database = {
             columns: ["job_id"];
             isOneToOne: false;
             referencedRelation: "jobs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "job_team_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
+            referencedRelation: "report_jobs";
             referencedColumns: ["id"];
           },
           {
@@ -4668,6 +5004,13 @@ export type Database = {
             referencedColumns: ["id"];
           },
           {
+            foreignKeyName: "jobs_accepted_estimate_fk";
+            columns: ["accepted_estimate_id"];
+            isOneToOne: false;
+            referencedRelation: "report_estimates";
+            referencedColumns: ["id"];
+          },
+          {
             foreignKeyName: "jobs_account_id_fkey";
             columns: ["account_id"];
             isOneToOne: false;
@@ -4686,6 +5029,13 @@ export type Database = {
             columns: ["lead_id"];
             isOneToOne: true;
             referencedRelation: "leads";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "jobs_lead_id_fkey";
+            columns: ["lead_id"];
+            isOneToOne: true;
+            referencedRelation: "report_leads";
             referencedColumns: ["id"];
           },
           {
@@ -4783,6 +5133,13 @@ export type Database = {
             columns: ["lead_id"];
             isOneToOne: false;
             referencedRelation: "leads";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "lead_attachments_lead_id_fkey";
+            columns: ["lead_id"];
+            isOneToOne: false;
+            referencedRelation: "report_leads";
             referencedColumns: ["id"];
           },
           {
@@ -5087,6 +5444,13 @@ export type Database = {
             referencedColumns: ["id"];
           },
           {
+            foreignKeyName: "leads_converted_job_fk";
+            columns: ["converted_job_id"];
+            isOneToOne: false;
+            referencedRelation: "report_jobs";
+            referencedColumns: ["id"];
+          },
+          {
             foreignKeyName: "leads_lead_set_by_fkey";
             columns: ["lead_set_by"];
             isOneToOne: false;
@@ -5126,6 +5490,54 @@ export type Database = {
             columns: ["territory_id"];
             isOneToOne: false;
             referencedRelation: "territories";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      marketing_spend: {
+        Row: {
+          amount_cents: number;
+          created_at: string;
+          created_by: string | null;
+          id: string;
+          lead_source: string;
+          month: string;
+          note: string | null;
+          org_id: string;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        ComputedFields: never;
+        Insert: {
+          amount_cents: number;
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          lead_source: string;
+          month: string;
+          note?: string | null;
+          org_id: string;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          amount_cents?: number;
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          lead_source?: string;
+          month?: string;
+          note?: string | null;
+          org_id?: string;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "marketing_spend_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
             referencedColumns: ["id"];
           },
         ];
@@ -5852,6 +6264,13 @@ export type Database = {
             referencedColumns: ["id"];
           },
           {
+            foreignKeyName: "on_time_credits_invoice_id_fkey";
+            columns: ["invoice_id"];
+            isOneToOne: false;
+            referencedRelation: "report_invoices";
+            referencedColumns: ["id"];
+          },
+          {
             foreignKeyName: "on_time_credits_job_id_fkey";
             columns: ["job_id"];
             isOneToOne: true;
@@ -5863,6 +6282,13 @@ export type Database = {
             columns: ["job_id"];
             isOneToOne: true;
             referencedRelation: "jobs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "on_time_credits_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: true;
+            referencedRelation: "report_jobs";
             referencedColumns: ["id"];
           },
           {
@@ -5973,6 +6399,13 @@ export type Database = {
             columns: ["job_id"];
             isOneToOne: false;
             referencedRelation: "jobs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "onboarding_requirements_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
+            referencedRelation: "report_jobs";
             referencedColumns: ["id"];
           },
           {
@@ -6275,6 +6708,13 @@ export type Database = {
             referencedColumns: ["id"];
           },
           {
+            foreignKeyName: "paint_orders_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
+            referencedRelation: "report_jobs";
+            referencedColumns: ["id"];
+          },
+          {
             foreignKeyName: "paint_orders_org_id_fkey";
             columns: ["org_id"];
             isOneToOne: false;
@@ -6433,6 +6873,13 @@ export type Database = {
             referencedColumns: ["id"];
           },
           {
+            foreignKeyName: "payment_applications_invoice_id_fkey";
+            columns: ["invoice_id"];
+            isOneToOne: false;
+            referencedRelation: "report_invoices";
+            referencedColumns: ["id"];
+          },
+          {
             foreignKeyName: "payment_applications_org_id_fkey";
             columns: ["org_id"];
             isOneToOne: false;
@@ -6549,6 +6996,13 @@ export type Database = {
             columns: ["job_id"];
             isOneToOne: false;
             referencedRelation: "jobs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "payments_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
+            referencedRelation: "report_jobs";
             referencedColumns: ["id"];
           },
           {
@@ -7343,6 +7797,13 @@ export type Database = {
             referencedColumns: ["id"];
           },
           {
+            foreignKeyName: "proposal_tokens_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
+            referencedRelation: "report_jobs";
+            referencedColumns: ["id"];
+          },
+          {
             foreignKeyName: "proposal_tokens_org_id_fkey";
             columns: ["org_id"];
             isOneToOne: false;
@@ -7449,6 +7910,13 @@ export type Database = {
             referencedColumns: ["id"];
           },
           {
+            foreignKeyName: "punch_items_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
+            referencedRelation: "report_jobs";
+            referencedColumns: ["id"];
+          },
+          {
             foreignKeyName: "punch_items_org_id_fkey";
             columns: ["org_id"];
             isOneToOne: false;
@@ -7530,6 +7998,13 @@ export type Database = {
             referencedColumns: ["id"];
           },
           {
+            foreignKeyName: "punch_signoffs_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
+            referencedRelation: "report_jobs";
+            referencedColumns: ["id"];
+          },
+          {
             foreignKeyName: "punch_signoffs_org_id_fkey";
             columns: ["org_id"];
             isOneToOne: false;
@@ -7605,6 +8080,13 @@ export type Database = {
             columns: ["job_id"];
             isOneToOne: false;
             referencedRelation: "jobs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "rain_delays_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
+            referencedRelation: "report_jobs";
             referencedColumns: ["id"];
           },
           {
@@ -7843,10 +8325,24 @@ export type Database = {
             referencedColumns: ["id"];
           },
           {
+            foreignKeyName: "referrals_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
+            referencedRelation: "report_jobs";
+            referencedColumns: ["id"];
+          },
+          {
             foreignKeyName: "referrals_lead_id_fkey";
             columns: ["lead_id"];
             isOneToOne: false;
             referencedRelation: "leads";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "referrals_lead_id_fkey";
+            columns: ["lead_id"];
+            isOneToOne: false;
+            referencedRelation: "report_leads";
             referencedColumns: ["id"];
           },
           {
@@ -7924,6 +8420,13 @@ export type Database = {
             referencedColumns: ["id"];
           },
           {
+            foreignKeyName: "refunds_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
+            referencedRelation: "report_jobs";
+            referencedColumns: ["id"];
+          },
+          {
             foreignKeyName: "refunds_org_id_fkey";
             columns: ["org_id"];
             isOneToOne: false;
@@ -7942,6 +8445,244 @@ export type Database = {
             columns: ["payment_id"];
             isOneToOne: false;
             referencedRelation: "payments";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      report_run_stats: {
+        Row: {
+          last_run_at: string;
+          last_run_by: string | null;
+          org_id: string;
+          report_id: string;
+          run_count: number;
+        };
+        ComputedFields: never;
+        Insert: {
+          last_run_at?: string;
+          last_run_by?: string | null;
+          org_id: string;
+          report_id: string;
+          run_count?: number;
+        };
+        Update: {
+          last_run_at?: string;
+          last_run_by?: string | null;
+          org_id?: string;
+          report_id?: string;
+          run_count?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "report_run_stats_last_run_by_fkey";
+            columns: ["last_run_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "report_run_stats_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "report_run_stats_report_id_fkey";
+            columns: ["report_id"];
+            isOneToOne: true;
+            referencedRelation: "reports";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      report_schedules: {
+        Row: {
+          active: boolean;
+          created_at: string;
+          created_by: string | null;
+          frequency: string;
+          hour: number;
+          id: string;
+          last_note: string | null;
+          last_run_at: string | null;
+          last_status: string | null;
+          month_day: number | null;
+          next_run_at: string;
+          org_id: string;
+          recipient_ids: string[];
+          report_id: string;
+          updated_at: string;
+          updated_by: string | null;
+          weekday: number | null;
+        };
+        ComputedFields: never;
+        Insert: {
+          active?: boolean;
+          created_at?: string;
+          created_by?: string | null;
+          frequency: string;
+          hour?: number;
+          id?: string;
+          last_note?: string | null;
+          last_run_at?: string | null;
+          last_status?: string | null;
+          month_day?: number | null;
+          next_run_at: string;
+          org_id: string;
+          recipient_ids?: string[];
+          report_id: string;
+          updated_at?: string;
+          updated_by?: string | null;
+          weekday?: number | null;
+        };
+        Update: {
+          active?: boolean;
+          created_at?: string;
+          created_by?: string | null;
+          frequency?: string;
+          hour?: number;
+          id?: string;
+          last_note?: string | null;
+          last_run_at?: string | null;
+          last_status?: string | null;
+          month_day?: number | null;
+          next_run_at?: string;
+          org_id?: string;
+          recipient_ids?: string[];
+          report_id?: string;
+          updated_at?: string;
+          updated_by?: string | null;
+          weekday?: number | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "report_schedules_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "report_schedules_report_id_fkey";
+            columns: ["report_id"];
+            isOneToOne: false;
+            referencedRelation: "reports";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      reports: {
+        Row: {
+          category: string;
+          config: NonNullable<Json>;
+          created_at: string;
+          created_by: string | null;
+          description: string | null;
+          id: string;
+          is_template: boolean;
+          module: string;
+          name: string;
+          org_id: string;
+          owner_id: string | null;
+          shared: boolean;
+          template_key: string | null;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        ComputedFields: never;
+        Insert: {
+          category?: string;
+          config?: NonNullable<Json>;
+          created_at?: string;
+          created_by?: string | null;
+          description?: string | null;
+          id?: string;
+          is_template?: boolean;
+          module: string;
+          name: string;
+          org_id: string;
+          owner_id?: string | null;
+          shared?: boolean;
+          template_key?: string | null;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          category?: string;
+          config?: NonNullable<Json>;
+          created_at?: string;
+          created_by?: string | null;
+          description?: string | null;
+          id?: string;
+          is_template?: boolean;
+          module?: string;
+          name?: string;
+          org_id?: string;
+          owner_id?: string | null;
+          shared?: boolean;
+          template_key?: string | null;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "reports_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "reports_owner_id_fkey";
+            columns: ["owner_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      revenue_goals: {
+        Row: {
+          created_at: string;
+          created_by: string | null;
+          goal_cents: number;
+          id: string;
+          month: string;
+          note: string | null;
+          org_id: string;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        ComputedFields: never;
+        Insert: {
+          created_at?: string;
+          created_by?: string | null;
+          goal_cents: number;
+          id?: string;
+          month: string;
+          note?: string | null;
+          org_id: string;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          created_at?: string;
+          created_by?: string | null;
+          goal_cents?: number;
+          id?: string;
+          month?: string;
+          note?: string | null;
+          org_id?: string;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "revenue_goals_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
             referencedColumns: ["id"];
           },
         ];
@@ -8040,6 +8781,13 @@ export type Database = {
             columns: ["job_id"];
             isOneToOne: false;
             referencedRelation: "jobs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "review_requests_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
+            referencedRelation: "report_jobs";
             referencedColumns: ["id"];
           },
           {
@@ -8311,6 +9059,13 @@ export type Database = {
             referencedColumns: ["id"];
           },
           {
+            foreignKeyName: "schedule_entries_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
+            referencedRelation: "report_jobs";
+            referencedColumns: ["id"];
+          },
+          {
             foreignKeyName: "schedule_entries_org_id_fkey";
             columns: ["org_id"];
             isOneToOne: false;
@@ -8428,6 +9183,13 @@ export type Database = {
             columns: ["job_id"];
             isOneToOne: false;
             referencedRelation: "jobs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "schedule_recommendations_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
+            referencedRelation: "report_jobs";
             referencedColumns: ["id"];
           },
           {
@@ -8646,6 +9408,13 @@ export type Database = {
             referencedColumns: ["id"];
           },
           {
+            foreignKeyName: "signatures_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
+            referencedRelation: "report_jobs";
+            referencedColumns: ["id"];
+          },
+          {
             foreignKeyName: "signatures_org_id_fkey";
             columns: ["org_id"];
             isOneToOne: false;
@@ -8775,6 +9544,13 @@ export type Database = {
             columns: ["job_id"];
             isOneToOne: false;
             referencedRelation: "jobs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "stage_history_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
+            referencedRelation: "report_jobs";
             referencedColumns: ["id"];
           },
           {
@@ -9242,6 +10018,13 @@ export type Database = {
             referencedColumns: ["id"];
           },
           {
+            foreignKeyName: "time_entries_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
+            referencedRelation: "report_jobs";
+            referencedColumns: ["id"];
+          },
+          {
             foreignKeyName: "time_entries_org_id_fkey";
             columns: ["org_id"];
             isOneToOne: false;
@@ -9554,6 +10337,13 @@ export type Database = {
             columns: ["job_id"];
             isOneToOne: false;
             referencedRelation: "jobs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "work_orders_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
+            referencedRelation: "report_jobs";
             referencedColumns: ["id"];
           },
           {
@@ -9899,6 +10689,13 @@ export type Database = {
             referencedColumns: ["id"];
           },
           {
+            foreignKeyName: "invoices_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
+            referencedRelation: "report_jobs";
+            referencedColumns: ["id"];
+          },
+          {
             foreignKeyName: "invoices_org_id_fkey";
             columns: ["org_id"];
             isOneToOne: false;
@@ -9982,10 +10779,307 @@ export type Database = {
             referencedColumns: ["id"];
           },
           {
+            foreignKeyName: "payments_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
+            referencedRelation: "report_jobs";
+            referencedColumns: ["id"];
+          },
+          {
             foreignKeyName: "payments_org_id_fkey";
             columns: ["org_id"];
             isOneToOne: false;
             referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      report_estimates: {
+        Row: {
+          accepted_at: string | null;
+          created_at: string;
+          declined_at: string | null;
+          estimate_number: string;
+          expires_at: string | null;
+          first_sent_at: string | null;
+          hours_to_send: number | null;
+          id: string;
+          job_id: string;
+          job_name: string;
+          job_number: string;
+          lead_source: string | null;
+          org_id: string;
+          owner_id: string | null;
+          owner_name: string | null;
+          sla_hours: number | null;
+          sla_met: boolean | null;
+          status: string;
+          territory: string | null;
+          territory_id: string | null;
+          title: string | null;
+          total_cents: number | null;
+          walkthrough_completed_at: string | null;
+          work_types: string[];
+        };
+        ComputedFields: never;
+        Relationships: [
+          {
+            foreignKeyName: "estimates_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
+            referencedRelation: "job_ledger";
+            referencedColumns: ["job_id"];
+          },
+          {
+            foreignKeyName: "estimates_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
+            referencedRelation: "jobs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "estimates_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
+            referencedRelation: "report_jobs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "estimates_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "estimates_owner_id_fkey";
+            columns: ["owner_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "jobs_territory_id_fkey";
+            columns: ["territory_id"];
+            isOneToOne: false;
+            referencedRelation: "territories";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      report_invoices: {
+        Row: {
+          account_name: string | null;
+          aging_bucket: string | null;
+          balance_cents: number | null;
+          collected_cents: number | null;
+          created_at: string;
+          days_past_due: number | null;
+          due_date: string | null;
+          id: string;
+          invoice_number: string;
+          invoice_type: string;
+          issue_date: string | null;
+          issued: boolean | null;
+          job_id: string;
+          job_name: string | null;
+          job_number: string | null;
+          lead_source: string | null;
+          org_id: string;
+          owner_id: string | null;
+          owner_name: string | null;
+          status: string | null;
+          territory: string | null;
+          territory_id: string | null;
+          total_cents: number;
+          work_types: string[];
+        };
+        ComputedFields: never;
+        Relationships: [
+          {
+            foreignKeyName: "invoices_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
+            referencedRelation: "job_ledger";
+            referencedColumns: ["job_id"];
+          },
+          {
+            foreignKeyName: "invoices_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
+            referencedRelation: "jobs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "invoices_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
+            referencedRelation: "report_jobs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "invoices_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "jobs_owner_id_fkey";
+            columns: ["owner_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "jobs_territory_id_fkey";
+            columns: ["territory_id"];
+            isOneToOne: false;
+            referencedRelation: "territories";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      report_jobs: {
+        Row: {
+          actual_start_date: string | null;
+          balance_cents: number | null;
+          closed_at: string | null;
+          completed_at: string | null;
+          contract_cents: number | null;
+          cost_cents: number | null;
+          created_at: string;
+          days_completed_to_paid: number | null;
+          deposit_paid_at: string | null;
+          estimate_sent_at: string | null;
+          guarantee_start_date: string | null;
+          id: string;
+          job_number: string;
+          lead_created_at: string | null;
+          lead_source: string | null;
+          margin_cents: number | null;
+          margin_percent: number | null;
+          missed_daily_logs: number | null;
+          name: string;
+          on_time_guarantee_status: string;
+          org_id: string;
+          owner_id: string | null;
+          owner_name: string | null;
+          paid_in_full_at: string | null;
+          point_of_contact_id: string | null;
+          point_of_contact_name: string | null;
+          primary_work_type: string | null;
+          promised_start_date: string | null;
+          sales_velocity_days: number | null;
+          sold_at: string | null;
+          stage: string;
+          started_late: boolean | null;
+          status: string;
+          territory: string | null;
+          territory_id: string | null;
+          walkthrough_completed_at: string | null;
+          work_types: string[];
+        };
+        ComputedFields: never;
+        Relationships: [
+          {
+            foreignKeyName: "jobs_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "jobs_owner_id_fkey";
+            columns: ["owner_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "jobs_point_of_contact_id_fkey";
+            columns: ["point_of_contact_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "jobs_territory_id_fkey";
+            columns: ["territory_id"];
+            isOneToOne: false;
+            referencedRelation: "territories";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      report_leads: {
+        Row: {
+          city: string | null;
+          converted_at: string | null;
+          converted_job_id: string | null;
+          created_at: string;
+          first_contacted_at: string | null;
+          grade: string | null;
+          id: string;
+          last_activity_at: string;
+          lead_source: string;
+          lead_sub_source: string | null;
+          name: string | null;
+          org_id: string;
+          owner_id: string | null;
+          owner_name: string | null;
+          score: number | null;
+          services: string[];
+          speed_to_lead_minutes: number | null;
+          speed_to_lead_seconds: number | null;
+          status: string;
+          temperature: string | null;
+          territory: string | null;
+          territory_id: string | null;
+          walkthrough_at: string | null;
+        };
+        ComputedFields: never;
+        Relationships: [
+          {
+            foreignKeyName: "leads_converted_job_fk";
+            columns: ["converted_job_id"];
+            isOneToOne: false;
+            referencedRelation: "job_ledger";
+            referencedColumns: ["job_id"];
+          },
+          {
+            foreignKeyName: "leads_converted_job_fk";
+            columns: ["converted_job_id"];
+            isOneToOne: false;
+            referencedRelation: "jobs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "leads_converted_job_fk";
+            columns: ["converted_job_id"];
+            isOneToOne: false;
+            referencedRelation: "report_jobs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "leads_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "leads_owner_id_fkey";
+            columns: ["owner_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "leads_territory_id_fkey";
+            columns: ["territory_id"];
+            isOneToOne: false;
+            referencedRelation: "territories";
             referencedColumns: ["id"];
           },
         ];
@@ -10023,6 +11117,11 @@ export type Database = {
         };
         Returns: Json;
       };
+      analytics_monthly: {
+        Args: { p_filters?: Json; p_from_month: string; p_months: number };
+        Returns: Json;
+      };
+      analytics_stats: { Args: { p_filters?: Json; p_from: string; p_to: string }; Returns: Json };
       apply_job_stage_change: {
         Args: {
           p_approval_request?: string;
@@ -10170,6 +11269,7 @@ export type Database = {
         };
         Returns: string;
       };
+      daily_brief: { Args: { p_day: string }; Returns: Json };
       decide_credit: {
         Args: { p_credit: string; p_decision: string; p_note?: string };
         Returns: undefined;
@@ -10219,6 +11319,16 @@ export type Database = {
           table_name: string;
         }[];
       };
+      log_export: {
+        Args: {
+          p_dataset: string;
+          p_filters?: Json;
+          p_kind: string;
+          p_row_count: number;
+          p_title: string;
+        };
+        Returns: string;
+      };
       mark_change_order_sent: {
         Args: {
           p_change_order: string;
@@ -10252,6 +11362,8 @@ export type Database = {
       };
       mark_thread_read: { Args: { p_read?: boolean; p_thread: string }; Returns: undefined };
       my_access: { Args: Record<PropertyKey, never>; Returns: Json };
+      my_numbers: { Args: { p_from: string; p_to: string; p_user: string }; Returns: Json };
+      note_report_run: { Args: { p_report: string }; Returns: undefined };
       open_work_counts: { Args: { p_user_id: string }; Returns: Json };
       place_job_credits: { Args: { p_job: string }; Returns: number };
       production_stats: { Args: Record<PropertyKey, never>; Returns: Json };
@@ -10300,6 +11412,7 @@ export type Database = {
           title: string;
         }[];
       };
+      season_backlog: { Args: { p_year: number }; Returns: Json };
       set_payment_applications: {
         Args: { p_applications: Json; p_override_reason?: string; p_payment: string };
         Returns: undefined;
@@ -10355,6 +11468,7 @@ export type Database = {
         };
         Returns: undefined;
       };
+      user_permission_scopes: { Args: { p_permissions: string[]; p_user: string }; Returns: Json };
       users_with_permission: {
         Args: { p_org: string; p_permission: string };
         Returns: {
@@ -10377,6 +11491,7 @@ export type Database = {
           workflow_key: string;
         }[];
       };
+      workspace_summary: { Args: Record<PropertyKey, never>; Returns: Json };
     };
     Enums: {
       [_ in never]: never;
