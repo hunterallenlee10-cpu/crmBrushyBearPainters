@@ -73,7 +73,11 @@ select tests.logout();
 
 -- bookkeeper (aal2) ---------------------------------------------------------------------
 select tests.login((select id from u where k = 'bookkeeper'));
-select tests.assert_eq((select count(*) from public.profile_compensation), 0::bigint, 'bookkeeper has no HR access by default');
+-- Phase 7: job costing reads each person's hourly cost (owners and the bookkeeper, SPEC §5.6);
+-- changing it stays HR-only.
+select tests.assert(not app.has_perm('hr:read'), 'bookkeeper has no HR permission by default');
+select tests.assert_eq(tests.rows_affected($$update public.profile_compensation set hourly_cost_cents = 1$$), 0::bigint,
+  'bookkeeper cannot change labor cost');
 select tests.logout();
 
 -- owner -----------------------------------------------------------------------------------

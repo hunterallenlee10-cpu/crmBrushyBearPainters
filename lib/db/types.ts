@@ -320,6 +320,13 @@ export type Database = {
             foreignKeyName: "appointments_job_id_fkey";
             columns: ["job_id"];
             isOneToOne: false;
+            referencedRelation: "job_ledger";
+            referencedColumns: ["job_id"];
+          },
+          {
+            foreignKeyName: "appointments_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
             referencedRelation: "jobs";
             referencedColumns: ["id"];
           },
@@ -396,6 +403,13 @@ export type Database = {
             isOneToOne: false;
             referencedRelation: "profiles";
             referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "approval_requests_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
+            referencedRelation: "job_ledger";
+            referencedColumns: ["job_id"];
           },
           {
             foreignKeyName: "approval_requests_job_id_fkey";
@@ -858,6 +872,13 @@ export type Database = {
             foreignKeyName: "change_orders_job_id_fkey";
             columns: ["job_id"];
             isOneToOne: false;
+            referencedRelation: "job_ledger";
+            referencedColumns: ["job_id"];
+          },
+          {
+            foreignKeyName: "change_orders_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
             referencedRelation: "jobs";
             referencedColumns: ["id"];
           },
@@ -918,6 +939,13 @@ export type Database = {
           work_order_id?: string | null;
         };
         Relationships: [
+          {
+            foreignKeyName: "checklist_instances_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
+            referencedRelation: "job_ledger";
+            referencedColumns: ["job_id"];
+          },
           {
             foreignKeyName: "checklist_instances_job_id_fkey";
             columns: ["job_id"];
@@ -1160,6 +1188,13 @@ export type Database = {
             isOneToOne: false;
             referencedRelation: "estimate_versions";
             referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "color_selections_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
+            referencedRelation: "job_ledger";
+            referencedColumns: ["job_id"];
           },
           {
             foreignKeyName: "color_selections_job_id_fkey";
@@ -1467,6 +1502,130 @@ export type Database = {
             columns: ["org_id"];
             isOneToOne: false;
             referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      credits: {
+        Row: {
+          amount_cents: number;
+          applied_at: string | null;
+          created_at: string;
+          created_by: string | null;
+          credit_type: string;
+          decided_at: string | null;
+          decided_by: string | null;
+          decision_note: string | null;
+          id: string;
+          invoice_id: string | null;
+          job_id: string;
+          on_time_credit_id: string | null;
+          org_id: string;
+          reason: string;
+          requested_at: string;
+          requested_by: string | null;
+          status: string;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        ComputedFields: never;
+        Insert: {
+          amount_cents: number;
+          applied_at?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          credit_type: string;
+          decided_at?: string | null;
+          decided_by?: string | null;
+          decision_note?: string | null;
+          id?: string;
+          invoice_id?: string | null;
+          job_id: string;
+          on_time_credit_id?: string | null;
+          org_id: string;
+          reason: string;
+          requested_at?: string;
+          requested_by?: string | null;
+          status?: string;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          amount_cents?: number;
+          applied_at?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          credit_type?: string;
+          decided_at?: string | null;
+          decided_by?: string | null;
+          decision_note?: string | null;
+          id?: string;
+          invoice_id?: string | null;
+          job_id?: string;
+          on_time_credit_id?: string | null;
+          org_id?: string;
+          reason?: string;
+          requested_at?: string;
+          requested_by?: string | null;
+          status?: string;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "credits_decided_by_fkey";
+            columns: ["decided_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "credits_invoice_id_fkey";
+            columns: ["invoice_id"];
+            isOneToOne: false;
+            referencedRelation: "invoice_ledger";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "credits_invoice_id_fkey";
+            columns: ["invoice_id"];
+            isOneToOne: false;
+            referencedRelation: "invoices";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "credits_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
+            referencedRelation: "job_ledger";
+            referencedColumns: ["job_id"];
+          },
+          {
+            foreignKeyName: "credits_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
+            referencedRelation: "jobs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "credits_on_time_credit_id_fkey";
+            columns: ["on_time_credit_id"];
+            isOneToOne: true;
+            referencedRelation: "on_time_credits";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "credits_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "credits_requested_by_fkey";
+            columns: ["requested_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
             referencedColumns: ["id"];
           },
         ];
@@ -1877,6 +2036,13 @@ export type Database = {
             foreignKeyName: "daily_logs_job_id_fkey";
             columns: ["job_id"];
             isOneToOne: false;
+            referencedRelation: "job_ledger";
+            referencedColumns: ["job_id"];
+          },
+          {
+            foreignKeyName: "daily_logs_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
             referencedRelation: "jobs";
             referencedColumns: ["id"];
           },
@@ -1999,6 +2165,13 @@ export type Database = {
             isOneToOne: false;
             referencedRelation: "accounts";
             referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "documents_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
+            referencedRelation: "job_ledger";
+            referencedColumns: ["job_id"];
           },
           {
             foreignKeyName: "documents_job_id_fkey";
@@ -2697,6 +2870,13 @@ export type Database = {
             foreignKeyName: "estimates_job_id_fkey";
             columns: ["job_id"];
             isOneToOne: false;
+            referencedRelation: "job_ledger";
+            referencedColumns: ["job_id"];
+          },
+          {
+            foreignKeyName: "estimates_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
             referencedRelation: "jobs";
             referencedColumns: ["id"];
           },
@@ -3012,6 +3192,13 @@ export type Database = {
             foreignKeyName: "invoice_lines_invoice_id_fkey";
             columns: ["invoice_id"];
             isOneToOne: false;
+            referencedRelation: "invoice_ledger";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "invoice_lines_invoice_id_fkey";
+            columns: ["invoice_id"];
+            isOneToOne: false;
             referencedRelation: "invoices";
             referencedColumns: ["id"];
           },
@@ -3044,6 +3231,7 @@ export type Database = {
           job_id: string;
           notes: string | null;
           org_id: string;
+          pdf_document_id: string | null;
           sent_at: string | null;
           status: string;
           subtotal_cents: number;
@@ -3076,6 +3264,7 @@ export type Database = {
           job_id: string;
           notes?: string | null;
           org_id: string;
+          pdf_document_id?: string | null;
           sent_at?: string | null;
           status?: string;
           subtotal_cents?: number;
@@ -3107,6 +3296,7 @@ export type Database = {
           job_id?: string;
           notes?: string | null;
           org_id?: string;
+          pdf_document_id?: string | null;
           sent_at?: string | null;
           status?: string;
           subtotal_cents?: number;
@@ -3152,11 +3342,111 @@ export type Database = {
             foreignKeyName: "invoices_job_id_fkey";
             columns: ["job_id"];
             isOneToOne: false;
+            referencedRelation: "job_ledger";
+            referencedColumns: ["job_id"];
+          },
+          {
+            foreignKeyName: "invoices_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
             referencedRelation: "jobs";
             referencedColumns: ["id"];
           },
           {
             foreignKeyName: "invoices_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "invoices_pdf_document_id_fkey";
+            columns: ["pdf_document_id"];
+            isOneToOne: false;
+            referencedRelation: "documents";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      job_expenses: {
+        Row: {
+          amount_cents: number;
+          category: string;
+          created_at: string;
+          created_by: string | null;
+          delete_reason: string | null;
+          deleted_at: string | null;
+          deleted_by: string | null;
+          description: string;
+          id: string;
+          job_id: string;
+          org_id: string;
+          receipt_bytes: number | null;
+          receipt_mime: string | null;
+          receipt_path: string | null;
+          spent_on: string;
+          updated_at: string;
+          updated_by: string | null;
+          vendor: string | null;
+        };
+        ComputedFields: never;
+        Insert: {
+          amount_cents: number;
+          category: string;
+          created_at?: string;
+          created_by?: string | null;
+          delete_reason?: string | null;
+          deleted_at?: string | null;
+          deleted_by?: string | null;
+          description: string;
+          id?: string;
+          job_id: string;
+          org_id: string;
+          receipt_bytes?: number | null;
+          receipt_mime?: string | null;
+          receipt_path?: string | null;
+          spent_on: string;
+          updated_at?: string;
+          updated_by?: string | null;
+          vendor?: string | null;
+        };
+        Update: {
+          amount_cents?: number;
+          category?: string;
+          created_at?: string;
+          created_by?: string | null;
+          delete_reason?: string | null;
+          deleted_at?: string | null;
+          deleted_by?: string | null;
+          description?: string;
+          id?: string;
+          job_id?: string;
+          org_id?: string;
+          receipt_bytes?: number | null;
+          receipt_mime?: string | null;
+          receipt_path?: string | null;
+          spent_on?: string;
+          updated_at?: string;
+          updated_by?: string | null;
+          vendor?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "job_expenses_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
+            referencedRelation: "job_ledger";
+            referencedColumns: ["job_id"];
+          },
+          {
+            foreignKeyName: "job_expenses_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
+            referencedRelation: "jobs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "job_expenses_org_id_fkey";
             columns: ["org_id"];
             isOneToOne: false;
             referencedRelation: "organizations";
@@ -3203,6 +3493,13 @@ export type Database = {
           updated_by?: string | null;
         };
         Relationships: [
+          {
+            foreignKeyName: "job_financials_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: true;
+            referencedRelation: "job_ledger";
+            referencedColumns: ["job_id"];
+          },
           {
             foreignKeyName: "job_financials_job_id_fkey";
             columns: ["job_id"];
@@ -3267,6 +3564,13 @@ export type Database = {
           updated_at?: string;
         };
         Relationships: [
+          {
+            foreignKeyName: "job_holds_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
+            referencedRelation: "job_ledger";
+            referencedColumns: ["job_id"];
+          },
           {
             foreignKeyName: "job_holds_job_id_fkey";
             columns: ["job_id"];
@@ -3396,6 +3700,13 @@ export type Database = {
             foreignKeyName: "job_photos_job_id_fkey";
             columns: ["job_id"];
             isOneToOne: false;
+            referencedRelation: "job_ledger";
+            referencedColumns: ["job_id"];
+          },
+          {
+            foreignKeyName: "job_photos_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
             referencedRelation: "jobs";
             referencedColumns: ["id"];
           },
@@ -3442,6 +3753,13 @@ export type Database = {
           user_id?: string;
         };
         Relationships: [
+          {
+            foreignKeyName: "job_team_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
+            referencedRelation: "job_ledger";
+            referencedColumns: ["job_id"];
+          },
           {
             foreignKeyName: "job_team_job_id_fkey";
             columns: ["job_id"];
@@ -4082,6 +4400,13 @@ export type Database = {
             foreignKeyName: "leads_converted_job_fk";
             columns: ["converted_job_id"];
             isOneToOne: false;
+            referencedRelation: "job_ledger";
+            referencedColumns: ["job_id"];
+          },
+          {
+            foreignKeyName: "leads_converted_job_fk";
+            columns: ["converted_job_id"];
+            isOneToOne: false;
             referencedRelation: "jobs";
             referencedColumns: ["id"];
           },
@@ -4219,6 +4544,83 @@ export type Database = {
           {
             foreignKeyName: "messages_sent_by_fkey";
             columns: ["sent_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      month_closes: {
+        Row: {
+          closed_at: string;
+          closed_by: string | null;
+          created_at: string;
+          created_by: string | null;
+          id: string;
+          month: string;
+          note: string | null;
+          org_id: string;
+          reopen_reason: string | null;
+          reopened_at: string | null;
+          reopened_by: string | null;
+          status: string;
+          summary: NonNullable<Json>;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        ComputedFields: never;
+        Insert: {
+          closed_at?: string;
+          closed_by?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          month: string;
+          note?: string | null;
+          org_id: string;
+          reopen_reason?: string | null;
+          reopened_at?: string | null;
+          reopened_by?: string | null;
+          status?: string;
+          summary?: NonNullable<Json>;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          closed_at?: string;
+          closed_by?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          month?: string;
+          note?: string | null;
+          org_id?: string;
+          reopen_reason?: string | null;
+          reopened_at?: string | null;
+          reopened_by?: string | null;
+          status?: string;
+          summary?: NonNullable<Json>;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "month_closes_closed_by_fkey";
+            columns: ["closed_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "month_closes_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "month_closes_reopened_by_fkey";
+            columns: ["reopened_by"];
             isOneToOne: false;
             referencedRelation: "profiles";
             referencedColumns: ["id"];
@@ -4402,8 +4804,22 @@ export type Database = {
             foreignKeyName: "on_time_credits_invoice_id_fkey";
             columns: ["invoice_id"];
             isOneToOne: false;
+            referencedRelation: "invoice_ledger";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "on_time_credits_invoice_id_fkey";
+            columns: ["invoice_id"];
+            isOneToOne: false;
             referencedRelation: "invoices";
             referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "on_time_credits_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: true;
+            referencedRelation: "job_ledger";
+            referencedColumns: ["job_id"];
           },
           {
             foreignKeyName: "on_time_credits_job_id_fkey";
@@ -4508,6 +4924,13 @@ export type Database = {
           verified_by?: string | null;
         };
         Relationships: [
+          {
+            foreignKeyName: "onboarding_requirements_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
+            referencedRelation: "job_ledger";
+            referencedColumns: ["job_id"];
+          },
           {
             foreignKeyName: "onboarding_requirements_job_id_fkey";
             columns: ["job_id"];
@@ -4804,6 +5227,13 @@ export type Database = {
             foreignKeyName: "paint_orders_job_id_fkey";
             columns: ["job_id"];
             isOneToOne: false;
+            referencedRelation: "job_ledger";
+            referencedColumns: ["job_id"];
+          },
+          {
+            foreignKeyName: "paint_orders_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
             referencedRelation: "jobs";
             referencedColumns: ["id"];
           },
@@ -4908,6 +5338,184 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "paint_products_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      payment_applications: {
+        Row: {
+          amount_cents: number;
+          created_at: string;
+          created_by: string | null;
+          id: string;
+          invoice_id: string;
+          org_id: string;
+          payment_id: string;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        ComputedFields: never;
+        Insert: {
+          amount_cents: number;
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          invoice_id: string;
+          org_id: string;
+          payment_id: string;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          amount_cents?: number;
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          invoice_id?: string;
+          org_id?: string;
+          payment_id?: string;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "payment_applications_invoice_id_fkey";
+            columns: ["invoice_id"];
+            isOneToOne: false;
+            referencedRelation: "invoice_ledger";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "payment_applications_invoice_id_fkey";
+            columns: ["invoice_id"];
+            isOneToOne: false;
+            referencedRelation: "invoices";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "payment_applications_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "payment_applications_payment_id_fkey";
+            columns: ["payment_id"];
+            isOneToOne: false;
+            referencedRelation: "payment_ledger";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "payment_applications_payment_id_fkey";
+            columns: ["payment_id"];
+            isOneToOne: false;
+            referencedRelation: "payments";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      payments: {
+        Row: {
+          account_id: string | null;
+          accounting_sync_status: string;
+          amount_cents: number;
+          bounced_at: string | null;
+          cleared_on: string | null;
+          created_at: string;
+          created_by: string | null;
+          external_id: string | null;
+          external_synced_at: string | null;
+          id: string;
+          job_id: string;
+          method: string;
+          notes: string | null;
+          org_id: string;
+          payment_number: string;
+          received_on: string;
+          reference: string | null;
+          status: string;
+          status_reason: string | null;
+          updated_at: string;
+          updated_by: string | null;
+          voided_at: string | null;
+        };
+        ComputedFields: never;
+        Insert: {
+          account_id?: string | null;
+          accounting_sync_status?: string;
+          amount_cents: number;
+          bounced_at?: string | null;
+          cleared_on?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          external_id?: string | null;
+          external_synced_at?: string | null;
+          id?: string;
+          job_id: string;
+          method: string;
+          notes?: string | null;
+          org_id: string;
+          payment_number: string;
+          received_on: string;
+          reference?: string | null;
+          status?: string;
+          status_reason?: string | null;
+          updated_at?: string;
+          updated_by?: string | null;
+          voided_at?: string | null;
+        };
+        Update: {
+          account_id?: string | null;
+          accounting_sync_status?: string;
+          amount_cents?: number;
+          bounced_at?: string | null;
+          cleared_on?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          external_id?: string | null;
+          external_synced_at?: string | null;
+          id?: string;
+          job_id?: string;
+          method?: string;
+          notes?: string | null;
+          org_id?: string;
+          payment_number?: string;
+          received_on?: string;
+          reference?: string | null;
+          status?: string;
+          status_reason?: string | null;
+          updated_at?: string;
+          updated_by?: string | null;
+          voided_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "payments_account_id_fkey";
+            columns: ["account_id"];
+            isOneToOne: false;
+            referencedRelation: "accounts";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "payments_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
+            referencedRelation: "job_ledger";
+            referencedColumns: ["job_id"];
+          },
+          {
+            foreignKeyName: "payments_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
+            referencedRelation: "jobs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "payments_org_id_fkey";
             columns: ["org_id"];
             isOneToOne: false;
             referencedRelation: "organizations";
@@ -5687,6 +6295,13 @@ export type Database = {
             foreignKeyName: "proposal_tokens_job_id_fkey";
             columns: ["job_id"];
             isOneToOne: false;
+            referencedRelation: "job_ledger";
+            referencedColumns: ["job_id"];
+          },
+          {
+            foreignKeyName: "proposal_tokens_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
             referencedRelation: "jobs";
             referencedColumns: ["id"];
           },
@@ -5786,6 +6401,13 @@ export type Database = {
             foreignKeyName: "punch_items_job_id_fkey";
             columns: ["job_id"];
             isOneToOne: false;
+            referencedRelation: "job_ledger";
+            referencedColumns: ["job_id"];
+          },
+          {
+            foreignKeyName: "punch_items_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
             referencedRelation: "jobs";
             referencedColumns: ["id"];
           },
@@ -5860,6 +6482,13 @@ export type Database = {
             foreignKeyName: "punch_signoffs_job_id_fkey";
             columns: ["job_id"];
             isOneToOne: false;
+            referencedRelation: "job_ledger";
+            referencedColumns: ["job_id"];
+          },
+          {
+            foreignKeyName: "punch_signoffs_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
             referencedRelation: "jobs";
             referencedColumns: ["id"];
           },
@@ -5928,6 +6557,13 @@ export type Database = {
             foreignKeyName: "rain_delays_job_id_fkey";
             columns: ["job_id"];
             isOneToOne: false;
+            referencedRelation: "job_ledger";
+            referencedColumns: ["job_id"];
+          },
+          {
+            foreignKeyName: "rain_delays_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
             referencedRelation: "jobs";
             referencedColumns: ["id"];
           },
@@ -5965,6 +6601,94 @@ export type Database = {
           window_start?: string;
         };
         Relationships: [];
+      };
+      refunds: {
+        Row: {
+          amount_cents: number;
+          created_at: string;
+          created_by: string | null;
+          detail: NonNullable<Json>;
+          id: string;
+          job_id: string;
+          method: string;
+          org_id: string;
+          payment_id: string;
+          reason: string;
+          reference: string | null;
+          refunded_on: string;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        ComputedFields: never;
+        Insert: {
+          amount_cents: number;
+          created_at?: string;
+          created_by?: string | null;
+          detail?: NonNullable<Json>;
+          id?: string;
+          job_id: string;
+          method: string;
+          org_id: string;
+          payment_id: string;
+          reason: string;
+          reference?: string | null;
+          refunded_on: string;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          amount_cents?: number;
+          created_at?: string;
+          created_by?: string | null;
+          detail?: NonNullable<Json>;
+          id?: string;
+          job_id?: string;
+          method?: string;
+          org_id?: string;
+          payment_id?: string;
+          reason?: string;
+          reference?: string | null;
+          refunded_on?: string;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "refunds_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
+            referencedRelation: "job_ledger";
+            referencedColumns: ["job_id"];
+          },
+          {
+            foreignKeyName: "refunds_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
+            referencedRelation: "jobs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "refunds_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "refunds_payment_id_fkey";
+            columns: ["payment_id"];
+            isOneToOne: false;
+            referencedRelation: "payment_ledger";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "refunds_payment_id_fkey";
+            columns: ["payment_id"];
+            isOneToOne: false;
+            referencedRelation: "payments";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       role_templates: {
         Row: {
@@ -6201,6 +6925,13 @@ export type Database = {
             foreignKeyName: "schedule_entries_job_id_fkey";
             columns: ["job_id"];
             isOneToOne: false;
+            referencedRelation: "job_ledger";
+            referencedColumns: ["job_id"];
+          },
+          {
+            foreignKeyName: "schedule_entries_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
             referencedRelation: "jobs";
             referencedColumns: ["id"];
           },
@@ -6309,6 +7040,13 @@ export type Database = {
             isOneToOne: false;
             referencedRelation: "schedule_entries";
             referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "schedule_recommendations_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
+            referencedRelation: "job_ledger";
+            referencedColumns: ["job_id"];
           },
           {
             foreignKeyName: "schedule_recommendations_job_id_fkey";
@@ -6468,6 +7206,13 @@ export type Database = {
             foreignKeyName: "signatures_job_id_fkey";
             columns: ["job_id"];
             isOneToOne: false;
+            referencedRelation: "job_ledger";
+            referencedColumns: ["job_id"];
+          },
+          {
+            foreignKeyName: "signatures_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
             referencedRelation: "jobs";
             referencedColumns: ["id"];
           },
@@ -6589,6 +7334,13 @@ export type Database = {
           to_stage?: string;
         };
         Relationships: [
+          {
+            foreignKeyName: "stage_history_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
+            referencedRelation: "job_ledger";
+            referencedColumns: ["job_id"];
+          },
           {
             foreignKeyName: "stage_history_job_id_fkey";
             columns: ["job_id"];
@@ -7050,6 +7802,13 @@ export type Database = {
             foreignKeyName: "time_entries_job_id_fkey";
             columns: ["job_id"];
             isOneToOne: false;
+            referencedRelation: "job_ledger";
+            referencedColumns: ["job_id"];
+          },
+          {
+            foreignKeyName: "time_entries_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
             referencedRelation: "jobs";
             referencedColumns: ["id"];
           },
@@ -7358,6 +8117,13 @@ export type Database = {
             foreignKeyName: "work_orders_job_id_fkey";
             columns: ["job_id"];
             isOneToOne: false;
+            referencedRelation: "job_ledger";
+            referencedColumns: ["job_id"];
+          },
+          {
+            foreignKeyName: "work_orders_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
             referencedRelation: "jobs";
             referencedColumns: ["id"];
           },
@@ -7498,7 +8264,148 @@ export type Database = {
       };
     };
     Views: {
-      [_ in never]: never;
+      invoice_ledger: {
+        Row: {
+          account_id: string | null;
+          account_name: string | null;
+          accounting_sync_status: string;
+          balance_cents: number | null;
+          collected_cents: number | null;
+          created_at: string;
+          days_past_due: number | null;
+          display_status: string | null;
+          due_date: string | null;
+          id: string;
+          invoice_number: string;
+          invoice_type: string;
+          issue_date: string | null;
+          issued: boolean | null;
+          job_id: string;
+          job_name: string | null;
+          job_number: string | null;
+          job_stage: string | null;
+          org_id: string;
+          sent_at: string | null;
+          status: string;
+          total_cents: number;
+          viewed_at: string | null;
+          voided_at: string | null;
+        };
+        ComputedFields: never;
+        Relationships: [
+          {
+            foreignKeyName: "invoices_account_id_fkey";
+            columns: ["account_id"];
+            isOneToOne: false;
+            referencedRelation: "accounts";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "invoices_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
+            referencedRelation: "job_ledger";
+            referencedColumns: ["job_id"];
+          },
+          {
+            foreignKeyName: "invoices_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
+            referencedRelation: "jobs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "invoices_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      job_ledger: {
+        Row: {
+          balance_cents: number | null;
+          billed_cents: number | null;
+          collected_cents: number | null;
+          contract_base_cents: number | null;
+          contract_cents: number | null;
+          credits_cents: number | null;
+          due_cents: number | null;
+          job_id: string;
+          last_payment_on: string | null;
+          left_to_bill_cents: number | null;
+          org_id: string;
+          overdue_invoices: number | null;
+          pending_credits_cents: number | null;
+          refunded_cents: number | null;
+          stage: string;
+          unapplied_cents: number | null;
+          uncleared_cents: number | null;
+        };
+        ComputedFields: never;
+        Relationships: [
+          {
+            foreignKeyName: "jobs_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      payment_ledger: {
+        Row: {
+          account_id: string | null;
+          accounting_sync_status: string;
+          amount_cents: number;
+          applied_cents: number | null;
+          available_cents: number | null;
+          cleared_on: string | null;
+          created_at: string;
+          id: string;
+          job_id: string;
+          method: string;
+          org_id: string;
+          payment_number: string;
+          received_on: string;
+          reference: string | null;
+          refunded_cents: number | null;
+          status: string;
+          unapplied_cents: number | null;
+        };
+        ComputedFields: never;
+        Relationships: [
+          {
+            foreignKeyName: "payments_account_id_fkey";
+            columns: ["account_id"];
+            isOneToOne: false;
+            referencedRelation: "accounts";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "payments_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
+            referencedRelation: "job_ledger";
+            referencedColumns: ["job_id"];
+          },
+          {
+            foreignKeyName: "payments_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
+            referencedRelation: "jobs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "payments_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Functions: {
       accept_change_order: {
@@ -7582,15 +8489,42 @@ export type Database = {
           isSetofReturn: true;
         };
       };
+      close_month: { Args: { p_month: string; p_note?: string }; Returns: string };
       consume_rate_limit: {
         Args: { p_bucket: string; p_limit: number; p_window_seconds: number };
         Returns: boolean;
       };
       convert_lead_to_job: { Args: { p_lead: string; p_work_types?: string[] }; Returns: string };
       copy_estimate_version: { Args: { p_version: string }; Returns: string };
+      create_credit: {
+        Args: {
+          p_amount_cents: number;
+          p_approve?: boolean;
+          p_job: string;
+          p_reason: string;
+          p_type: string;
+        };
+        Returns: string;
+      };
       create_estimate: { Args: { p_job: string; p_title?: string }; Returns: string };
+      create_invoice: {
+        Args: {
+          p_due_date?: string;
+          p_job: string;
+          p_lines: Json;
+          p_notes?: string;
+          p_terms?: string;
+          p_type: string;
+        };
+        Returns: string;
+      };
+      decide_credit: {
+        Args: { p_credit: string; p_decision: string; p_note?: string };
+        Returns: undefined;
+      };
       decline_proposal: { Args: { p_reason: string; p_token_hash: string }; Returns: Json };
       document_stats: { Args: { p_job?: string }; Returns: Json };
+      draft_final_invoice: { Args: { p_job: string }; Returns: string };
       emit_production_event: {
         Args: {
           p_aggregate_id: string;
@@ -7603,6 +8537,7 @@ export type Database = {
       estimate_stats: { Args: { p_from: string; p_to: string }; Returns: Json };
       estimate_status_counts: { Args: Record<PropertyKey, never>; Returns: Json };
       expire_proposals: { Args: Record<PropertyKey, never>; Returns: number };
+      finance_stats: { Args: { p_from: string; p_to: string }; Returns: Json };
       integration_summary: { Args: Record<PropertyKey, never>; Returns: Json };
       job_photo_summary: { Args: { p_job: string }; Returns: Json };
       job_stats: { Args: { p_from: string; p_prev_from: string; p_to: string }; Returns: Json };
@@ -7642,10 +8577,48 @@ export type Database = {
         };
         Returns: string;
       };
+      mark_invoice_sent: {
+        Args: {
+          p_document?: string;
+          p_due_date: string;
+          p_invoice: string;
+          p_issue_date: string;
+          p_override_reason?: string;
+        };
+        Returns: undefined;
+      };
       my_access: { Args: Record<PropertyKey, never>; Returns: Json };
       open_work_counts: { Args: { p_user_id: string }; Returns: Json };
+      place_job_credits: { Args: { p_job: string }; Returns: number };
       production_stats: { Args: Record<PropertyKey, never>; Returns: Json };
+      record_payment: {
+        Args: {
+          p_amount_cents: number;
+          p_applications: Json;
+          p_job: string;
+          p_method: string;
+          p_notes?: string;
+          p_override_reason?: string;
+          p_received_on: string;
+          p_reference?: string;
+        };
+        Returns: string;
+      };
       record_proposal_view: { Args: { p_token_hash: string }; Returns: Json };
+      refund_payment: {
+        Args: {
+          p_amount_cents: number;
+          p_invoice?: string;
+          p_method: string;
+          p_override_reason?: string;
+          p_payment: string;
+          p_reason: string;
+          p_reference?: string;
+          p_refunded_on: string;
+        };
+        Returns: string;
+      };
+      reopen_month: { Args: { p_month: string; p_reason: string }; Returns: undefined };
       reorder_picklist_values: {
         Args: { p_picklist_id: string; p_value_ids: string[] };
         Returns: undefined;
@@ -7662,6 +8635,10 @@ export type Database = {
           subtitle: string;
           title: string;
         }[];
+      };
+      set_payment_applications: {
+        Args: { p_applications: Json; p_override_reason?: string; p_payment: string };
+        Returns: undefined;
       };
       soft_delete_post: { Args: { p_id: string; p_table: string }; Returns: undefined };
       soft_delete_record: {
@@ -7691,6 +8668,31 @@ export type Database = {
           p_settings: Json;
           p_version: string;
         };
+        Returns: undefined;
+      };
+      sweep_invoices: { Args: { p_limit?: number }; Returns: Json };
+      update_invoice_draft: {
+        Args: {
+          p_due_date?: string;
+          p_invoice: string;
+          p_lines: Json;
+          p_notes?: string;
+          p_terms?: string;
+        };
+        Returns: undefined;
+      };
+      update_payment_status: {
+        Args: {
+          p_action: string;
+          p_on?: string;
+          p_override_reason?: string;
+          p_payment: string;
+          p_reason?: string;
+        };
+        Returns: undefined;
+      };
+      void_invoice: {
+        Args: { p_invoice: string; p_override_reason?: string; p_reason: string };
         Returns: undefined;
       };
     };

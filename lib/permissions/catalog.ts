@@ -151,6 +151,12 @@ export const PERMISSIONS = [
   },
   { key: "finance:close_month", label: "Close a month", category: "finance", scoped: false },
   {
+    key: "finance:override_lock",
+    label: "Change invoices and payments in a closed month",
+    category: "finance",
+    scoped: false,
+  },
+  {
     key: "reports:read",
     label: "View reports and dashboards",
     category: "data_reporting",
