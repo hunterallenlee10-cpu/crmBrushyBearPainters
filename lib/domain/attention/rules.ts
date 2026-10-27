@@ -12,9 +12,8 @@ import { formatCents } from "@/lib/format/money";
 /**
  * Attention engine v1 (SPEC §9). Pure: a snapshot of open leads, jobs,
  * walkthroughs and approvals goes in; the items that should be open come out.
- * Rules whose data arrives in later phases (unread messages, warranty) are
- * added with those phases. Weather risk is present but dormant
- * until weather is connected.
+ * Unread customer messages and warranty / service cases arrived in Phase 8.
+ * Weather risk is present but dormant until weather is connected.
  */
 
 export const ATTENTION_CATEGORIES = [
@@ -166,6 +165,20 @@ export const ATTENTION_RULES = {
       "A sent invoice past its due date with money still owed: medium after the first threshold, high after the second.",
     thresholds: { medium_days: 7, high_days: 30 },
   },
+  unread_message: {
+    label: "Unread customer message",
+    category: "communication",
+    description:
+      "A customer's text or email that nobody has read after the threshold (business minutes, from Company Settings hours).",
+    thresholds: { minutes: 30 },
+  },
+  warranty_request: {
+    label: "Warranty request",
+    category: "customer",
+    description:
+      "An open warranty or service case. High until its SLA (2 business days by default, Messaging settings), then Critical.",
+    thresholds: {},
+  },
   weather_risk: {
     label: "Weather risk",
     category: "scheduling",
@@ -301,6 +314,29 @@ export type SnapshotApproval = {
   requesterName: string;
 };
 
+/** A conversation with an unread customer message (Phase 8). */
+export type SnapshotThread = {
+  id: string;
+  subjectType: "lead" | "job";
+  subjectId: string;
+  subjectName: string;
+  lastInboundAt: string;
+  ownerId: string | null;
+  preview: string | null;
+};
+
+/** An open warranty or service case (Phase 8). */
+export type SnapshotCase = {
+  id: string;
+  number: string;
+  title: string;
+  type: string;
+  priority: "normal" | "high" | "urgent";
+  slaDueAt: string;
+  ownerId: string | null;
+  customerName: string | null;
+};
+
 export type AttentionSnapshot = {
   leads: readonly SnapshotLead[];
   walkthroughs: readonly SnapshotWalkthrough[];
@@ -311,6 +347,10 @@ export type AttentionSnapshot = {
   /** Overdue invoices (Phase 7). */
   invoices?: readonly SnapshotInvoice[];
   subcontractors?: readonly SnapshotSubcontractor[];
+  /** Unread customer conversations (Phase 8). */
+  threads?: readonly SnapshotThread[];
+  /** Open warranty / service cases (Phase 8). */
+  cases?: readonly SnapshotCase[];
 };
 
 export type AttentionSettings = {
@@ -333,7 +373,7 @@ export type DesiredItem = {
   priority: AttentionPriority;
   title: string;
   detail: string | null;
-  subjectType: "lead" | "job" | "subcontractor";
+  subjectType: "lead" | "job" | "subcontractor" | "case";
   subjectId: string;
   ownerId: string | null;
   dueAt: string | null;
@@ -842,6 +882,47 @@ export function evaluateAttention(
         ownerId: e.ownerId,
         dueAt: e.expiresAt,
         dedupeKey: `estimate_expiring:${e.id}`,
+      });
+    }
+  }
+
+  // Unread customer message: an inbound text/email nobody read after N business minutes.
+  if (enabled(settings, "unread_message")) {
+    const minutes = threshold(settings, "unread_message", "minutes", 30);
+    for (const t of snapshot.threads ?? []) {
+      const waited = businessSecondsBetween(new Date(t.lastInboundAt), now, settings.businessHours);
+      if (waited < minutes * 60) continue;
+      items.push({
+        ruleKey: "unread_message",
+        category: "communication",
+        priority: "high",
+        title: `Unread customer message: ${t.subjectName}`,
+        detail: `${t.preview ? `“${t.preview.slice(0, 160)}” · ` : ""}unread for ${Math.round(waited / 60)} business minutes (goal: ${minutes}).`,
+        subjectType: t.subjectType,
+        subjectId: t.subjectId,
+        ownerId: t.ownerId,
+        dueAt: null,
+        dedupeKey: `unread_message:${t.id}`,
+      });
+    }
+  }
+
+  // Warranty / service request: every open case, high until its SLA, then critical.
+  if (enabled(settings, "warranty_request")) {
+    for (const c of snapshot.cases ?? []) {
+      const past = new Date(c.slaDueAt).getTime() <= now.getTime();
+      const label = c.type === "warranty" ? "Warranty request" : "Service request";
+      items.push({
+        ruleKey: "warranty_request",
+        category: "customer",
+        priority: c.priority === "urgent" || past ? "critical" : "high",
+        title: `${label}: ${c.title}${c.customerName ? ` (${c.customerName})` : ""}`,
+        detail: `${c.number}${past ? " is past its SLA." : " is open."} Call the customer and set up a visit if one is needed.`,
+        subjectType: "case",
+        subjectId: c.id,
+        ownerId: c.ownerId,
+        dueAt: c.slaDueAt,
+        dedupeKey: `warranty_request:${c.id}`,
       });
     }
   }

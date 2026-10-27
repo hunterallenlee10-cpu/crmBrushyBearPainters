@@ -688,3 +688,93 @@ describe("production rules (Phase 6)", () => {
     ]);
   });
 });
+
+describe("communication & customer rules (Phase 8)", () => {
+  const thread = {
+    id: "t1",
+    subjectType: "job" as const,
+    subjectId: "j1",
+    subjectName: "Smith – Kirkland – Exterior",
+    ownerId: "poc",
+    preview: "Can you come Tuesday instead?",
+  };
+
+  it("unread customer message: high after 30 business minutes", () => {
+    expect(
+      keys({ ...empty, threads: [{ ...thread, lastInboundAt: "2026-10-26T16:45:00Z" }] }),
+    ).toEqual([]);
+    expect(
+      keys({ ...empty, threads: [{ ...thread, lastInboundAt: "2026-10-26T16:25:00Z" }] }),
+    ).toEqual(["unread_message:t1|high"]);
+  });
+
+  it("unread customer message counts business minutes (a Sunday text isn't late at 8:10 Monday)", () => {
+    expect(
+      keys(
+        { ...empty, threads: [{ ...thread, lastInboundAt: "2026-10-25T20:00:00Z" }] },
+        settings,
+        new Date("2026-10-26T15:10:00Z"),
+      ),
+    ).toEqual([]);
+  });
+
+  it("unread threshold is editable", () => {
+    const s = {
+      ...settings,
+      rules: { unread_message: { enabled: true, thresholds: { minutes: 5 } } },
+    };
+    expect(
+      keys({ ...empty, threads: [{ ...thread, lastInboundAt: "2026-10-26T16:50:00Z" }] }, s),
+    ).toEqual(["unread_message:t1|high"]);
+  });
+
+  const kase = {
+    id: "k1",
+    number: "CASE-2026-0001",
+    title: "Peeling on the back door",
+    type: "warranty",
+    priority: "normal" as const,
+    ownerId: "poc",
+    customerName: "Smith Residence",
+  };
+
+  it("warranty request: high until the SLA, then critical; urgent is critical", () => {
+    const items = evaluateAttention(
+      { ...empty, cases: [{ ...kase, slaDueAt: "2026-10-28T17:00:00Z" }] },
+      settings,
+      now,
+    );
+    expect(items.map((i) => `${i.dedupeKey}|${i.priority}`)).toEqual(["warranty_request:k1|high"]);
+    expect(items[0]?.subjectType).toBe("case");
+    expect(items[0]?.title).toBe("Warranty request: Peeling on the back door (Smith Residence)");
+    expect(keys({ ...empty, cases: [{ ...kase, slaDueAt: "2026-10-26T16:00:00Z" }] })).toEqual([
+      "warranty_request:k1|critical",
+    ]);
+    expect(
+      keys({
+        ...empty,
+        cases: [{ ...kase, priority: "urgent", slaDueAt: "2026-10-28T17:00:00Z" }],
+      }),
+    ).toEqual(["warranty_request:k1|critical"]);
+  });
+
+  it("rules can be switched off", () => {
+    const s = {
+      ...settings,
+      rules: {
+        unread_message: { enabled: false, thresholds: {} },
+        warranty_request: { enabled: false, thresholds: {} },
+      },
+    };
+    expect(
+      keys(
+        {
+          ...empty,
+          threads: [{ ...thread, lastInboundAt: "2026-10-26T10:00:00Z" }],
+          cases: [{ ...kase, slaDueAt: "2026-10-26T16:00:00Z" }],
+        },
+        s,
+      ),
+    ).toEqual([]);
+  });
+});

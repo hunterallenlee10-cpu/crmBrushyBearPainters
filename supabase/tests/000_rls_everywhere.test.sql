@@ -18,13 +18,16 @@ select tests.assert_eq(
 );
 
 -- Log/outbox tables, rate-limit counters and the global permission catalog are exempt from row auditing.
+-- Phase 8: workflow runs and campaign recipients are send logs (their own record, like the outbox) and
+-- message threads are summaries kept by triggers on the (audited) messages.
 select tests.assert_eq(
   (
     select coalesce(string_agg(c.relname, ', ' order by c.relname), '')
     from pg_class c
     join pg_namespace n on n.oid = c.relnamespace
     where c.relkind = 'r' and n.nspname = 'public'
-      and c.relname not in ('audit_log', 'activity', 'events', 'integration_outbox', 'permissions', 'rate_limits')
+      and c.relname not in ('audit_log', 'activity', 'events', 'integration_outbox', 'permissions', 'rate_limits',
+                            'workflow_runs', 'campaign_recipients', 'message_threads')
       and not exists (
         select 1 from pg_trigger t
         join pg_proc p on p.oid = t.tgfoid
