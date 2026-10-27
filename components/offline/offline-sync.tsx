@@ -13,7 +13,8 @@ import { createQueueStore } from "@/lib/offline/idb-store";
  * Offline sync for the whole app (SPEC §2): registers the service worker,
  * keeps the IndexedDB upload queue, uploads when the connection comes back
  * (and every 30 s while anything waits), and tells pages when an item for
- * their job has synced. Phase 6 adds a "daily_log" uploader next to "photo".
+ * their job has synced. Uploaders: "photo" and "daily_log" (the log with its
+ * cleanup photo; extra photos follow as "photo" items linked by the log id).
  */
 
 const LAST_SYNCED_KEY = "bb:lastSynced";
@@ -26,7 +27,16 @@ export const uploadPhoto: Uploader = async (item) => {
   const name = typeof item.meta.fileName === "string" ? item.meta.fileName : "photo.jpg";
   form.set("file", item.blob, name);
   form.set("clientId", item.id);
-  for (const k of ["category", "area", "caption", "checklistKey", "takenAt", "source"]) {
+  for (const k of [
+    "category",
+    "area",
+    "caption",
+    "checklistKey",
+    "takenAt",
+    "source",
+    "dailyLogId",
+    "workOrderId",
+  ]) {
     const v = item.meta[k];
     if (typeof v === "string" && v) form.set(k, v);
   }
@@ -44,7 +54,41 @@ export const uploadPhoto: Uploader = async (item) => {
   return outcomeForStatus(res.status, message);
 };
 
-const UPLOADERS: Record<string, Uploader> = { photo: uploadPhoto };
+/** Daily log (with its cleanup photo): idempotent by client id, which is the log's id. */
+export const uploadDailyLog: Uploader = async (item) => {
+  if (!item.blob) return { ok: false, retry: false, error: "The cleanup photo is missing." };
+  const form = new FormData();
+  form.set("cleanupPhoto", item.blob, "cleanup.jpg");
+  form.set("clientId", item.id);
+  form.set("cleanupDone", "true");
+  for (const k of [
+    "logDate",
+    "workOrderId",
+    "finishedToday",
+    "nextUp",
+    "issues",
+    "weatherObserved",
+    "hours",
+    "source",
+  ]) {
+    const v = item.meta[k];
+    if (typeof v === "string" && v) form.set(k, v);
+  }
+  let res: Response;
+  try {
+    res = await fetch(`/api/jobs/${item.jobId}/daily-logs`, { method: "POST", body: form });
+  } catch {
+    return { ok: false, retry: true, error: "No connection." };
+  }
+  let message = "";
+  if (!res.ok) {
+    const body = (await res.json().catch(() => null)) as { error?: string } | null;
+    message = body?.error ?? "";
+  }
+  return outcomeForStatus(res.status, message);
+};
+
+const UPLOADERS: Record<string, Uploader> = { photo: uploadPhoto, daily_log: uploadDailyLog };
 
 type SyncState = {
   ready: boolean;

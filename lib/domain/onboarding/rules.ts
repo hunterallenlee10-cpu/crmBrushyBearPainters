@@ -12,9 +12,9 @@ import {
  * `apply_onboarding_checks()`; a manual "cleared with a note" is never
  * overwritten (that happens in the database function).
  *
- * Rules whose data arrives in a later phase (payments in 7, crews and paint
- * ordering screens in 6) report "pending" with the phase in their detail, so
- * people know to clear them by hand with a note until then.
+ * Rules whose data arrives in a later phase (payments in 7) report "pending"
+ * with the phase in their detail, so people know to clear them by hand with a
+ * note until then.
  */
 
 export type DepositLedger = {
@@ -54,16 +54,19 @@ export type OnboardingSnapshot = {
   /** Live documents by category on the job (or its customer). */
   documents: { hoa: number; leadSafe: number };
   /**
-   * A certified renovator is assigned to the job's crew. `null` until crews
-   * exist (Phase 6).
+   * A certified renovator (current RRP certificate) is on the job's crew.
+   * `null` when crew data isn't loaded.
    */
   certifiedRenovatorAssigned: boolean | null;
   /** The accepted scope includes a repair allowance the customer accepted. */
   repairAllowanceAccepted: boolean;
   /** Statuses of the job's live paint orders. */
   paintOrderStatuses: readonly string[];
-  /** Crew skills cover the job. `null` until crews exist (Phase 6). */
+  /** Crew skills cover the job (null: no crew data). */
   crewCoversSkills: boolean | null;
+  /** Whether any crew is assigned, and the skills still missing (labels). */
+  crewAssigned?: boolean;
+  crewMissingSkills?: readonly string[];
   /** When the prep-instructions message was last sent or simulated. */
   prepInstructionsSentAt: string | null;
   /** Promised start date (YYYY-MM-DD) and the exterior season (MM-DD). */
@@ -273,9 +276,7 @@ export function evaluateRule(key: OnboardingKey, s: OnboardingSnapshot): RuleRes
         return {
           key,
           status: "pending",
-          detail:
-            "Acknowledgment on file. Checking for a certified renovator arrives with crews (Phase 6); mark this cleared with a note once one is assigned.",
-          arrivesInPhase: 6,
+          detail: "Acknowledgment on file. Assign a crew with a current RRP certified renovator.",
         };
       }
       return s.certifiedRenovatorAssigned
@@ -316,8 +317,7 @@ export function evaluateRule(key: OnboardingKey, s: OnboardingSnapshot): RuleRes
             key,
             status: "pending",
             detail:
-              "The paint order is drafted, not placed. The Paint Orders queue arrives in Phase 6; mark this cleared with a note once it's ordered.",
-            arrivesInPhase: 6,
+              "The paint order is drafted, not placed. Mark it ordered in Schedule → Paint Orders.",
           }
         : { key, status: "missing", detail: "There's no paint order for this job yet." };
     }
@@ -327,14 +327,26 @@ export function evaluateRule(key: OnboardingKey, s: OnboardingSnapshot): RuleRes
         return {
           key,
           status: "pending",
+          detail: "Assign a crew with the skills this job needs.",
+        };
+      }
+      if (s.crewAssigned === false) {
+        return {
+          key,
+          status: "missing",
           detail:
-            "Crews and skills arrive in Phase 6. Mark this cleared with a note once a crew is lined up.",
-          arrivesInPhase: 6,
+            "No crew assigned. Assign one on the job's Schedule section or the Master Schedule.",
         };
       }
       return s.crewCoversSkills
         ? { key, status: "verified", detail: "The crew has every skill this job needs." }
-        : { key, status: "missing", detail: "Assign a crew with the skills this job needs." };
+        : {
+            key,
+            status: "missing",
+            detail: s.crewMissingSkills?.length
+              ? `The crew is missing: ${s.crewMissingSkills.join(", ")}. Assign a crew with those skills.`
+              : "Assign a crew with the skills this job needs.",
+          };
 
     case "prep_instructions_sent":
       return s.prepInstructionsSentAt

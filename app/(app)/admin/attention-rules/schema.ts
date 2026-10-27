@@ -13,7 +13,7 @@ import {
 
 export type ThresholdSpec = {
   label: string;
-  unit: "days" | "hours" | "hour";
+  unit: "days" | "hours" | "hour" | "percent";
   min: number;
   max: number;
   help?: string;
@@ -55,6 +55,43 @@ export const THRESHOLD_SPECS: Partial<Record<AttentionRuleKey, Record<string, Th
   ready_not_scheduled: {
     days: { ...DAYS, label: "Days in Ready to Schedule" },
   },
+  missing_crew: {
+    days: { label: "Starts within (days)", unit: "days", min: 0, max: 60 },
+  },
+  paint_not_ordered: {
+    days: { label: "Starts within (days)", unit: "days", min: 0, max: 60 },
+  },
+  missed_daily_update: {
+    cutoff_hour: {
+      label: "Log due by (hour, Pacific, 0–23)",
+      unit: "hour",
+      min: 0,
+      max: 23,
+      help: "On each production day. 19 = 7 PM.",
+    },
+    lookback_days: {
+      label: "Keep missed days open for (days)",
+      unit: "days",
+      min: 0,
+      max: 30,
+      help: "Older missed days drop off the list.",
+    },
+  },
+  punch_list_open: {
+    days: { ...DAYS, label: "Days in Final Walkthrough" },
+  },
+  sub_compliance_expiring: {
+    days: { ...DAYS, label: "Expires within (days)" },
+  },
+  weather_risk: {
+    rain_percent: {
+      label: "Rain chance at or above (%)",
+      unit: "percent",
+      min: 1,
+      max: 100,
+      help: "Runs only when weather is connected.",
+    },
+  },
 };
 
 /** Where the numbers come from for rules without editable thresholds. */
@@ -62,7 +99,7 @@ export const RULE_SOURCES: Partial<Record<AttentionRuleKey, string>> = {
   untouched_lead: "Uses the text-back SLA in Company Settings",
   estimate_sla: "Uses the estimate SLA warning and breach hours in Company Settings",
   start_date_missed:
-    "No threshold: it counts as soon as a promised start date passes with no actual start.",
+    "No threshold: it counts as soon as a promised start date passes with no actual start (rain delays don't count).",
 };
 
 export function thresholdSpec(rule: AttentionRuleKey, key: string): ThresholdSpec {

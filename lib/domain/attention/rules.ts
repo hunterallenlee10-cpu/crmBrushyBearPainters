@@ -5,12 +5,15 @@ import { isInSeason } from "@/lib/domain/company-settings";
 import { BUSINESS_TZ, businessSecondsBetween } from "@/lib/domain/leads/speed-to-lead";
 import { getStage, type JobStageId } from "@/lib/domain/stages";
 import { isTerminal, stageOrder } from "@/lib/domain/jobs/gates";
+import { daysBetween, formatDay } from "@/lib/domain/scheduling/dates";
+import { missedDailyUpdates } from "@/lib/domain/scheduling/daily-updates";
 
 /**
  * Attention engine v1 (SPEC §9). Pure: a snapshot of open leads, jobs,
  * walkthroughs and approvals goes in; the items that should be open come out.
- * Rules whose data arrives in later phases (weather, paint, crews, invoices,
- * warranty, daily logs) are added with those phases.
+ * Rules whose data arrives in later phases (invoices, unread messages,
+ * warranty) are added with those phases. Weather risk is present but dormant
+ * until weather is connected.
  */
 
 export const ATTENTION_CATEGORIES = [
@@ -120,8 +123,47 @@ export const ATTENTION_RULES = {
     label: "Start date missed",
     category: "qa",
     description:
-      "The promised start date passed with no actual start (not weather). The on-time credit is drafted once Money arrives (Phase 7).",
+      "The promised start date passed with no actual start (rain delays don't count). An On-Time Guarantee credit is drafted for owner approval.",
     thresholds: {},
+  },
+  missing_crew: {
+    label: "Missing crew",
+    category: "scheduling",
+    description: "A job starting soon with no crew assigned.",
+    thresholds: { days: 5 },
+  },
+  paint_not_ordered: {
+    label: "Paint not ordered",
+    category: "production",
+    description: "A job starting soon whose paint order isn't placed.",
+    thresholds: { days: 3 },
+  },
+  missed_daily_update: {
+    label: "Missed daily update",
+    category: "qa",
+    description:
+      "A scheduled production day with no daily log by the cutoff hour (Pacific). Rain days don't count.",
+    thresholds: { cutoff_hour: 19, lookback_days: 3 },
+  },
+  punch_list_open: {
+    label: "Punch list open",
+    category: "qa",
+    description: "A job in Final Walkthrough for a while with punch items still open.",
+    thresholds: { days: 3 },
+  },
+  sub_compliance_expiring: {
+    label: "Sub compliance expiring",
+    category: "documents",
+    description:
+      "A subcontractor's L&I registration, insurance (COI), bond or RRP certificate expires soon, has expired, or is missing.",
+    thresholds: { days: 30 },
+  },
+  weather_risk: {
+    label: "Weather risk",
+    category: "scheduling",
+    description:
+      "An exterior or deck day with rain at or above the threshold in the forecast. Runs only when weather is connected.",
+    thresholds: { rain_percent: 60 },
   },
 } as const satisfies Record<
   string,
@@ -182,6 +224,30 @@ export type SnapshotJob = {
    */
   onboardingOpen?: readonly string[] | null;
   blockingHolds?: readonly string[];
+  /** Production (Phase 6). Undefined when not loaded. */
+  crewId?: string | null;
+  /** Lead of the job's crew (owns the missed-daily-update item). */
+  crewLeadId?: string | null;
+  /** First scheduled production day (published, else drafted), else the promised start. */
+  startDate?: string | null;
+  /** A paint order is placed (ordered or later); null when the job has none. */
+  paintOrdered?: boolean | null;
+  /** Published production days and the dates with a daily log. */
+  productionDays?: readonly string[];
+  logDates?: readonly string[];
+  /** The date the on-time guarantee measures. */
+  guaranteeDate?: string | null;
+  rainDelayDates?: readonly string[];
+  punchOpen?: number;
+  /** Forecast days at risk (weather connected only). */
+  weatherRiskDays?: readonly { date: string; precipProbability: number }[];
+};
+
+export type SnapshotSubcontractor = {
+  id: string;
+  name: string;
+  /** Plain-English issues within the rule's window (from lib/domain/scheduling/subcontractors). */
+  issues: readonly { level: "expired" | "expiring"; message: string; expiresOn: string | null }[];
 };
 
 export type SnapshotEstimate = {
@@ -215,6 +281,7 @@ export type AttentionSnapshot = {
   approvals: readonly SnapshotApproval[];
   /** Open (sent or viewed) estimates. */
   estimates?: readonly SnapshotEstimate[];
+  subcontractors?: readonly SnapshotSubcontractor[];
 };
 
 export type AttentionSettings = {
@@ -225,6 +292,10 @@ export type AttentionSettings = {
   exteriorSeasonStart: string;
   exteriorSeasonEnd: string;
   rules: Partial<Record<AttentionRuleKey, RuleConfig>>;
+  /** Weather risk only runs when the weather integration is connected. */
+  weatherConnected?: boolean;
+  /** On-Time Guarantee amount (Company Settings), for the item text. */
+  onTimeCreditCents?: number;
 };
 
 export type DesiredItem = {
@@ -233,7 +304,7 @@ export type DesiredItem = {
   priority: AttentionPriority;
   title: string;
   detail: string | null;
-  subjectType: "lead" | "job";
+  subjectType: "lead" | "job" | "subcontractor";
   subjectId: string;
   ownerId: string | null;
   dueAt: string | null;
@@ -275,6 +346,27 @@ function enabled(settings: AttentionSettings, key: AttentionRuleKey): boolean {
 
 function plural(n: number, word: string): string {
   return `${n} ${word}${n === 1 ? "" : "s"}`;
+}
+
+/** Calendar days from today (Pacific) until a YYYY-MM-DD date (negative when past). */
+function daysUntil(date: string, now: Date): number {
+  return daysBetween(pacificIso(now), date);
+}
+
+function startsWords(days: number, date: string): string {
+  if (days < 0) return `Was due to start ${formatDay(date)}`;
+  if (days === 0) return "Starts today";
+  if (days === 1) return "Starts tomorrow";
+  return `Starts in ${days} days (${formatDay(date)})`;
+}
+
+function hourLabel(h: number): string {
+  const hh = ((h % 24) + 24) % 24;
+  return `${hh % 12 === 0 ? 12 : hh % 12}:00 ${hh < 12 ? "am" : "pm"}`;
+}
+
+function money(cents: number): string {
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(cents / 100);
 }
 
 /** Every item that should be open right now. */
@@ -468,26 +560,182 @@ export function evaluateAttention(
       }
     }
 
-    // Start date missed (not weather).
+    // Start date missed (rain delays don't count) → Critical, credit drafted.
+    const promised = j.guaranteeDate ?? j.promisedStartDate;
+    const todayIso = pacificIso(now);
+    const rainSlip = (j.rainDelayDates ?? []).some(
+      (d) => promised && d >= promised && d <= todayIso,
+    );
     if (
       enabled(settings, "start_date_missed") &&
-      j.promisedStartDate &&
+      promised &&
       !j.actualStartDate &&
       j.onTimeGuaranteeStatus !== "missed_weather" &&
+      !rainSlip &&
       order < stageOrder("in_progress") &&
-      j.promisedStartDate < pacificIso(now)
+      promised < todayIso
     ) {
+      const credit =
+        settings.onTimeCreditCents && settings.onTimeCreditCents > 0
+          ? ` An On-Time Guarantee credit of ${money(settings.onTimeCreditCents)} is drafted for owner approval.`
+          : "";
       items.push({
         ruleKey: "start_date_missed",
         category: "qa",
         priority: "critical",
         title: `Start date missed: ${label}`,
-        detail: `Promised to start ${j.promisedStartDate}; stage is ${getStage(j.stage).label}. The on-time guarantee credit is drafted once Money arrives (Phase 7).`,
+        detail: `Promised to start ${promised}; stage is ${getStage(j.stage).label}.${credit}`,
         subjectType: "job",
         subjectId: j.id,
         ownerId: owner,
         dueAt: null,
-        dedupeKey: `start_date_missed:${j.id}:${j.promisedStartDate}`,
+        dedupeKey: `start_date_missed:${j.id}:${promised}`,
+      });
+    }
+
+    const upcoming = j.stage === "ready_to_schedule" || j.stage === "scheduled";
+    const daysToStart = j.startDate ? daysUntil(j.startDate, now) : null;
+
+    // Missing crew: starts within N days and no crew.
+    if (
+      enabled(settings, "missing_crew") &&
+      upcoming &&
+      j.crewId === null &&
+      daysToStart !== null
+    ) {
+      const days = threshold(settings, "missing_crew", "days", 5);
+      if (daysToStart <= days) {
+        items.push({
+          ruleKey: "missing_crew",
+          category: "scheduling",
+          priority: "high",
+          title: `No crew assigned: ${label}`,
+          detail: `${startsWords(daysToStart, j.startDate as string)} and no crew is assigned.`,
+          subjectType: "job",
+          subjectId: j.id,
+          ownerId: owner,
+          dueAt: null,
+          dedupeKey: `missing_crew:${j.id}`,
+        });
+      }
+    }
+
+    // Paint not ordered: starts within N days and no paint order placed.
+    if (
+      enabled(settings, "paint_not_ordered") &&
+      upcoming &&
+      j.paintOrdered !== undefined &&
+      j.paintOrdered !== true &&
+      daysToStart !== null
+    ) {
+      const days = threshold(settings, "paint_not_ordered", "days", 3);
+      if (daysToStart <= days) {
+        items.push({
+          ruleKey: "paint_not_ordered",
+          category: "production",
+          priority: "high",
+          title: `Paint not ordered: ${label}`,
+          detail: `${startsWords(daysToStart, j.startDate as string)} and ${j.paintOrdered === null ? "there's no paint order" : "the paint order isn't placed"}.`,
+          subjectType: "job",
+          subjectId: j.id,
+          ownerId: owner,
+          dueAt: null,
+          dedupeKey: `paint_not_ordered:${j.id}`,
+        });
+      }
+    }
+
+    // Missed daily update: a production day with no log by the cutoff (Pacific).
+    if (enabled(settings, "missed_daily_update") && j.productionDays?.length) {
+      const cutoff = threshold(settings, "missed_daily_update", "cutoff_hour", 19);
+      const lookback = threshold(settings, "missed_daily_update", "lookback_days", 3);
+      const missed = missedDailyUpdates(
+        j.productionDays.filter((d) => !(j.rainDelayDates ?? []).includes(d)),
+        j.logDates ?? [],
+        now,
+        { cutoffHour: cutoff, lookbackDays: lookback },
+      );
+      for (const d of missed) {
+        items.push({
+          ruleKey: "missed_daily_update",
+          category: "qa",
+          priority: "high",
+          title: `No daily update ${d === todayIso ? "today" : `for ${formatDay(d)}`}: ${label}`,
+          detail: `${formatDay(d)} was a production day and no daily log was posted by ${hourLabel(cutoff)}. The customer is promised a photo update every day.`,
+          subjectType: "job",
+          subjectId: j.id,
+          ownerId: j.crewLeadId ?? owner,
+          dueAt: null,
+          dedupeKey: `missed_daily_update:${j.id}:${d}`,
+        });
+      }
+    }
+
+    // Punch list open: in Final Walkthrough N+ days with open items.
+    if (
+      enabled(settings, "punch_list_open") &&
+      j.stage === "final_walkthrough" &&
+      (j.punchOpen ?? 0) > 0
+    ) {
+      const days = threshold(settings, "punch_list_open", "days", 3);
+      const age = daysSince(j.stageEnteredAt, now);
+      if (age >= days) {
+        items.push({
+          ruleKey: "punch_list_open",
+          category: "qa",
+          priority: "medium",
+          title: `Punch list open: ${label}`,
+          detail: `${plural(j.punchOpen ?? 0, "punch item")} still open after ${plural(age, "day")} in Final Walkthrough.`,
+          subjectType: "job",
+          subjectId: j.id,
+          ownerId: owner,
+          dueAt: null,
+          dedupeKey: `punch_list_open:${j.id}`,
+        });
+      }
+    }
+
+    // Weather risk (only when weather is connected).
+    if (
+      enabled(settings, "weather_risk") &&
+      settings.weatherConnected &&
+      j.weatherRiskDays?.length
+    ) {
+      const pct = threshold(settings, "weather_risk", "rain_percent", 60);
+      const wet = j.weatherRiskDays.filter((d) => d.precipProbability >= pct);
+      if (wet.length && j.workTypes.some((w) => SEASONAL.has(w))) {
+        items.push({
+          ruleKey: "weather_risk",
+          category: "scheduling",
+          priority: "high",
+          title: `Weather risk: ${label}`,
+          detail: `Rain ${Math.max(...wet.map((w) => w.precipProbability))}% forecast on ${wet.map((w) => formatDay(w.date)).join(", ")}. Mark a rain delay or move the day.`,
+          subjectType: "job",
+          subjectId: j.id,
+          ownerId: owner,
+          dueAt: null,
+          dedupeKey: `weather_risk:${j.id}:${wet[0]?.date}`,
+        });
+      }
+    }
+  }
+
+  // Sub compliance expiring (≤ N days, expired or missing).
+  if (enabled(settings, "sub_compliance_expiring")) {
+    for (const sub of snapshot.subcontractors ?? []) {
+      if (!sub.issues.length) continue;
+      const expired = sub.issues.some((i) => i.level === "expired");
+      items.push({
+        ruleKey: "sub_compliance_expiring",
+        category: "documents",
+        priority: expired ? "high" : "medium",
+        title: `${expired ? "Sub paperwork expired" : "Sub paperwork expiring"}: ${sub.name}`,
+        detail: sub.issues.map((i) => i.message).join(" "),
+        subjectType: "subcontractor",
+        subjectId: sub.id,
+        ownerId: null,
+        dueAt: null,
+        dedupeKey: `sub_compliance_expiring:${sub.id}`,
       });
     }
   }

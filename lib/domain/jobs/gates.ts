@@ -1,4 +1,5 @@
 import { JOB_STAGES, TERMINAL_STAGES, getStage, type JobStageId } from "@/lib/domain/stages";
+import { formatDay } from "@/lib/domain/scheduling/dates";
 
 /**
  * Job stage gates and transitions (SPEC §6.2). Pure.
@@ -31,16 +32,14 @@ export const EXIT_GATES: Record<
   },
   ready_to_schedule: {
     requirement: "Production dates are published on the Master Schedule.",
-    arrivesInPhase: 6,
   },
   scheduled: {
-    requirement: "Paint and materials are ready and the start day arrives.",
-    arrivesInPhase: 6,
+    requirement: "Paint and materials are picked up or delivered, and the start day arrives.",
   },
-  in_progress: { requirement: "All work orders are complete.", arrivesInPhase: 6 },
+  in_progress: { requirement: "All work orders are complete." },
   final_walkthrough: {
-    requirement: "The punch list is empty or the customer signed off.",
-    arrivesInPhase: 6,
+    requirement:
+      "The final walkthrough is done with no open punch items, or the customer signed off.",
   },
   completed: { requirement: "The final invoice is sent.", arrivesInPhase: 7 },
   invoiced: { requirement: "The balance is $0.", arrivesInPhase: 7 },
@@ -64,6 +63,18 @@ export type GateContext = {
    * job has no checklist (it's built when the estimate is accepted).
    */
   onboardingOpen: readonly string[] | null;
+  /** A schedule entry for this job is published. */
+  schedulePublished?: boolean;
+  /** The first published production day (YYYY-MM-DD), if any. */
+  firstPublishedStart?: string | null;
+  /** Today in Pacific time (YYYY-MM-DD). */
+  today?: string;
+  /** Paint orders not picked up or delivered yet (PO numbers). */
+  materialsOpen?: readonly string[];
+  /** Live (not canceled) work orders, and how many aren't complete. */
+  workOrders?: { total: number; open: number };
+  /** Punch list: open items, final walkthrough completed, customer sign-off. */
+  punch?: { open: number; finalWalkthroughDone: boolean; signedOff: boolean };
 };
 
 export type GateResult = {
@@ -139,6 +150,62 @@ export function exitGate(stage: JobStageId, ctx: GateContext): GateResult {
         reasons.push(`Release the ${ctx.blockingHolds.map(holdName).join(", ")} first.`);
       }
       return { ...base, passes: reasons.length === 0, reasons };
+    }
+    case "ready_to_schedule":
+      return ctx.schedulePublished
+        ? { ...base, passes: true, reasons: [] }
+        : {
+            ...base,
+            passes: false,
+            reasons: [
+              "Production dates aren't published yet. Schedule the job on the Master Schedule and choose “Publish changes”.",
+            ],
+          };
+    case "scheduled": {
+      const reasons: string[] = [];
+      const materials = ctx.materialsOpen ?? [];
+      if (materials.length) {
+        reasons.push(
+          `Paint isn't picked up or delivered yet (${materials.join(", ")}). Update it in Paint Orders.`,
+        );
+      }
+      if (!ctx.firstPublishedStart) {
+        reasons.push("No production dates are published.");
+      } else if (ctx.today && ctx.firstPublishedStart > ctx.today) {
+        reasons.push(
+          `The first production day is ${formatDay(ctx.firstPublishedStart)}. The job starts then.`,
+        );
+      }
+      return { ...base, passes: reasons.length === 0, reasons };
+    }
+    case "in_progress": {
+      const wo = ctx.workOrders ?? { total: 0, open: 0 };
+      if (wo.total === 0) {
+        return { ...base, passes: false, reasons: ["This job has no work orders."] };
+      }
+      return wo.open === 0
+        ? { ...base, passes: true, reasons: [] }
+        : {
+            ...base,
+            passes: false,
+            reasons: [
+              `${wo.open} of ${wo.total} work order${wo.total === 1 ? "" : "s"} ${wo.open === 1 ? "isn't" : "aren't"} complete.`,
+            ],
+          };
+    }
+    case "final_walkthrough": {
+      const p = ctx.punch ?? { open: 0, finalWalkthroughDone: false, signedOff: false };
+      if (p.signedOff || (p.finalWalkthroughDone && p.open === 0)) {
+        return { ...base, passes: true, reasons: [] };
+      }
+      const reasons: string[] = [];
+      if (!p.finalWalkthroughDone)
+        reasons.push("The final walkthrough isn't marked completed yet.");
+      if (p.open > 0)
+        reasons.push(
+          `${p.open} punch item${p.open === 1 ? " is" : "s are"} still open. Fix ${p.open === 1 ? "it" : "them"}, or capture the customer's sign-off.`,
+        );
+      return { ...base, passes: false, reasons };
     }
     case "paid_in_full":
       return { ...base, passes: true, reasons: [] };

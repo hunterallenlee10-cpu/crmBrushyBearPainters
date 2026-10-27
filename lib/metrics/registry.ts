@@ -82,6 +82,8 @@ export type MetricSources = {
   estimate_stats: EstimateStats;
   document_stats: DocumentStats;
   onboarding_board: BoardStats;
+  production_stats: ProductionStats;
+  schedule_board: ScheduleBoardStats;
 };
 export type MetricSource = keyof MetricSources;
 
@@ -89,7 +91,8 @@ export type MetricSource = keyof MetricSources;
 // Metric definitions
 // ---------------------------------------------------------------------------
 
-export type MetricUnit = "count" | "percent" | "duration" | "money" | "bytes" | "days";
+export type MetricUnit =
+  "count" | "percent" | "duration" | "money" | "bytes" | "days" | "hours" | "number";
 
 export type MetricDefinition<S extends MetricSource = MetricSource> = {
   id: string;
@@ -267,6 +270,12 @@ export function formatMetricValue(unit: MetricUnit, value: number | null): strin
       const d = Math.round(value);
       return `${d} day${d === 1 ? "" : "s"}`;
     }
+    case "hours": {
+      const h = Math.round(value * 10) / 10;
+      return `${h.toLocaleString("en-US")} h`;
+    }
+    case "number":
+      return (Math.round(value * 10) / 10).toLocaleString("en-US");
   }
 }
 
@@ -1408,7 +1417,294 @@ export function boardMetricValue(id: BoardMetricId, stats: BoardStats): MetricVa
   };
 }
 
+// ===========================================================================
+// PRODUCTION (Phase 6): SPEC §8.6 Command Center, §1.3 promises, §12.1
+// ===========================================================================
+//
+// Source: `public.production_stats()` (supabase/migrations/
+// 20261027000400_production.sql), run with the viewer's row security; money is
+// null without financials:read. `schedule_board` is the Master Schedule's
+// summary built on the server by lib/production/board.ts from every bar in the
+// window and the conflict checks (lib/domain/scheduling/conflicts.ts).
+
+const num = z.number().nonnegative().catch(0);
+
+export const productionStatsSchema = z.object({
+  ready_to_schedule: count,
+  scheduled: count,
+  in_progress: count,
+  final_walkthrough: count,
+  unscheduled: count,
+  priority_reschedule: count,
+  at_risk: count,
+  completed_this_week: count,
+  starts_this_week: count,
+  crews_active: count,
+  scheduled_revenue_next_30_cents: z.number().int().nullable().catch(null),
+  daily_update_due: count,
+  daily_update_logged: count,
+  on_time_met: count,
+  on_time_missed: count,
+  on_time_weather: count,
+  rain_delay_days: count,
+  completed_jobs_90: count,
+  punch_items_90: count,
+  labor_budgeted_hours_90: num,
+  labor_actual_hours_90: num,
+  backlog_hours: num,
+  crew_day_hours: z.number().positive().catch(8),
+  can_see_money: z.boolean().catch(false),
+});
+export type ProductionStats = z.infer<typeof productionStatsSchema>;
+export const EMPTY_PRODUCTION_STATS: ProductionStats = productionStatsSchema.parse({});
+
+export function parseProductionStats(raw: unknown): ProductionStats {
+  const parsed = productionStatsSchema.safeParse(raw ?? {});
+  return parsed.success ? parsed.data : EMPTY_PRODUCTION_STATS;
+}
+
+export const scheduleBoardSchema = z.object({
+  bars: count,
+  drafts: count,
+  conflicts: count,
+  blocked: count,
+  crews: count,
+  tray: count,
+});
+export type ScheduleBoardStats = z.infer<typeof scheduleBoardSchema>;
+export const EMPTY_SCHEDULE_BOARD: ScheduleBoardStats = scheduleBoardSchema.parse({});
+
+function productionMetric(
+  def: Omit<MetricDefinition<"production_stats">, "source" | "ownerOnly"> & { ownerOnly?: boolean },
+): MetricDefinition<"production_stats"> {
+  return { ownerOnly: false, ...def, source: "production_stats" };
+}
+
+function boardKpi(
+  def: Omit<MetricDefinition<"schedule_board">, "source" | "ownerOnly">,
+): MetricDefinition<"schedule_board"> {
+  return { ownerOnly: false, ...def, source: "schedule_board" };
+}
+
+export const PRODUCTION_METRICS = {
+  "production.ready": productionMetric({
+    id: "production.ready",
+    label: "Ready to Schedule",
+    description: "Jobs with onboarding cleared, waiting for dates.",
+    unit: "count",
+    caption: "Onboarding cleared · right now",
+    compute: (s) => s.ready_to_schedule,
+  }),
+  "production.unscheduled": productionMetric({
+    id: "production.unscheduled",
+    label: "Unscheduled",
+    description: "Ready to Schedule jobs with nothing on the schedule yet (not even a draft).",
+    unit: "count",
+    caption: "Ready, no dates drafted",
+    compute: (s) => s.unscheduled,
+  }),
+  "production.scheduled": productionMetric({
+    id: "production.scheduled",
+    label: "Scheduled",
+    description: "Jobs with published dates that haven't started.",
+    unit: "count",
+    caption: "Dates published, not started",
+    compute: (s) => s.scheduled,
+  }),
+  "production.in_progress": productionMetric({
+    id: "production.in_progress",
+    label: "In Progress",
+    description: "Jobs being painted right now.",
+    unit: "count",
+    caption: "Started, work orders open",
+    compute: (s) => s.in_progress,
+  }),
+  "production.at_risk": productionMetric({
+    id: "production.at_risk",
+    label: "At Risk",
+    description:
+      "Scheduled jobs starting within 7 days with no crew, a blocking hold, paint not ready, or a start date already passed.",
+    unit: "count",
+    caption: "Starts ≤ 7 days with a problem",
+    compute: (s) => s.at_risk,
+  }),
+  "production.priority_reschedule": productionMetric({
+    id: "production.priority_reschedule",
+    label: "Rain reschedules",
+    description: "Jobs with a rain delay waiting for new dates (first in line).",
+    unit: "count",
+    caption: "Priority reschedule (rain)",
+    compute: (s) => s.priority_reschedule,
+  }),
+  "production.completed_week": productionMetric({
+    id: "production.completed_week",
+    label: "Completed this week",
+    description: "Jobs that reached Completed this week (Pacific, Monday start).",
+    unit: "count",
+    caption: "Completed since Monday",
+    compute: (s) => s.completed_this_week,
+  }),
+  "production.starts_this_week": productionMetric({
+    id: "production.starts_this_week",
+    label: "Starts next 7 days",
+    description: "Scheduled jobs whose first production day is in the next 7 days.",
+    unit: "count",
+    caption: "First day within 7 days",
+    compute: (s) => s.starts_this_week,
+  }),
+  "production.scheduled_revenue_30": productionMetric({
+    id: "production.scheduled_revenue_30",
+    label: "Scheduled revenue (30 days)",
+    description: "Contract value of jobs whose first published day is in the next 30 days.",
+    unit: "money",
+    caption: "Contract value starting in 30 days",
+    compute: (s) => (s.can_see_money ? s.scheduled_revenue_next_30_cents : null),
+  }),
+  "production.daily_update_compliance": productionMetric({
+    id: "production.daily_update_compliance",
+    label: "Daily update compliance",
+    description:
+      "Production days with a daily log ÷ production days due (last 30 days; a day is due after 7:00 pm Pacific; rain days don't count).",
+    unit: "percent",
+    caption: "Logged ÷ due · last 30 days",
+    compute: (s) => ratio(s.daily_update_logged, s.daily_update_due),
+  }),
+  "production.on_time_start": productionMetric({
+    id: "production.on_time_start",
+    label: "On-time start",
+    description:
+      "Jobs that started on or before their promised date ÷ jobs that started (last 90 days). Rain delays don't count against it.",
+    unit: "percent",
+    caption: "Started on time · last 90 days, weather excluded",
+    compute: (s) => ratio(s.on_time_met, s.on_time_met + s.on_time_missed),
+  }),
+  "production.rain_delay_days": productionMetric({
+    id: "production.rain_delay_days",
+    label: "Rain-delay days",
+    description: "Job days marked as rain delays in the last 90 days.",
+    unit: "count",
+    caption: "Marked rain days · last 90 days",
+    compute: (s) => s.rain_delay_days,
+  }),
+  "production.punch_per_job": productionMetric({
+    id: "production.punch_per_job",
+    label: "Punch items per job",
+    description: "Punch items ÷ jobs completed in the last 90 days.",
+    unit: "number",
+    caption: "Average · jobs completed in 90 days",
+    compute: (s) => (s.completed_jobs_90 > 0 ? s.punch_items_90 / s.completed_jobs_90 : null),
+  }),
+  "production.labor_estimated": productionMetric({
+    id: "production.labor_estimated",
+    label: "Labor hours estimated",
+    description: "Budgeted work-order hours on jobs completed in the last 90 days.",
+    unit: "hours",
+    caption: "Budgeted · jobs completed in 90 days",
+    compute: (s) => s.labor_budgeted_hours_90,
+  }),
+  "production.labor_actual": productionMetric({
+    id: "production.labor_actual",
+    label: "Labor hours actual",
+    description:
+      "Hours logged (daily logs and time entries) on jobs completed in the last 90 days.",
+    unit: "hours",
+    caption: "Logged · jobs completed in 90 days",
+    compute: (s) => s.labor_actual_hours_90,
+  }),
+  "production.labor_variance": productionMetric({
+    id: "production.labor_variance",
+    label: "Actual vs estimated hours",
+    description: "Hours logged ÷ hours budgeted, as a percentage (over 100% means over budget).",
+    unit: "number",
+    caption: "Actual ÷ estimated × 100 · 90 days",
+    compute: (s) =>
+      s.labor_budgeted_hours_90 > 0
+        ? Math.round((s.labor_actual_hours_90 / s.labor_budgeted_hours_90) * 100)
+        : null,
+  }),
+  "production.backlog_crew_days": productionMetric({
+    id: "production.backlog_crew_days",
+    label: "Backlog",
+    description:
+      "Open work-order hours on Ready, Scheduled and In Progress jobs ÷ the crew-day hours in Schedule Admin.",
+    unit: "days",
+    caption: "Crew-days of work not yet done",
+    compute: (s) => s.backlog_hours / s.crew_day_hours,
+  }),
+  "production.crews": productionMetric({
+    id: "production.crews",
+    label: "Crews",
+    description: "Active crews.",
+    unit: "count",
+    caption: "Active crews",
+    compute: (s) => s.crews_active,
+  }),
+} as const satisfies Record<string, MetricDefinition<"production_stats">>;
+export type ProductionMetricId = keyof typeof PRODUCTION_METRICS;
+
+export const SCHEDULE_BOARD_METRICS = {
+  "schedule.conflicts": boardKpi({
+    id: "schedule.conflicts",
+    label: "Conflicts",
+    description: "Bars in this window with a work-rule conflict (blocking or warning).",
+    unit: "count",
+    caption: "Work-rule conflicts in view",
+    compute: (s) => s.conflicts,
+  }),
+  "schedule.drafts": boardKpi({
+    id: "schedule.drafts",
+    label: "Draft changes",
+    description: "Changes not yet published to customers and crews.",
+    unit: "count",
+    caption: "Waiting for “Publish changes”",
+    compute: (s) => s.drafts,
+  }),
+  "schedule.tray": boardKpi({
+    id: "schedule.tray",
+    label: "To be scheduled",
+    description:
+      "Jobs in the tray (Ready to Schedule with nothing on the schedule, rain reschedules first).",
+    unit: "count",
+    caption: "In the tray",
+    compute: (s) => s.tray,
+  }),
+} as const satisfies Record<string, MetricDefinition<"schedule_board">>;
+export type ScheduleBoardMetricId = keyof typeof SCHEDULE_BOARD_METRICS;
+
+export function productionMetricValue(id: ProductionMetricId, stats: ProductionStats): MetricValue {
+  const m: MetricDefinition<"production_stats"> = PRODUCTION_METRICS[id];
+  const raw = m.compute(stats);
+  const value = raw === null || !Number.isFinite(raw) ? null : raw;
+  return {
+    id,
+    label: m.label,
+    caption: m.caption,
+    unit: m.unit,
+    value,
+    display: formatMetricValue(m.unit, value),
+  };
+}
+
+export function scheduleBoardMetricValue(
+  id: ScheduleBoardMetricId,
+  stats: ScheduleBoardStats,
+): MetricValue {
+  const m: MetricDefinition<"schedule_board"> = SCHEDULE_BOARD_METRICS[id];
+  const raw = m.compute(stats);
+  const value = raw === null || !Number.isFinite(raw) ? null : raw;
+  return {
+    id,
+    label: m.label,
+    caption: m.caption,
+    unit: m.unit,
+    value,
+    display: formatMetricValue(m.unit, value),
+  };
+}
+
 export const METRICS = {
+  ...PRODUCTION_METRICS,
+  ...SCHEDULE_BOARD_METRICS,
   ...LEAD_METRICS,
   ...DOCUMENT_METRICS,
   ...BOARD_METRICS,

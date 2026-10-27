@@ -7,7 +7,8 @@ import { isTerminal, stageOrder } from "./gates";
 /**
  * Job Health score 0–100 (SPEC §6.5). Pure and deterministic: weighted checks
  * chosen by stage. Checks whose data arrives in a later phase are shown as
- * "unavailable" and never lower the score.
+ * "unavailable" and never lower the score; checks whose data wasn't loaded
+ * (undefined inputs) are left out.
  */
 
 export type HealthStatus = "pass" | "fail" | "unavailable";
@@ -21,7 +22,10 @@ export type HealthAction =
   | "record_deposit"
   | "update_start"
   | "review_onboarding"
-  | "upload_photos";
+  | "upload_photos"
+  | "assign_crew"
+  | "schedule_job"
+  | "post_daily_log";
 
 export type HealthFactor = {
   key: string;
@@ -54,6 +58,12 @@ export type HealthInput = {
   depositCleared?: boolean;
   /** Photo counts by category; null/undefined when not loaded. */
   photos?: { before: number; progress: number; after: number } | null;
+  /** A crew is assigned (the job's crew or one on its schedule); undefined when not loaded. */
+  crewAssigned?: boolean;
+  /** Production dates exist on the schedule (published or drafted). */
+  scheduled?: boolean;
+  /** Production days whose daily update was due, and how many have no log. */
+  dailyLogs?: { due: number; missed: number };
 };
 
 export type HealthResult = { score: number; factors: HealthFactor[] };
@@ -264,10 +274,60 @@ export function computeJobHealth(input: HealthInput, now: Date): HealthResult | 
     );
   }
 
+  // Production (Phase 6): crew, dates on the schedule, a daily log every production day.
+  if (order >= stageOrder("ready_to_schedule") && order <= stageOrder("final_walkthrough")) {
+    if (input.crewAssigned !== undefined) {
+      factors.push(
+        input.crewAssigned
+          ? { key: "crew_assigned", label: "Crew assigned", weight: 10, status: "pass" }
+          : {
+              key: "crew_assigned",
+              label: "Crew assigned",
+              weight: 10,
+              status: "fail",
+              recommendation: "Assign a crew with the skills this job needs.",
+              action: "assign_crew",
+            },
+      );
+    }
+    if (input.scheduled !== undefined && order <= stageOrder("scheduled")) {
+      factors.push(
+        input.scheduled
+          ? { key: "on_schedule", label: "Production dates booked", weight: 10, status: "pass" }
+          : {
+              key: "on_schedule",
+              label: "Production dates booked",
+              weight: 10,
+              status: "fail",
+              recommendation: "Put the job on the Master Schedule and publish the dates.",
+              action: "schedule_job",
+            },
+      );
+    }
+  }
+  if (stage === "in_progress" && input.dailyLogs) {
+    const { due, missed } = input.dailyLogs;
+    factors.push(
+      missed === 0
+        ? {
+            key: "daily_logs",
+            label: "Daily log on every production day",
+            weight: 10,
+            status: "pass",
+          }
+        : {
+            key: "daily_logs",
+            label: "Daily log on every production day",
+            weight: 10,
+            status: "fail",
+            recommendation: `${missed} of ${due} production day${due === 1 ? "" : "s"} ${missed === 1 ? "has" : "have"} no daily log. Post the daily update so the customer hears from us.`,
+            action: "post_daily_log",
+          },
+    );
+  }
+
   // Checks that need later modules.
   const unavailable: [string, string, number, number, boolean][] = [
-    ["crew_assigned", "Crew assigned", 10, 6, order >= stageOrder("ready_to_schedule")],
-    ["daily_logs", "Daily log on every production day", 10, 6, stage === "in_progress"],
     ["balance_current", "Balance current", 10, 7, order >= stageOrder("completed")],
   ];
   for (const [key, label, weight, phase, applies] of unavailable) {

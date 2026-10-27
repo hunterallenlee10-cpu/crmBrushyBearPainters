@@ -13,6 +13,7 @@ import { getStage, isJobStageId, type JobStageId } from "@/lib/domain/stages";
 import { checklistSummary, shortLabel } from "@/lib/domain/onboarding/checklist";
 import { recomputeJobHealth } from "@/lib/jobs/health";
 import { logError } from "@/lib/log";
+import { pacificToday } from "@/lib/domain/scheduling/dates";
 
 type Db = SupabaseClient<Database>;
 
@@ -25,7 +26,21 @@ type Db = SupabaseClient<Database>;
 
 /** Facts the gates read, loaded with the service client after a visibility check. */
 export async function loadGateContext(service: Db, jobId: string): Promise<GateContext> {
-  const [walk, holds, labels, estimates, deposit, signatures, onboarding] = await Promise.all([
+  const [
+    walk,
+    holds,
+    labels,
+    estimates,
+    deposit,
+    signatures,
+    onboarding,
+    entries,
+    paint,
+    workOrders,
+    punch,
+    finalWalk,
+    signoff,
+  ] = await Promise.all([
     service
       .from("appointments")
       .select("id")
@@ -68,6 +83,40 @@ export async function loadGateContext(service: Db, jobId: string): Promise<GateC
       .from("onboarding_requirements")
       .select("key, label, group_key, required, status, verified_auto")
       .eq("job_id", jobId),
+    service
+      .from("schedule_entries")
+      .select("starts_on")
+      .eq("job_id", jobId)
+      .eq("status", "published")
+      .order("starts_on", { ascending: true })
+      .limit(1),
+    service
+      .from("paint_orders")
+      .select("po_number, status")
+      .eq("job_id", jobId)
+      .is("deleted_at", null)
+      .not("status", "in", "(picked_up,delivered,canceled)"),
+    service
+      .from("work_orders")
+      .select("status")
+      .eq("job_id", jobId)
+      .is("deleted_at", null)
+      .neq("status", "canceled"),
+    service
+      .from("punch_items")
+      .select("id", { count: "exact", head: true })
+      .eq("job_id", jobId)
+      .eq("status", "open")
+      .is("deleted_at", null),
+    service
+      .from("appointments")
+      .select("id")
+      .eq("job_id", jobId)
+      .eq("type", "final_walkthrough")
+      .eq("status", "completed")
+      .is("deleted_at", null)
+      .limit(1),
+    service.from("punch_signoffs").select("id").eq("job_id", jobId).limit(1),
   ]);
   const label = new Map((labels.data ?? []).map((v) => [v.value, v.label]));
   const ests = estimates.data ?? [];
@@ -87,6 +136,19 @@ export async function loadGateContext(service: Db, jobId: string): Promise<GateC
     estimateSigned: signed,
     depositInvoiceReady: (deposit.data ?? []).length > 0 || noDeposit,
     blockingHolds: (holds.data ?? []).map((h) => label.get(h.hold_type) ?? h.hold_type),
+    schedulePublished: (entries.data ?? []).length > 0,
+    firstPublishedStart: entries.data?.[0]?.starts_on ?? null,
+    today: pacificToday(new Date()),
+    materialsOpen: (paint.data ?? []).map((p) => p.po_number),
+    workOrders: {
+      total: (workOrders.data ?? []).length,
+      open: (workOrders.data ?? []).filter((w) => w.status !== "completed").length,
+    },
+    punch: {
+      open: punch.count ?? 0,
+      finalWalkthroughDone: (finalWalk.data ?? []).length > 0,
+      signedOff: (signoff.data ?? []).length > 0,
+    },
     onboardingOpen: onboarding.data?.length
       ? checklistSummary(
           onboarding.data.map((r) => ({

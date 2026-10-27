@@ -3,6 +3,13 @@ import { JOB_STAGES } from "@/lib/domain/stages";
 import {
   APPROVAL_METRICS,
   ATTENTION_METRICS,
+  EMPTY_PRODUCTION_STATS,
+  EMPTY_SCHEDULE_BOARD,
+  PRODUCTION_METRICS,
+  SCHEDULE_BOARD_METRICS,
+  parseProductionStats,
+  productionMetricValue,
+  scheduleBoardMetricValue,
   EMPTY_ATTENTION_SUMMARY,
   approvalMetricValue,
   attentionMetricValue,
@@ -220,7 +227,16 @@ describe("registry shape", () => {
       expect(m.id).toBe(id);
       expect(m.label).not.toBe("");
       expect(m.caption).not.toBe("");
-      expect(["count", "percent", "duration", "money", "bytes", "days"]).toContain(m.unit);
+      expect([
+        "count",
+        "percent",
+        "duration",
+        "money",
+        "bytes",
+        "days",
+        "hours",
+        "number",
+      ]).toContain(m.unit);
       expect([
         "lead_stats",
         "job_stats",
@@ -230,7 +246,11 @@ describe("registry shape", () => {
         "estimate_stats",
         "document_stats",
         "onboarding_board",
+        "production_stats",
+        "schedule_board",
       ]).toContain(m.source);
+      if (id.startsWith("production.")) expect(m.source).toBe("production_stats");
+      if (id.startsWith("schedule.")) expect(m.source).toBe("schedule_board");
       if (id.startsWith("documents.")) expect(m.source).toBe("document_stats");
       if (id.startsWith("board.")) expect(m.source).toBe("onboarding_board");
       if (id.startsWith("estimates.")) expect(m.source).toBe("estimate_stats");
@@ -690,5 +710,54 @@ describe("onboarding board metrics (Phase 5)", () => {
     expect(boardMetricValue("board.ready", s).value).toBe(0);
     expect(boardMetricValue("board.needs_onboarding_age", s).display).toBe("—");
     expect(parseBoardStats("junk")).toEqual(EMPTY_BOARD_STATS);
+  });
+});
+
+describe("production metrics (Phase 6)", () => {
+  const stats = parseProductionStats({
+    ready_to_schedule: 4,
+    unscheduled: 2,
+    daily_update_due: 8,
+    daily_update_logged: 6,
+    on_time_met: 9,
+    on_time_missed: 1,
+    on_time_weather: 3,
+    completed_jobs_90: 4,
+    punch_items_90: 10,
+    labor_budgeted_hours_90: 200,
+    labor_actual_hours_90: 230,
+    backlog_hours: 96,
+    crew_day_hours: 8,
+    scheduled_revenue_next_30_cents: 1_250_000,
+    can_see_money: true,
+  });
+  it("computes the promise KPIs from the server payload", () => {
+    expect(productionMetricValue("production.daily_update_compliance", stats).display).toBe("75%");
+    expect(productionMetricValue("production.on_time_start", stats).display).toBe("90%");
+    expect(productionMetricValue("production.punch_per_job", stats).display).toBe("2.5");
+    expect(productionMetricValue("production.labor_variance", stats).value).toBe(115);
+    expect(productionMetricValue("production.labor_actual", stats).display).toBe("230 h");
+    expect(productionMetricValue("production.backlog_crew_days", stats).display).toBe("12 days");
+    expect(productionMetricValue("production.scheduled_revenue_30", stats).display).toBe("$12,500");
+  });
+  it("shows — when there's nothing to divide by, and hides money without permission", () => {
+    const empty = parseProductionStats({
+      scheduled_revenue_next_30_cents: 500,
+      can_see_money: false,
+    });
+    expect(productionMetricValue("production.daily_update_compliance", empty).display).toBe("—");
+    expect(productionMetricValue("production.on_time_start", empty).display).toBe("—");
+    expect(productionMetricValue("production.punch_per_job", empty).display).toBe("—");
+    expect(productionMetricValue("production.labor_variance", empty).display).toBe("—");
+    expect(productionMetricValue("production.scheduled_revenue_30", empty).display).toBe("—");
+    expect(parseProductionStats("garbage")).toEqual(EMPTY_PRODUCTION_STATS);
+  });
+  it("reads the schedule board summary", () => {
+    expect(
+      scheduleBoardMetricValue("schedule.conflicts", { ...EMPTY_SCHEDULE_BOARD, conflicts: 3 })
+        .display,
+    ).toBe("3");
+    expect(getMetric("production.ready")).toBe(PRODUCTION_METRICS["production.ready"]);
+    expect(getMetric("schedule.tray")).toBe(SCHEDULE_BOARD_METRICS["schedule.tray"]);
   });
 });

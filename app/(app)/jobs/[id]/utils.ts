@@ -158,6 +158,9 @@ const ACTIONS: readonly HealthAction[] = [
   "update_start",
   "review_onboarding",
   "upload_photos",
+  "assign_crew",
+  "schedule_job",
+  "post_daily_log",
 ];
 
 /** Reads the stored health_factors jsonb defensively (unknown shapes are skipped). */
@@ -219,6 +222,10 @@ export function actionRequired(input: {
         ? { section: "onboarding" as const }
         : {}),
       ...(f.action === "upload_photos" ? { section: "photos" as const } : {}),
+      ...(f.action === "assign_crew" || f.action === "schedule_job"
+        ? { section: "schedule" as const }
+        : {}),
+      ...(f.action === "post_daily_log" ? { section: "daily-logs" as const } : {}),
     });
   }
   const upcoming = input.appointments.some(

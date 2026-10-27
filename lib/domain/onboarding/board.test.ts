@@ -190,7 +190,9 @@ describe("moves", () => {
     expect(reason(card({ stage: "ready_to_schedule" }), "needs_onboarding")).toMatch(
       /owner override/,
     );
-    expect(reason(card({ stage: "ready_to_schedule" }), "in_production")).toMatch(/Phase 6/);
+    expect(reason(card({ stage: "ready_to_schedule" }), "in_production")).toMatch(
+      /Master Schedule/,
+    );
     expect(reason(card({ stage: "in_progress" }), "paid")).toMatch(/Phase 7/);
     expect(reason(card({ stage: "in_progress" }), "invoicing")).toMatch(/final invoice/);
     expect(reason(card(), "in_production")).toMatch(/one step at a time/);

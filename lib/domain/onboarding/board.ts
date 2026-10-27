@@ -318,7 +318,8 @@ export function boardMove(card: PlacedCard, to: BoardLane): BoardMove {
   if (from === "ready" && to === "in_production") {
     return {
       allowed: false,
-      reason: "Jobs get scheduled on the Master Schedule, which arrives in Phase 6.",
+      reason:
+        "Jobs get scheduled on the Master Schedule: drag them onto a crew and choose “Publish changes”.",
     };
   }
   if (to === "invoicing" || to === "paid") {

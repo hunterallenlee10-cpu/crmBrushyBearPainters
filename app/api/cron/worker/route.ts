@@ -8,13 +8,18 @@ import { advanceIfGatePasses } from "@/lib/jobs/stage";
 import { logError } from "@/lib/log";
 import { sweepOnboarding } from "@/lib/onboarding/checks";
 import { processEvents } from "@/lib/worker/events";
+import { sweepProduction } from "@/lib/production/automation";
+import { sweepDailyUpdates } from "@/lib/production/daily-log";
+import { generateRecommendations } from "@/lib/production/recommendations";
+import { refreshSubcontractorStatus } from "@/lib/production/subcontractors";
 
 /**
  * Background worker (SPEC §2, §9, §11). Vercel Cron calls it every minute with
  * `Authorization: Bearer $CRON_SECRET`. Each run: process queued events,
- * auto-close jobs 3 days after Paid in Full, re-run onboarding checks, refresh
- * job health, and run the attention rules (open new items, auto-resolve
- * cleared ones).
+ * auto-close jobs 3 days after Paid in Full, re-run onboarding checks, run the
+ * production sweep (on-time guarantee, stage moves, daily updates,
+ * subcontractor paperwork, recommendations), refresh job health, and run the
+ * attention rules (open new items, auto-resolve cleared ones).
  */
 
 export const dynamic = "force-dynamic";
@@ -86,6 +91,40 @@ async function run(request: NextRequest) {
   } catch (e) {
     logError("worker.onboarding", e);
     summary.onboarding = { error: true };
+  }
+
+  // Production (SPEC §6.2 gates 6–9, §1.3): on-time guarantee, stage moves,
+  // customer updates still waiting, subcontractor paperwork status, and
+  // scheduling recommendations (every 15 minutes).
+  try {
+    summary.production = await sweepProduction(service, now);
+  } catch (e) {
+    logError("worker.production", e);
+    summary.production = { error: true };
+  }
+  try {
+    summary.dailyUpdates = await sweepDailyUpdates(service);
+  } catch (e) {
+    logError("worker.daily_updates", e);
+  }
+  try {
+    summary.subcontractors = await refreshSubcontractorStatus(service, now);
+  } catch (e) {
+    logError("worker.subcontractors", e);
+  }
+  if (
+    now.getUTCMinutes() % 15 === 0 ||
+    request.nextUrl.searchParams.get("recommendations") === "1"
+  ) {
+    try {
+      const { data: orgs } = await service.from("organizations").select("id");
+      let created = 0;
+      for (const o of orgs ?? [])
+        created += (await generateRecommendations(service, o.id, now)).created;
+      summary.recommendations = { created };
+    } catch (e) {
+      logError("worker.recommendations", e);
+    }
   }
 
   try {

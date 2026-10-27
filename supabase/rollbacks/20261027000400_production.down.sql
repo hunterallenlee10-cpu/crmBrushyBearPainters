@@ -14,6 +14,12 @@ end
 $$;
 
 drop function if exists public.production_stats();
+drop function if exists public.emit_production_event(text, text, text, jsonb);
+
+delete from public.attention_items where subject_type = 'subcontractor';
+alter table public.attention_items drop constraint attention_items_subject_type_check;
+alter table public.attention_items add constraint attention_items_subject_type_check
+  check (subject_type in ('lead', 'job'));
 
 drop trigger if exists jobs_production_guard on public.jobs;
 drop trigger if exists job_photos_links_guard on public.job_photos;

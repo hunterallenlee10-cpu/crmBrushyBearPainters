@@ -193,16 +193,13 @@ describe("auto-verify rules", () => {
     });
   });
 
-  it("lead-safe: acknowledgment document plus a certified renovator (crews in Phase 6)", () => {
+  it("lead-safe: acknowledgment document plus a certified renovator on the crew", () => {
     expect(
       evaluateRule("lead_safe_plan", { ...ready, documents: { hoa: 1, leadSafe: 0 } }).status,
     ).toBe("missing");
     expect(
       evaluateRule("lead_safe_plan", { ...ready, certifiedRenovatorAssigned: null }),
-    ).toMatchObject({
-      status: "pending",
-      arrivesInPhase: 6,
-    });
+    ).toMatchObject({ status: "pending" });
     expect(
       evaluateRule("lead_safe_plan", { ...ready, certifiedRenovatorAssigned: false }).status,
     ).toBe("missing");
@@ -229,7 +226,7 @@ describe("auto-verify rules", () => {
       evaluateRule("paint_ordered", { ...ready, paintOrderStatuses: ["draft", "canceled"] }),
     ).toMatchObject({
       status: "pending",
-      arrivesInPhase: 6,
+      detail: "The paint order is drafted, not placed. Mark it ordered in Schedule → Paint Orders.",
     });
     expect(
       evaluateRule("paint_ordered", { ...ready, paintOrderStatuses: ["draft", "picked_up"] })
@@ -237,14 +234,29 @@ describe("auto-verify rules", () => {
     ).toBe("verified");
   });
 
-  it("crew: pending until crews exist, then skills must match", () => {
+  it("crew: no crew, missing skills, or covered", () => {
+    expect(
+      evaluateRule("crew_assigned", { ...ready, crewAssigned: false, crewCoversSkills: false })
+        .detail,
+    ).toMatch(/^No crew assigned/);
+    expect(
+      evaluateRule("crew_assigned", {
+        ...ready,
+        crewAssigned: true,
+        crewCoversSkills: false,
+        crewMissingSkills: ["Spray finish / cabinets"],
+      }),
+    ).toMatchObject({
+      status: "missing",
+      detail: "The crew is missing: Spray finish / cabinets. Assign a crew with those skills.",
+    });
+    expect(
+      evaluateRule("crew_assigned", { ...ready, crewAssigned: true, crewCoversSkills: true })
+        .status,
+    ).toBe("verified");
     expect(evaluateRule("crew_assigned", { ...ready, crewCoversSkills: null })).toMatchObject({
       status: "pending",
-      arrivesInPhase: 6,
     });
-    expect(evaluateRule("crew_assigned", { ...ready, crewCoversSkills: false }).status).toBe(
-      "missing",
-    );
   });
 
   it("prep instructions: a logged message clears it", () => {

@@ -7591,6 +7591,15 @@ export type Database = {
       create_estimate: { Args: { p_job: string; p_title?: string }; Returns: string };
       decline_proposal: { Args: { p_reason: string; p_token_hash: string }; Returns: Json };
       document_stats: { Args: { p_job?: string }; Returns: Json };
+      emit_production_event: {
+        Args: {
+          p_aggregate_id: string;
+          p_aggregate_type: string;
+          p_payload?: Json;
+          p_type: string;
+        };
+        Returns: number;
+      };
       estimate_stats: { Args: { p_from: string; p_to: string }; Returns: Json };
       estimate_status_counts: { Args: Record<PropertyKey, never>; Returns: Json };
       expire_proposals: { Args: Record<PropertyKey, never>; Returns: number };

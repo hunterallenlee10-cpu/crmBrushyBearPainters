@@ -55,13 +55,66 @@ describe("gates", () => {
     expect(exitGate("walkthrough_complete", measured).arrivesInPhase).toBeUndefined();
   });
 
-  it("gates whose data comes later stay closed and say which phase", () => {
+  it("production gates read the schedule, materials, work orders and punch list", () => {
     const g = exitGate("ready_to_schedule", measured);
     expect(g.passes).toBe(false);
-    expect(g.arrivesInPhase).toBe(6);
-    expect(g.reasons[0]).toMatch(/Phase 6.*override/);
-    for (const s of ["scheduled", "invoiced"] as const) {
-      expect(exitGate(s, measured).passes).toBe(false);
+    expect(g.arrivesInPhase).toBeUndefined();
+    expect(g.reasons[0]).toMatch(/Publish changes/);
+    expect(exitGate("ready_to_schedule", { ...measured, schedulePublished: true }).passes).toBe(
+      true,
+    );
+    const sched = exitGate("scheduled", {
+      ...measured,
+      firstPublishedStart: "2027-07-12",
+      today: "2027-07-10",
+      materialsOpen: ["PO-2027-0001"],
+    });
+    expect(sched.reasons).toEqual([
+      "Paint isn't picked up or delivered yet (PO-2027-0001). Update it in Paint Orders.",
+      "The first production day is Mon, Jul 12. The job starts then.",
+    ]);
+    expect(exitGate("scheduled", measured).reasons).toEqual(["No production dates are published."]);
+    expect(
+      exitGate("scheduled", {
+        ...measured,
+        firstPublishedStart: "2027-07-12",
+        today: "2027-07-12",
+        materialsOpen: [],
+      }).passes,
+    ).toBe(true);
+    expect(exitGate("in_progress", measured).reasons).toEqual(["This job has no work orders."]);
+    expect(
+      exitGate("in_progress", { ...measured, workOrders: { total: 3, open: 1 } }).reasons,
+    ).toEqual(["1 of 3 work orders isn't complete."]);
+    expect(
+      exitGate("in_progress", { ...measured, workOrders: { total: 2, open: 2 } }).reasons[0],
+    ).toBe("2 of 2 work orders aren't complete.");
+    expect(exitGate("in_progress", { ...measured, workOrders: { total: 1, open: 0 } }).passes).toBe(
+      true,
+    );
+    expect(exitGate("final_walkthrough", measured).reasons).toEqual([
+      "The final walkthrough isn't marked completed yet.",
+    ]);
+    expect(
+      exitGate("final_walkthrough", {
+        ...measured,
+        punch: { open: 2, finalWalkthroughDone: true, signedOff: false },
+      }).reasons,
+    ).toEqual(["2 punch items are still open. Fix them, or capture the customer's sign-off."]);
+    expect(
+      exitGate("final_walkthrough", {
+        ...measured,
+        punch: { open: 0, finalWalkthroughDone: true, signedOff: false },
+      }).passes,
+    ).toBe(true);
+    expect(
+      exitGate("final_walkthrough", {
+        ...measured,
+        punch: { open: 2, finalWalkthroughDone: false, signedOff: true },
+      }).passes,
+    ).toBe(true);
+    for (const s of ["completed", "invoiced"] as const) {
+      expect(exitGate(s, measured)).toMatchObject({ passes: false, arrivesInPhase: 7 });
     }
   });
 
@@ -237,15 +290,57 @@ describe("job health", () => {
     const h = computeJobHealth(
       {
         ...base,
-        stage: "ready_to_schedule",
+        stage: "completed",
         contractSignedAt: "2026-10-20T00:00:00Z",
         depositPaidAt: "2026-10-21T00:00:00Z",
       },
       now,
     );
-    const later = h?.factors.find((f) => f.key === "crew_assigned");
-    expect(later).toMatchObject({ status: "unavailable", arrivesInPhase: 6 });
-    expect(h?.score).toBe(100);
+    expect(h?.factors.find((f) => f.key === "balance_current")).toMatchObject({
+      status: "unavailable",
+      arrivesInPhase: 7,
+    });
+    expect(h?.factors.find((f) => f.key === "crew_assigned")).toBeUndefined();
+  });
+
+  it("crew, schedule and daily-log checks count in production", () => {
+    const ready = computeJobHealth(
+      {
+        ...base,
+        stage: "ready_to_schedule",
+        contractSignedAt: "2026-10-20T00:00:00Z",
+        depositPaidAt: "2026-10-21T00:00:00Z",
+        crewAssigned: false,
+        scheduled: false,
+      },
+      now,
+    );
+    expect(ready?.factors.find((f) => f.key === "crew_assigned")).toMatchObject({
+      status: "fail",
+      action: "assign_crew",
+    });
+    expect(ready?.factors.find((f) => f.key === "on_schedule")?.action).toBe("schedule_job");
+    const running = computeJobHealth(
+      {
+        ...base,
+        stage: "in_progress",
+        contractSignedAt: "2026-10-20T00:00:00Z",
+        depositPaidAt: "2026-10-21T00:00:00Z",
+        crewAssigned: true,
+        scheduled: true,
+        dailyLogs: { due: 4, missed: 1 },
+      },
+      now,
+    );
+    expect(running?.factors.find((f) => f.key === "daily_logs")?.recommendation).toBe(
+      "1 of 4 production days has no daily log. Post the daily update so the customer hears from us.",
+    );
+    expect(running?.factors.find((f) => f.key === "on_schedule")).toBeUndefined();
+    const ok = computeJobHealth(
+      { ...base, stage: "in_progress", crewAssigned: true, dailyLogs: { due: 2, missed: 0 } },
+      now,
+    );
+    expect(ok?.factors.find((f) => f.key === "daily_logs")?.status).toBe("pass");
   });
 
   it("onboarding progress and a cleared deposit item count", () => {

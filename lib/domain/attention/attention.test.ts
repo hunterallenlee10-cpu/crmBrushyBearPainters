@@ -451,3 +451,160 @@ describe("estimate rules (Phase 4)", () => {
     ).toMatch(/discount over their limit/);
   });
 });
+
+describe("production rules (Phase 6)", () => {
+  const scheduled = (over: Partial<SnapshotJob>) =>
+    job({ stage: "scheduled", depositPaidAt: "2026-10-01T00:00:00Z", ...over });
+
+  it("missing crew: starts within 5 days with no crew", () => {
+    expect(
+      keys({ ...empty, jobs: [scheduled({ crewId: null, startDate: "2026-10-31" })] }),
+    ).toEqual(["missing_crew:j1|high"]);
+    expect(
+      keys({ ...empty, jobs: [scheduled({ crewId: null, startDate: "2026-11-02" })] }),
+    ).toEqual([]);
+    expect(
+      keys({ ...empty, jobs: [scheduled({ crewId: "c1", startDate: "2026-10-28" })] }),
+    ).toEqual([]);
+    const item = evaluateAttention(
+      { ...empty, jobs: [scheduled({ crewId: null, startDate: "2026-10-27" })] },
+      settings,
+      now,
+    )[0];
+    expect(item?.detail).toBe("Starts tomorrow and no crew is assigned.");
+  });
+
+  it("paint not ordered: starts within 3 days and no placed order", () => {
+    expect(
+      keys({
+        ...empty,
+        jobs: [scheduled({ crewId: "c1", startDate: "2026-10-28", paintOrdered: false })],
+      }),
+    ).toEqual(["paint_not_ordered:j1|high"]);
+    expect(
+      keys({
+        ...empty,
+        jobs: [scheduled({ crewId: "c1", startDate: "2026-10-28", paintOrdered: true })],
+      }),
+    ).toEqual([]);
+    const none = evaluateAttention(
+      {
+        ...empty,
+        jobs: [scheduled({ crewId: "c1", startDate: "2026-10-26", paintOrdered: null })],
+      },
+      settings,
+      now,
+    )[0];
+    expect(none?.detail).toBe("Starts today and there's no paint order.");
+  });
+
+  it("missed daily update: raised at 7:00 pm Pacific on a production day with no log", () => {
+    const j = scheduled({
+      stage: "in_progress",
+      crewId: "c1",
+      crewLeadId: "lead",
+      productionDays: ["2026-10-26"],
+      logDates: [],
+    });
+    // 6:59 pm and 7:00 pm Pacific on Monday Oct 26 (PDT, UTC−7).
+    expect(keys({ ...empty, jobs: [j] }, settings, new Date("2026-10-27T01:59:00Z"))).toEqual([]);
+    const at7 = evaluateAttention(
+      { ...empty, jobs: [j] },
+      settings,
+      new Date("2026-10-27T02:00:00Z"),
+    );
+    expect(at7.map((i) => `${i.dedupeKey}|${i.priority}|${i.ownerId}`)).toEqual([
+      "missed_daily_update:j1:2026-10-26|high|lead",
+    ]);
+    expect(at7[0]?.title).toBe("No daily update today: Smith – Kirkland – Exterior (BB-2026-0001)");
+    // A log for the day clears it; a rain day doesn't count.
+    expect(
+      keys(
+        { ...empty, jobs: [{ ...j, logDates: ["2026-10-26"] }] },
+        settings,
+        new Date("2026-10-27T02:00:00Z"),
+      ),
+    ).toEqual([]);
+    expect(
+      keys(
+        { ...empty, jobs: [{ ...j, rainDelayDates: ["2026-10-26"] }] },
+        settings,
+        new Date("2026-10-27T02:00:00Z"),
+      ),
+    ).toEqual([]);
+    // The cutoff is editable.
+    const at6 = {
+      ...settings,
+      rules: { missed_daily_update: { enabled: true, thresholds: { cutoff_hour: 18 } } },
+    };
+    expect(keys({ ...empty, jobs: [j] }, at6, new Date("2026-10-27T01:30:00Z"))).toEqual([
+      "missed_daily_update:j1:2026-10-26|high",
+    ]);
+  });
+
+  it("start date missed uses the guarantee date and skips rain slips", () => {
+    const late = scheduled({ promisedStartDate: "2026-10-25", guaranteeDate: "2026-10-22" });
+    const withCredit = { ...settings, onTimeCreditCents: 25_000 };
+    const item = evaluateAttention({ ...empty, jobs: [late] }, withCredit, now)[0];
+    expect(item?.dedupeKey).toBe("start_date_missed:j1:2026-10-22");
+    expect(item?.detail).toContain(
+      "An On-Time Guarantee credit of $250.00 is drafted for owner approval.",
+    );
+    expect(keys({ ...empty, jobs: [{ ...late, rainDelayDates: ["2026-10-22"] }] })).toEqual([]);
+  });
+
+  it("punch list open: Final Walkthrough 3+ days with open items", () => {
+    const fw = job({
+      stage: "final_walkthrough",
+      stageEnteredAt: "2026-10-22T17:00:00Z",
+      depositPaidAt: "x",
+      punchOpen: 2,
+    });
+    expect(keys({ ...empty, jobs: [fw] })).toEqual(["punch_list_open:j1|medium"]);
+    expect(keys({ ...empty, jobs: [{ ...fw, punchOpen: 0 }] })).toEqual([]);
+    expect(keys({ ...empty, jobs: [{ ...fw, stageEnteredAt: "2026-10-25T17:00:00Z" }] })).toEqual(
+      [],
+    );
+  });
+
+  it("sub compliance expiring: one item per subcontractor, high once something expired", () => {
+    const subs = [
+      {
+        id: "s1",
+        name: "Cedar Brush LLC",
+        issues: [
+          {
+            level: "expiring" as const,
+            message: "Insurance (COI) expires Fri, Nov 6.",
+            expiresOn: "2026-11-06",
+          },
+        ],
+      },
+      {
+        id: "s2",
+        name: "Ridge Painting",
+        issues: [{ level: "expired" as const, message: "No W-9 on file.", expiresOn: null }],
+      },
+      { id: "s3", name: "Fine Co", issues: [] },
+    ];
+    const items = evaluateAttention({ ...empty, subcontractors: subs }, settings, now);
+    expect(items.map((i) => `${i.dedupeKey}|${i.priority}|${i.subjectType}`)).toEqual([
+      "sub_compliance_expiring:s1|medium|subcontractor",
+      "sub_compliance_expiring:s2|high|subcontractor",
+    ]);
+  });
+
+  it("weather risk stays dormant until weather is connected", () => {
+    const ext = scheduled({
+      workTypes: ["exterior"],
+      crewId: "c1",
+      paintOrdered: true,
+      startDate: "2026-11-02",
+      weatherRiskDays: [{ date: "2026-11-02", precipProbability: 70 }],
+    });
+    expect(keys({ ...empty, jobs: [ext] })).toEqual([]);
+    expect(keys({ ...empty, jobs: [ext] }, { ...settings, weatherConnected: true })).toEqual([
+      "weather_risk:j1:2026-11-02|high",
+    ]);
+  });
+});

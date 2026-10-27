@@ -17,6 +17,8 @@ import { planAttentionSync, type ExistingItem } from "@/lib/domain/attention/syn
 import { isJobStageId } from "@/lib/domain/stages";
 import { checklistSummary, shortLabel } from "@/lib/domain/onboarding/checklist";
 import { logError } from "@/lib/log";
+import { loadWeather } from "@/lib/production/weather";
+import { loadProductionSnapshot } from "./production";
 
 type Db = SupabaseClient<Database>;
 
@@ -82,7 +84,7 @@ async function sweepOrg(service: Db, orgId: string, now: Date) {
       service
         .from("company_settings")
         .select(
-          "business_hours, text_back_sla_minutes, estimate_sla_hours, estimate_sla_warn_hours, exterior_season_start, exterior_season_end",
+          "business_hours, text_back_sla_minutes, estimate_sla_hours, estimate_sla_warn_hours, exterior_season_start, exterior_season_end, on_time_guarantee_cents",
         )
         .eq("org_id", orgId)
         .maybeSingle(),
@@ -118,7 +120,7 @@ async function sweepOrg(service: Db, orgId: string, now: Date) {
         service
           .from("jobs")
           .select(
-            "id, name, job_number, stage, stage_entered_at, owner_id, point_of_contact_id, work_types, promised_start_date, actual_start_date, walkthrough_completed_at, estimate_sent_at, estimate_accepted_at, deposit_paid_at, on_time_guarantee_status",
+            "id, name, job_number, stage, stage_entered_at, owner_id, point_of_contact_id, work_types, promised_start_date, actual_start_date, walkthrough_completed_at, estimate_sent_at, estimate_accepted_at, deposit_paid_at, on_time_guarantee_status, crew_id, guarantee_start_date",
           )
           .eq("org_id", orgId)
           .is("deleted_at", null)
@@ -181,7 +183,11 @@ async function sweepOrg(service: Db, orgId: string, now: Date) {
     exteriorSeasonStart: s?.exterior_season_start ?? "06-01",
     exteriorSeasonEnd: s?.exterior_season_end ?? "09-30",
     rules: ruleConfig,
+    weatherConnected: (await loadWeather()).connected,
+    onTimeCreditCents: Number(s?.on_time_guarantee_cents ?? 0),
   };
+
+  const production = await loadProductionSnapshot(service, orgId, jobs, now);
 
   // Jobs in Onboarding: what's still open on the checklist and what holds block them.
   const onboardingIds = jobs.filter((j) => j.stage === "onboarding").map((j) => j.id);
@@ -254,6 +260,8 @@ async function sweepOrg(service: Db, orgId: string, now: Date) {
             estimateAcceptedAt: j.estimate_accepted_at,
             depositPaidAt: j.deposit_paid_at,
             onTimeGuaranteeStatus: j.on_time_guarantee_status,
+            guaranteeDate: j.guarantee_start_date,
+            ...(production.byJob.get(j.id) ?? {}),
             ...(j.stage === "onboarding"
               ? {
                   onboardingOpen: openByJob.get(j.id) ?? null,
@@ -324,6 +332,7 @@ async function sweepOrg(service: Db, orgId: string, now: Date) {
             ]
           : [],
       ),
+      subcontractors: production.subcontractors,
       approvals: (approvals.data ?? []).map((a) => ({
         id: a.id,
         type: a.type,
@@ -395,7 +404,12 @@ async function sweepOrg(service: Db, orgId: string, now: Date) {
           type: "attention",
           title: d.title.slice(0, 200),
           body: d.detail?.slice(0, 1000) ?? null,
-          link: d.subjectType === "job" ? `/jobs/${d.subjectId}` : `/leads/${d.subjectId}`,
+          link:
+            d.subjectType === "job"
+              ? `/jobs/${d.subjectId}`
+              : d.subjectType === "subcontractor"
+                ? `/admin/subcontractors?id=${d.subjectId}`
+                : `/leads/${d.subjectId}`,
         })),
       );
       if (nError) logError("attention.notify", nError);

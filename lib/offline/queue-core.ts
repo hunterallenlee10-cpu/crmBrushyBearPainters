@@ -1,6 +1,6 @@
 /**
- * Offline upload queue (SPEC §2 PWA): photos taken without signal, and in
- * Phase 6 daily logs, wait in IndexedDB and upload when the connection is
+ * Offline upload queue (SPEC §2 PWA): photos and daily logs made without
+ * signal wait in IndexedDB and upload when the connection is
  * back. This file is the storage-agnostic core (unit-tested with an in-memory
  * store); `idb-store.ts` is the browser store and `offline-sync.tsx` the React
  * provider.
@@ -14,7 +14,7 @@ export type QueueItemState = "queued" | "uploading" | "failed";
 export type QueueItem = {
   /** Client id (uuid); the server's idempotency key. */
   id: string;
-  /** Which uploader handles it ("photo", later "daily_log"). */
+  /** Which uploader handles it ("photo" or "daily_log"). */
   kind: string;
   jobId: string;
   /** Small JSON-safe details (category, area, file name…). */

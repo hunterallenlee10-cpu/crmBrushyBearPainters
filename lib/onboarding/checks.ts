@@ -6,6 +6,7 @@ import { advanceIfGatePasses } from "@/lib/jobs/stage";
 import { recomputeJobHealth } from "@/lib/jobs/health";
 import { logError } from "@/lib/log";
 import { PREP_TEMPLATE_KEY } from "./messages";
+import { loadCrewCoverage } from "@/lib/production/coverage";
 
 type Db = SupabaseClient<Database>;
 
@@ -135,6 +136,7 @@ export async function loadOnboardingSnapshot(
       .maybeSingle(),
   ]);
 
+  const coverage = await loadCrewCoverage(service, jobId);
   const accepted = (estimates.data ?? []).find((e) => e.accepted_version_id);
   let repairAccepted = false;
   if (accepted?.accepted_version_id) {
@@ -209,10 +211,12 @@ export async function loadOnboardingSnapshot(
       hoa: docRows.filter((d) => d.category === "hoa").length,
       leadSafe: docRows.filter((d) => d.category === "lead_safe").length,
     },
-    certifiedRenovatorAssigned: null,
+    certifiedRenovatorAssigned: coverage.certifiedRenovator ?? false,
     repairAllowanceAccepted: repairAccepted,
     paintOrderStatuses: (paint.data ?? []).map((p) => p.status),
-    crewCoversSkills: null,
+    crewCoversSkills: coverage.coversSkills ?? false,
+    crewAssigned: coverage.crewIds.length > 0,
+    crewMissingSkills: coverage.missing,
     prepInstructionsSentAt: prep.data?.[0]?.created_at ?? null,
     promisedStartDate: job.promised_start_date,
     season: {

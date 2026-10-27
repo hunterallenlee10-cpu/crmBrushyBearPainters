@@ -188,14 +188,19 @@ export async function loadAttentionPage(
   // Name the related lead or job (only the ones this person can see).
   const leadIds = rows.filter((r) => r.subject_type === "lead").map((r) => r.subject_id);
   const jobIds = rows.filter((r) => r.subject_type === "job").map((r) => r.subject_id);
-  const [leadsRes, jobsRes] = await Promise.all([
+  const subIds = rows.filter((r) => r.subject_type === "subcontractor").map((r) => r.subject_id);
+  const [leadsRes, jobsRes, subsRes] = await Promise.all([
     leadIds.length
       ? db.from("leads").select("id, first_name, last_name").in("id", leadIds)
       : Promise.resolve(null),
     jobIds.length
       ? db.from("jobs").select("id, name, job_number").in("id", jobIds)
       : Promise.resolve(null),
+    subIds.length
+      ? db.from("subcontractors").select("id, company_name").in("id", subIds)
+      : Promise.resolve(null),
   ]);
+  const subNames = new Map((subsRes?.data ?? []).map((x) => [x.id, x.company_name]));
   const leadNames = new Map(
     (leadsRes?.data ?? []).map((l) => [l.id, personName(l.first_name, l.last_name)]),
   );
@@ -203,12 +208,22 @@ export async function loadAttentionPage(
 
   const items = rows.flatMap((r): AttentionItemView[] => {
     if (!isPriority(r.priority) || !isCategory(r.category)) return [];
-    const type = r.subject_type === "job" ? "job" : "lead";
+    const type =
+      r.subject_type === "job"
+        ? "job"
+        : r.subject_type === "subcontractor"
+          ? "subcontractor"
+          : "lead";
     const status =
       r.status === "in_progress" || r.status === "snoozed" || r.status === "resolved"
         ? r.status
         : "pending";
-    const subjectName = type === "job" ? jobNames.get(r.subject_id) : leadNames.get(r.subject_id);
+    const subjectName =
+      type === "job"
+        ? jobNames.get(r.subject_id)
+        : type === "subcontractor"
+          ? subNames.get(r.subject_id)
+          : leadNames.get(r.subject_id);
     const due = dueCountdown(r.due_at, now);
     const ownerName = r.owner_id ? nameById.get(r.owner_id) : undefined;
     return [
@@ -223,8 +238,13 @@ export async function loadAttentionPage(
         subject: {
           type,
           id: r.subject_id,
-          href: type === "job" ? `/jobs/${r.subject_id}` : `/leads/${r.subject_id}`,
-          label: `${type === "job" ? "Job" : "Lead"}: ${subjectName ?? "open record"}`,
+          href:
+            type === "job"
+              ? `/jobs/${r.subject_id}`
+              : type === "subcontractor"
+                ? `/admin/subcontractors?id=${r.subject_id}`
+                : `/leads/${r.subject_id}`,
+          label: `${type === "job" ? "Job" : type === "subcontractor" ? "Subcontractor" : "Lead"}: ${subjectName ?? "open record"}`,
         },
         owner:
           r.owner_id && ownerName

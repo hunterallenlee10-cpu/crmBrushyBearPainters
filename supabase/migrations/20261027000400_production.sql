@@ -292,6 +292,11 @@ create index jobs_priority_reschedule_idx on public.jobs (org_id) where is_prior
 alter table public.work_orders
   add constraint work_orders_crew_fk foreign key (crew_id) references public.crews (id) on delete set null;
 
+-- Attention items can be about a subcontractor (paperwork expiring).
+alter table public.attention_items drop constraint attention_items_subject_type_check;
+alter table public.attention_items add constraint attention_items_subject_type_check
+  check (subject_type in ('lead', 'job', 'subcontractor'));
+
 -- =============================================================================
 -- 4. Schedule entries (Master Schedule bars; drafts until "Publish changes")
 -- =============================================================================
@@ -2041,6 +2046,34 @@ end;
 $$;
 revoke execute on function public.production_stats() from public, anon;
 grant execute on function public.production_stats() to authenticated, service_role;
+
+-- Named domain events for production steps that happen in server code
+-- (Publish, Start job, recommendations). Service role only; a fixed list.
+create or replace function public.emit_production_event(
+  p_type text, p_aggregate_type text, p_aggregate_id text, p_payload jsonb default '{}'::jsonb
+)
+returns bigint
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_org uuid;
+begin
+  if p_type not in ('schedule.published', 'job.started', 'job.on_time_evaluated', 'recommendation.executed',
+                    'recommendation.undone', 'daily_log.customer_update', 'weather.risk_detected') then
+    raise exception 'Unknown production event: %', p_type using errcode = '22023';
+  end if;
+  v_org := coalesce(nullif(p_payload ->> 'org_id', '')::uuid,
+                    (select j.org_id from public.jobs j where j.id::text = p_aggregate_id));
+  if v_org is null then
+    raise exception 'The event needs an organization.' using errcode = '22023';
+  end if;
+  return app.emit_event(v_org, p_type, p_aggregate_type, p_aggregate_id, coalesce(p_payload, '{}'::jsonb) - 'org_id');
+end;
+$$;
+revoke execute on function public.emit_production_event(text, text, text, jsonb) from public, anon, authenticated;
+grant execute on function public.emit_production_event(text, text, text, jsonb) to service_role;
 
 -- =============================================================================
 -- 11. Grants

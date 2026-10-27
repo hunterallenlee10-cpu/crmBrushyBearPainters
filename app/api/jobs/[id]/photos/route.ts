@@ -1,19 +1,10 @@
-import { createHash } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { getViewerState } from "@/lib/auth/viewer";
 import { createSupabaseServerClient } from "@/lib/db/server";
 import { createSupabaseServiceClient } from "@/lib/db/service";
-import {
-  PHOTO_CATEGORIES,
-  PHOTO_CATEGORY_LABELS,
-  PHOTO_UPLOAD_LIMIT,
-  PHOTO_UPLOAD_TYPES,
-} from "@/lib/domain/photos";
-import { logError } from "@/lib/log";
-import { logActivity } from "@/lib/jobs/activity";
-import { processPhoto, UnreadablePhotoError } from "@/lib/photos/process";
-import { PHOTOS_BUCKET, photoPaths } from "@/lib/photos/storage";
+import { PHOTO_CATEGORIES } from "@/lib/domain/photos";
+import { checkPhotoFile, savePhoto } from "@/lib/photos/save";
 
 /**
  * Photo upload (SPEC §8.5 #6). Used by the camera and upload buttons and by
@@ -21,7 +12,9 @@ import { PHOTOS_BUCKET, photoPaths } from "@/lib/photos/storage";
  * the key, and a retry returns the photo already stored. The server re-encodes
  * the file (EXIF incl. GPS dropped), stores it and a thumbnail in the private
  * bucket, and inserts the row with the person's own client (row security
- * proves they may upload to this job).
+ * proves they may upload to this job). A photo can belong to a daily log
+ * (Phase 6): when that log is still waiting in the offline queue, the answer
+ * is 503 so the queue tries again after the log has uploaded.
  */
 
 export const dynamic = "force-dynamic";
@@ -37,6 +30,8 @@ const fieldsSchema = z.object({
     .optional(),
   takenAt: z.iso.datetime({ offset: true }).optional(),
   source: z.enum(["upload", "camera", "offline"]).default("upload"),
+  dailyLogId: z.uuid().optional(),
+  workOrderId: z.uuid().optional(),
 });
 
 const json = (status: number, body: Record<string, unknown>) =>
@@ -66,13 +61,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   } catch {
     return json(400, { error: "The upload was incomplete. Try again." });
   }
-  const file = form.get("file");
-  if (!(file instanceof Blob) || file.size === 0) return json(400, { error: "Choose a photo." });
-  if (file.size > PHOTO_UPLOAD_LIMIT)
-    return json(413, { error: "That photo is too large (8 MB max)." });
-  if (!(PHOTO_UPLOAD_TYPES as readonly string[]).includes(file.type)) {
-    return json(415, { error: "Upload a JPEG, PNG or WebP photo." });
-  }
+  const file = checkPhotoFile(form.get("file"));
+  if (!file.ok) return json(file.status, { error: file.error });
   const parsed = fieldsSchema.safeParse({
     clientId: field(form, "clientId"),
     category: field(form, "category"),
@@ -81,6 +71,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     checklistKey: field(form, "checklistKey"),
     takenAt: field(form, "takenAt"),
     source: field(form, "source"),
+    dailyLogId: field(form, "dailyLogId"),
+    workOrderId: field(form, "workOrderId"),
   });
   if (!parsed.success) return json(400, { error: "Some photo details aren't valid." });
   const v = parsed.data;
@@ -93,86 +85,25 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     .maybeSingle();
   if (!job) return json(404, { error: "That job isn't available." });
 
-  if (v.clientId) {
-    const { data: existing } = await supabase
-      .from("job_photos")
-      .select("id")
-      .eq("job_id", jobId)
-      .eq("client_id", v.clientId)
-      .maybeSingle();
-    if (existing) return json(200, { ok: true, id: existing.id, duplicate: true });
-  }
-
-  let processed;
-  try {
-    processed = await processPhoto(Buffer.from(await file.arrayBuffer()));
-  } catch (e) {
-    if (e instanceof UnreadablePhotoError) {
-      return json(422, { error: "We couldn't read that photo. Try taking it again." });
-    }
-    logError("photos.process", e);
-    return json(500, { error: "We couldn't save that photo. Try again." });
-  }
-
   const service = await createSupabaseServiceClient({ actorId: viewer.id });
-  const paths = photoPaths(job.org_id, jobId);
-  const bucket = service.storage.from(PHOTOS_BUCKET);
-  const [a, b] = await Promise.all([
-    bucket.upload(paths.display, processed.display, { contentType: processed.mime, upsert: false }),
-    bucket.upload(paths.thumb, processed.thumb, { contentType: processed.mime, upsert: false }),
-  ]);
-  if (a.error || b.error) {
-    await bucket.remove([paths.display, paths.thumb]);
-    logError("photos.store", a.error ?? b.error);
-    return json(503, { error: "Storage is busy. The photo will try again." });
+  if (v.dailyLogId) {
+    const { data: log } = await service
+      .from("daily_logs")
+      .select("id, job_id")
+      .eq("id", v.dailyLogId)
+      .maybeSingle();
+    if (!log) return json(503, { error: "Waiting for the daily log to upload first." });
+    if (log.job_id !== jobId) return json(400, { error: "That daily log belongs to another job." });
   }
 
-  const { data: row, error } = await supabase
-    .from("job_photos")
-    .insert({
-      org_id: job.org_id,
-      job_id: jobId,
-      category: v.category,
-      area: v.area || null,
-      caption: v.caption || null,
-      checklist_key: v.checklistKey ?? null,
-      storage_path: paths.display,
-      thumb_path: paths.thumb,
-      mime_type: processed.mime,
-      size_bytes: processed.display.length,
-      thumb_size_bytes: processed.thumb.length,
-      width: processed.width,
-      height: processed.height,
-      sha256: createHash("sha256").update(processed.display).digest("hex"),
-      taken_at: v.takenAt ?? null,
-      client_id: v.clientId ?? null,
-      source: v.source,
-    })
-    .select("id")
-    .single();
-  if (error) {
-    await bucket.remove([paths.display, paths.thumb]);
-    if (error.code === "23505" && v.clientId) {
-      const { data: again } = await supabase
-        .from("job_photos")
-        .select("id")
-        .eq("job_id", jobId)
-        .eq("client_id", v.clientId)
-        .maybeSingle();
-      if (again) return json(200, { ok: true, id: again.id, duplicate: true });
-    }
-    if (error.code === "42501") return json(403, { error: "You can't add photos to this job." });
-    logError("photos.insert", error);
-    return json(500, { error: "We couldn't save that photo. Try again." });
-  }
-  await logActivity(service, {
-    orgId: job.org_id,
-    subjectType: "job",
-    subjectId: jobId,
-    type: "photo_added",
-    summary: `${PHOTO_CATEGORY_LABELS[v.category]} photo added${v.area ? ` · ${v.area}` : ""}${v.source === "offline" ? " (taken offline)" : ""}`,
-    actorId: viewer.real.id,
-    payload: { photo_id: row.id, category: v.category },
+  const saved = await savePhoto(
+    { supabase, service },
+    { orgId: job.org_id, jobId, actorId: viewer.real.id, file: file.file, fields: v },
+  );
+  if (!saved.ok) return json(saved.status, { error: saved.error });
+  return json(saved.duplicate ? 200 : 201, {
+    ok: true,
+    id: saved.id,
+    ...(saved.duplicate ? { duplicate: true } : {}),
   });
-  return json(201, { ok: true, id: row.id });
 }
