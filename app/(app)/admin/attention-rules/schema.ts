@@ -37,6 +37,12 @@ export const THRESHOLD_SPECS: Partial<Record<AttentionRuleKey, Record<string, Th
       help: "The day before the walkthrough. 17 = 5 PM.",
     },
   },
+  estimate_awaiting_reply: {
+    days: { ...DAYS, label: "Days since sent, not opened" },
+  },
+  estimate_expiring: {
+    days: { ...DAYS, label: "Days before it expires" },
+  },
   approval_pending: {
     hours: { label: "Waiting longer than (hours)", unit: "hours", min: 0, max: 720 },
   },
