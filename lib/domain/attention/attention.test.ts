@@ -199,6 +199,40 @@ describe("job rules", () => {
     ).toEqual(["onboarding_stalled:j1|medium"]);
   });
 
+  it("onboarding stalled names what's open, and stays quiet when everything is cleared", () => {
+    const stalled = job({
+      stage: "onboarding",
+      stageEnteredAt: "2026-10-18T17:00:00Z",
+      depositPaidAt: "x",
+      onboardingOpen: ["deposit", "colors"],
+      blockingHolds: ["HOA Hold"],
+    });
+    const [item] = evaluateAttention({ ...empty, jobs: [stalled] }, settings, now);
+    expect(item?.detail).toBe(
+      "8 days in Onboarding. Still open: deposit, colors. On hold: HOA Hold.",
+    );
+    const many = job({
+      stage: "onboarding",
+      stageEnteredAt: "2026-10-18T17:00:00Z",
+      depositPaidAt: "x",
+      onboardingOpen: ["a", "b", "c", "d", "e", "f"],
+    });
+    expect(evaluateAttention({ ...empty, jobs: [many] }, settings, now)[0]?.detail).toMatch(
+      /a, b, c, d, e…$/,
+    );
+    const none = job({
+      stage: "onboarding",
+      stageEnteredAt: "2026-10-18T17:00:00Z",
+      depositPaidAt: "x",
+      onboardingOpen: null,
+    });
+    expect(evaluateAttention({ ...empty, jobs: [none] }, settings, now)[0]?.detail).toMatch(
+      /No onboarding checklist yet/,
+    );
+    const cleared = { ...stalled, onboardingOpen: [], blockingHolds: [] };
+    expect(keys({ ...empty, jobs: [cleared] })).toEqual([]);
+  });
+
   it("ready-not-scheduled is season-aware for exteriors", () => {
     const ready = job({
       stage: "ready_to_schedule",

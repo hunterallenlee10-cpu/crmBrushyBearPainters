@@ -2,6 +2,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, Json } from "@/lib/db/types";
 import { computeJobHealth } from "@/lib/domain/jobs/health";
+import { checklistSummary, shortLabel } from "@/lib/domain/onboarding/checklist";
 import { isJobStageId } from "@/lib/domain/stages";
 import { logError } from "@/lib/log";
 
@@ -29,7 +30,7 @@ export async function recomputeJobHealth(service: Db, jobIds: readonly string[],
   let updated = 0;
   for (let i = 0; i < jobIds.length; i += 200) {
     const ids = jobIds.slice(i, i + 200);
-    const [jobs, appts, tasks] = await Promise.all([
+    const [jobs, appts, tasks, reqs, photos] = await Promise.all([
       service
         .from("jobs")
         .select(
@@ -50,10 +51,28 @@ export async function recomputeJobHealth(service: Db, jobIds: readonly string[],
         .eq("status", "open")
         .is("deleted_at", null)
         .lt("due_at", now.toISOString()),
+      service
+        .from("onboarding_requirements")
+        .select("job_id, key, label, group_key, required, status, verified_auto")
+        .in("job_id", ids),
+      service
+        .from("job_photos")
+        .select("job_id, category")
+        .in("job_id", ids)
+        .in("category", ["before", "progress", "after"])
+        .is("deleted_at", null),
     ]);
-    if (jobs.error || appts.error || tasks.error) {
-      logError("jobs.health.load", jobs.error ?? appts.error ?? tasks.error);
+    const failed = jobs.error ?? appts.error ?? tasks.error ?? reqs.error ?? photos.error;
+    if (failed) {
+      logError("jobs.health.load", failed);
       continue;
+    }
+    const photoCounts = new Map<string, { before: number; progress: number; after: number }>();
+    for (const p of photos.data ?? []) {
+      const c = photoCounts.get(p.job_id) ?? { before: 0, progress: 0, after: 0 };
+      if (p.category === "before" || p.category === "progress" || p.category === "after")
+        c[p.category] += 1;
+      photoCounts.set(p.job_id, c);
     }
     const overdue = new Map<string, number>();
     for (const t of tasks.data ?? []) {
@@ -62,6 +81,17 @@ export async function recomputeJobHealth(service: Db, jobIds: readonly string[],
     for (const j of jobs.data ?? []) {
       if (!isJobStageId(j.stage)) continue;
       const mine = (appts.data ?? []).filter((a) => a.job_id === j.id);
+      const rows = (reqs.data ?? [])
+        .filter((r) => r.job_id === j.id)
+        .map((r) => ({
+          key: r.key,
+          label: r.label,
+          group: r.group_key,
+          required: r.required,
+          status: r.status,
+          verifiedAuto: r.verified_auto,
+        }));
+      const summary = rows.length ? checklistSummary(rows) : null;
       const next = mine
         .filter((a) => !CLOSED.includes(a.status) && new Date(a.starts_at) >= now)
         .sort((a, b) => a.starts_at.localeCompare(b.starts_at))[0];
@@ -77,6 +107,15 @@ export async function recomputeJobHealth(service: Db, jobIds: readonly string[],
           depositPaidAt: j.deposit_paid_at,
           promisedStartDate: j.promised_start_date,
           actualStartDate: j.actual_start_date,
+          onboarding: summary
+            ? {
+                required: summary.required,
+                cleared: summary.cleared,
+                open: summary.open.map((o) => shortLabel(o.key, o.label)),
+              }
+            : null,
+          depositCleared: rows.some((r) => r.key === "deposit_received" && r.status === "verified"),
+          photos: photoCounts.get(j.id) ?? { before: 0, progress: 0, after: 0 },
         },
         now,
       );

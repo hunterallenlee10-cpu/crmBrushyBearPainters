@@ -105,7 +105,8 @@ export const ATTENTION_RULES = {
   onboarding_stalled: {
     label: "Onboarding stalled",
     category: "production",
-    description: "A job sitting in Onboarding.",
+    description:
+      "A job sitting in Onboarding with required checklist items still open or a hold blocking it.",
     thresholds: { days: 7 },
   },
   ready_not_scheduled: {
@@ -175,6 +176,12 @@ export type SnapshotJob = {
   estimateAcceptedAt: string | null;
   depositPaidAt: string | null;
   onTimeGuaranteeStatus: string;
+  /**
+   * Jobs in Onboarding: required checklist items still open (short names) and
+   * active holds that block scheduling. Undefined when not loaded.
+   */
+  onboardingOpen?: readonly string[] | null;
+  blockingHolds?: readonly string[];
 };
 
 export type SnapshotEstimate = {
@@ -410,13 +417,22 @@ export function evaluateAttention(
     if (enabled(settings, "onboarding_stalled") && j.stage === "onboarding") {
       const days = threshold(settings, "onboarding_stalled", "days", 7);
       const age = daysSince(j.stageEnteredAt, now);
-      if (age >= days) {
+      const open = j.onboardingOpen;
+      const holds = j.blockingHolds ?? [];
+      // Everything cleared and nothing blocking: the worker moves it on its own.
+      const waiting = open === undefined || open === null || open.length > 0 || holds.length > 0;
+      if (age >= days && waiting) {
+        const parts = [`${plural(age, "day")} in Onboarding.`];
+        if (open === null) parts.push("No onboarding checklist yet.");
+        else if (open?.length)
+          parts.push(`Still open: ${open.slice(0, 5).join(", ")}${open.length > 5 ? "…" : "."}`);
+        if (holds.length) parts.push(`On hold: ${holds.join(", ")}.`);
         items.push({
           ruleKey: "onboarding_stalled",
           category: "production",
           priority: "medium",
           title: `Onboarding stalled: ${label}`,
-          detail: `${plural(age, "day")} in Onboarding.`,
+          detail: parts.join(" "),
           subjectType: "job",
           subjectId: j.id,
           ownerId: owner,

@@ -19,7 +19,9 @@ export type HealthAction =
   | "advance_stage"
   | "record_contract"
   | "record_deposit"
-  | "update_start";
+  | "update_start"
+  | "review_onboarding"
+  | "upload_photos";
 
 export type HealthFactor = {
   key: string;
@@ -46,6 +48,12 @@ export type HealthInput = {
   depositPaidAt: string | null;
   promisedStartDate: string | null;
   actualStartDate: string | null;
+  /** Onboarding checklist progress; null when the job has no checklist. */
+  onboarding?: { required: number; cleared: number; open: readonly string[] } | null;
+  /** The deposit onboarding item is cleared (payments arrive in Phase 7). */
+  depositCleared?: boolean;
+  /** Photo counts by category; null/undefined when not loaded. */
+  photos?: { before: number; progress: number; after: number } | null;
 };
 
 export type HealthResult = { score: number; factors: HealthFactor[] };
@@ -185,15 +193,57 @@ export function computeJobHealth(input: HealthInput, now: Date): HealthResult | 
   }
   if (order >= ONBOARDING_ORDER) {
     factors.push(
-      input.depositPaidAt
+      input.depositPaidAt || input.depositCleared
         ? { key: "deposit_paid", label: "Deposit paid", weight: 15, status: "pass" }
         : {
             key: "deposit_paid",
             label: "Deposit paid",
             weight: 15,
             status: "fail",
-            recommendation: "Collect the deposit before scheduling (payments arrive in Phase 7).",
+            recommendation:
+              "Collect the deposit before scheduling, then clear the deposit item on the onboarding checklist (recording payments arrives in Phase 7).",
             action: "record_deposit",
+          },
+    );
+    const ob = input.onboarding;
+    if (ob && ob.required > 0) {
+      const done = ob.cleared >= ob.required;
+      factors.push(
+        done
+          ? {
+              key: "onboarding_cleared",
+              label: "Onboarding items cleared",
+              weight: 15,
+              status: "pass",
+            }
+          : {
+              key: "onboarding_cleared",
+              label: "Onboarding items cleared",
+              weight: 15,
+              status: "fail",
+              recommendation: `${ob.cleared} of ${ob.required} onboarding items cleared.${ob.open.length ? ` Still open: ${ob.open.slice(0, 4).join(", ")}${ob.open.length > 4 ? "…" : "."}` : ""}`,
+              action: "review_onboarding",
+            },
+      );
+    }
+  }
+  if (order >= stageOrder("in_progress") && input.photos) {
+    const p = input.photos;
+    const needAfter = order >= stageOrder("final_walkthrough");
+    const missing: string[] = [];
+    if (p.before === 0) missing.push("before");
+    if (p.progress === 0 && stage === "in_progress") missing.push("progress");
+    if (needAfter && p.after === 0) missing.push("after");
+    factors.push(
+      missing.length === 0
+        ? { key: "photos", label: "Before, progress and after photos", weight: 10, status: "pass" }
+        : {
+            key: "photos",
+            label: "Before, progress and after photos",
+            weight: 10,
+            status: "fail",
+            recommendation: `No ${missing.join(" or ")} photos yet. Add them in Photos.`,
+            action: "upload_photos",
           },
     );
   }
@@ -216,10 +266,8 @@ export function computeJobHealth(input: HealthInput, now: Date): HealthResult | 
 
   // Checks that need later modules.
   const unavailable: [string, string, number, number, boolean][] = [
-    ["onboarding_cleared", "Onboarding items cleared", 15, 5, order >= ONBOARDING_ORDER],
     ["crew_assigned", "Crew assigned", 10, 6, order >= stageOrder("ready_to_schedule")],
     ["daily_logs", "Daily log on every production day", 10, 6, stage === "in_progress"],
-    ["photos", "Before, progress and after photos", 10, 5, order >= stageOrder("in_progress")],
     ["balance_current", "Balance current", 10, 7, order >= stageOrder("completed")],
   ];
   for (const [key, label, weight, phase, applies] of unavailable) {

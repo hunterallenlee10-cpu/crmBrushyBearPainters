@@ -15,6 +15,7 @@ import {
 } from "@/lib/domain/attention/rules";
 import { planAttentionSync, type ExistingItem } from "@/lib/domain/attention/sync";
 import { isJobStageId } from "@/lib/domain/stages";
+import { checklistSummary, shortLabel } from "@/lib/domain/onboarding/checklist";
 import { logError } from "@/lib/log";
 
 type Db = SupabaseClient<Database>;
@@ -182,6 +183,58 @@ async function sweepOrg(service: Db, orgId: string, now: Date) {
     rules: ruleConfig,
   };
 
+  // Jobs in Onboarding: what's still open on the checklist and what holds block them.
+  const onboardingIds = jobs.filter((j) => j.stage === "onboarding").map((j) => j.id);
+  const openByJob = new Map<string, string[]>();
+  const holdsByJob = new Map<string, string[]>();
+  for (let i = 0; i < onboardingIds.length; i += 200) {
+    const ids = onboardingIds.slice(i, i + 200);
+    const [reqs, holds, holdLabels] = await Promise.all([
+      service
+        .from("onboarding_requirements")
+        .select("job_id, key, label, group_key, required, status, verified_auto")
+        .in("job_id", ids),
+      service
+        .from("job_holds")
+        .select("job_id, hold_type")
+        .in("job_id", ids)
+        .is("released_at", null)
+        .eq("blocks_scheduling", true),
+      service
+        .from("picklist_values")
+        .select("value, label, picklists!inner(key, org_id)")
+        .eq("picklists.key", "hold_type")
+        .eq("picklists.org_id", orgId),
+    ]);
+    if (reqs.error) throw reqs.error;
+    if (holds.error) throw holds.error;
+    const holdLabel = new Map((holdLabels.data ?? []).map((v) => [v.value, v.label]));
+    const byJob = new Map<string, NonNullable<typeof reqs.data>>();
+    for (const r of reqs.data ?? []) byJob.set(r.job_id, [...(byJob.get(r.job_id) ?? []), r]);
+    for (const [jobId, rows] of byJob) {
+      const summary = checklistSummary(
+        rows.map((r) => ({
+          key: r.key,
+          label: r.label,
+          group: r.group_key,
+          required: r.required,
+          status: r.status,
+          verifiedAuto: r.verified_auto,
+        })),
+      );
+      openByJob.set(
+        jobId,
+        summary.open.map((o) => shortLabel(o.key, o.label)),
+      );
+    }
+    for (const h of holds.data ?? []) {
+      holdsByJob.set(h.job_id, [
+        ...(holdsByJob.get(h.job_id) ?? []),
+        holdLabel.get(h.hold_type) ?? h.hold_type,
+      ]);
+    }
+  }
+
   const snapshotJobs: SnapshotJob[] = jobs.flatMap((j) =>
     isJobStageId(j.stage)
       ? [
@@ -201,6 +254,12 @@ async function sweepOrg(service: Db, orgId: string, now: Date) {
             estimateAcceptedAt: j.estimate_accepted_at,
             depositPaidAt: j.deposit_paid_at,
             onTimeGuaranteeStatus: j.on_time_guarantee_status,
+            ...(j.stage === "onboarding"
+              ? {
+                  onboardingOpen: openByJob.get(j.id) ?? null,
+                  blockingHolds: holdsByJob.get(j.id) ?? [],
+                }
+              : {}),
           },
         ]
       : [],

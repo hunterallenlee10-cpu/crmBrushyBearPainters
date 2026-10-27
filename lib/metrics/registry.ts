@@ -8,6 +8,8 @@ import {
 } from "@/lib/domain/leads/constants";
 import { formatDuration } from "@/lib/domain/leads/speed-to-lead";
 import { JOB_STAGES, type JobStageId } from "@/lib/domain/stages";
+import { formatBytes } from "@/lib/domain/photos";
+import { BOARD_LANES, type BoardLane } from "@/lib/domain/onboarding/board";
 
 /**
  * Metrics registry (SPEC §12.1, CLAUDE.md): every KPI is defined here once and
@@ -78,6 +80,8 @@ export type MetricSources = {
   attention_summary: AttentionSummary;
   approval_counts: ApprovalCounts;
   estimate_stats: EstimateStats;
+  document_stats: DocumentStats;
+  onboarding_board: BoardStats;
 };
 export type MetricSource = keyof MetricSources;
 
@@ -85,7 +89,7 @@ export type MetricSource = keyof MetricSources;
 // Metric definitions
 // ---------------------------------------------------------------------------
 
-export type MetricUnit = "count" | "percent" | "duration" | "money";
+export type MetricUnit = "count" | "percent" | "duration" | "money" | "bytes" | "days";
 
 export type MetricDefinition<S extends MetricSource = MetricSource> = {
   id: string;
@@ -93,7 +97,7 @@ export type MetricDefinition<S extends MetricSource = MetricSource> = {
   description: string;
   /** Server-side aggregate (RPC) the metric reads. */
   source: S;
-  /** "count": whole number; "percent": ratio 0–1; "duration": seconds; "money": cents. */
+  /** "count": whole number; "percent": ratio 0–1; "duration": seconds; "money": cents; "bytes"; "days". */
   unit: MetricUnit;
   /** Formula caption shown under the number (SPEC §8 KPI cards). */
   caption: string;
@@ -257,6 +261,12 @@ export function formatMetricValue(unit: MetricUnit, value: number | null): strin
       return formatDuration(value);
     case "money":
       return formatMoney(value);
+    case "bytes":
+      return formatBytes(value);
+    case "days": {
+      const d = Math.round(value);
+      return `${d} day${d === 1 ? "" : "s"}`;
+    }
   }
 }
 
@@ -1118,8 +1128,290 @@ export function estimateMetricValue(
   };
 }
 
+// ===========================================================================
+// DOCUMENTS (Phase 5): SPEC §8.13, §8.5 #7
+// ===========================================================================
+//
+// Source: `public.document_stats(p_job)` (supabase/migrations/
+// 20261027000300_onboarding_documents_photos.sql), run with the viewer's row
+// security, so money documents only count for people who may see them.
+
+export const documentStatsSchema = z.object({
+  total: count,
+  awaiting_signature: count,
+  linked_to_jobs: count,
+  storage_bytes: z.number().nonnegative().catch(0),
+  recent: count,
+  needs_action: count,
+  by_category: z.record(z.string(), count).catch({}),
+});
+export type DocumentStats = z.infer<typeof documentStatsSchema>;
+export const EMPTY_DOCUMENT_STATS: DocumentStats = documentStatsSchema.parse({});
+
+export function parseDocumentStats(raw: unknown): DocumentStats {
+  const parsed = documentStatsSchema.safeParse(raw ?? {});
+  return parsed.success ? parsed.data : EMPTY_DOCUMENT_STATS;
+}
+
+function documentMetric(
+  def: Omit<MetricDefinition<"document_stats">, "source" | "ownerOnly">,
+): MetricDefinition<"document_stats"> {
+  return { ownerOnly: false, ...def, source: "document_stats" };
+}
+
+export const DOCUMENT_METRICS = {
+  "documents.total": documentMetric({
+    id: "documents.total",
+    label: "Total documents",
+    description: "Documents you can see (deleted ones left out).",
+    unit: "count",
+    caption: "Uploaded and generated · all time",
+    compute: (s) => s.total,
+  }),
+  "documents.awaiting_signature": documentMetric({
+    id: "documents.awaiting_signature",
+    label: "Awaiting signature",
+    description: "Documents marked as waiting for someone to sign.",
+    unit: "count",
+    caption: "Marked “awaiting signature”",
+    compute: (s) => s.awaiting_signature,
+  }),
+  "documents.needs_action": documentMetric({
+    id: "documents.needs_action",
+    label: "Needs action",
+    description:
+      "Open onboarding items that need a document: signed contract, HOA approval, lead-safe acknowledgment.",
+    unit: "count",
+    caption: "Contract, HOA or lead-safe paperwork still missing",
+    compute: (s) => s.needs_action,
+  }),
+  "documents.linked_to_jobs": documentMetric({
+    id: "documents.linked_to_jobs",
+    label: "Linked to jobs",
+    description: "Documents that belong to a job (the rest are on a customer only).",
+    unit: "count",
+    caption: "On a job · the rest are on a customer",
+    compute: (s) => s.linked_to_jobs,
+  }),
+  "documents.recent": documentMetric({
+    id: "documents.recent",
+    label: "Recently added",
+    description: "Documents added in the last 7 days.",
+    unit: "count",
+    caption: "Added in the last 7 days",
+    compute: (s) => s.recent,
+  }),
+  "documents.storage_used": documentMetric({
+    id: "documents.storage_used",
+    label: "Storage used",
+    description: "Total size of those documents' files.",
+    unit: "bytes",
+    caption: "Sum of file sizes",
+    compute: (s) => s.storage_bytes,
+  }),
+} as const satisfies Record<string, MetricDefinition<"document_stats">>;
+export type DocumentMetricId = keyof typeof DOCUMENT_METRICS;
+
+/** One document metric, formatted. */
+export function documentMetricValue(id: DocumentMetricId, stats: DocumentStats): MetricValue {
+  const m: MetricDefinition<"document_stats"> = DOCUMENT_METRICS[id];
+  const raw = m.compute(stats);
+  const value = raw === null || !Number.isFinite(raw) ? null : raw;
+  return {
+    id,
+    label: m.label,
+    caption: m.caption,
+    unit: m.unit,
+    value,
+    display: formatMetricValue(m.unit, value),
+  };
+}
+
+// ===========================================================================
+// ONBOARDING BOARD (Phase 5): SPEC §8.7
+// ===========================================================================
+//
+// Source: the board summary built on the server from every job on the board
+// (stages Sold → Paid in Full, not a paginated list): lanes come from
+// lib/domain/onboarding/board.ts `placeCards()` + `summarizeBoard()`, loaded by
+// lib/onboarding/board.ts with the viewer's row security.
+
+const laneSchema = z.object({
+  lane: z.enum(BOARD_LANES),
+  count,
+  valueCents: z.number().int().nullable().catch(null),
+  avgDays: z.number().nonnegative().nullable().catch(null),
+  overdue: count,
+});
+
+export const boardStatsSchema = z.object({
+  canSeeMoney: z.boolean().catch(false),
+  lanes: z.array(laneSchema).catch([]),
+  activeJobs: count,
+  activeValueCents: z.number().int().nullable().catch(null),
+  depositHeldCents: z.number().int().nullable().catch(null),
+  outstandingCents: z.number().int().nullable().catch(null),
+});
+export type BoardStats = z.infer<typeof boardStatsSchema>;
+export const EMPTY_BOARD_STATS: BoardStats = boardStatsSchema.parse({});
+
+export function parseBoardStats(raw: unknown): BoardStats {
+  const parsed = boardStatsSchema.safeParse(raw ?? {});
+  return parsed.success ? parsed.data : EMPTY_BOARD_STATS;
+}
+
+function lane(s: BoardStats, id: BoardLane) {
+  return (
+    s.lanes.find((l) => l.lane === id) ?? {
+      lane: id,
+      count: 0,
+      valueCents: null,
+      avgDays: null,
+      overdue: 0,
+    }
+  );
+}
+
+function boardMetric(
+  def: Omit<MetricDefinition<"onboarding_board">, "source" | "ownerOnly"> & { ownerOnly?: boolean },
+): MetricDefinition<"onboarding_board"> {
+  return { ownerOnly: false, ...def, source: "onboarding_board" };
+}
+
+export const BOARD_METRICS = {
+  "board.active_jobs": boardMetric({
+    id: "board.active_jobs",
+    label: "Active jobs",
+    description: "Sold jobs not yet paid in full.",
+    unit: "count",
+    caption: "Sold → Invoicing · right now",
+    compute: (s) => s.activeJobs,
+  }),
+  "board.active_value": boardMetric({
+    id: "board.active_value",
+    label: "Active pipeline",
+    description: "Contract value of the active jobs.",
+    unit: "money",
+    caption: "Contract value of active jobs",
+    compute: (s) => s.activeValueCents,
+  }),
+  "board.deposit_hold": boardMetric({
+    id: "board.deposit_hold",
+    label: "Deposit Hold",
+    description: "Jobs waiting for their deposit.",
+    unit: "count",
+    caption: "Waiting for the deposit",
+    compute: (s) => lane(s, "deposit_hold").count,
+  }),
+  "board.deposit_held": boardMetric({
+    id: "board.deposit_held",
+    label: "Deposits held",
+    description: "Total of the deposit invoices for jobs on Deposit Hold.",
+    unit: "money",
+    caption: "Deposit invoices not yet paid",
+    compute: (s) => s.depositHeldCents,
+  }),
+  "board.needs_onboarding": boardMetric({
+    id: "board.needs_onboarding",
+    label: "Needs Onboarding",
+    description: "Jobs working through the onboarding checklist.",
+    unit: "count",
+    caption: "Checklist in progress",
+    compute: (s) => lane(s, "needs_onboarding").count,
+  }),
+  "board.needs_onboarding_age": boardMetric({
+    id: "board.needs_onboarding_age",
+    label: "Avg age, Needs Onboarding",
+    description: "Average days those jobs have spent in the lane.",
+    unit: "days",
+    caption: "Average days in the lane",
+    compute: (s) => lane(s, "needs_onboarding").avgDays,
+  }),
+  "board.on_hold": boardMetric({
+    id: "board.on_hold",
+    label: "On Hold / Expediting",
+    description: "Jobs held up by an HOA, lead-safe, color, customer or other hold.",
+    unit: "count",
+    caption: "A hold blocks scheduling",
+    compute: (s) => lane(s, "on_hold").count,
+  }),
+  "board.on_hold_age": boardMetric({
+    id: "board.on_hold_age",
+    label: "Avg age, On Hold",
+    description: "Average days since the hold was placed.",
+    unit: "days",
+    caption: "Average days on hold",
+    compute: (s) => lane(s, "on_hold").avgDays,
+  }),
+  "board.ready": boardMetric({
+    id: "board.ready",
+    label: "Ready to Schedule",
+    description: "Jobs with onboarding cleared, waiting for dates.",
+    unit: "count",
+    caption: "Onboarding cleared, no holds",
+    compute: (s) => lane(s, "ready").count,
+  }),
+  "board.ready_value": boardMetric({
+    id: "board.ready_value",
+    label: "Ready to Schedule ($)",
+    description: "Contract value of jobs ready to schedule.",
+    unit: "money",
+    caption: "Contract value ready for dates",
+    compute: (s) => lane(s, "ready").valueCents,
+  }),
+  "board.in_production": boardMetric({
+    id: "board.in_production",
+    label: "Scheduled / In Progress",
+    description: "Jobs scheduled, in progress or at the final walkthrough.",
+    unit: "count",
+    caption: "On the schedule or being painted",
+    compute: (s) => lane(s, "in_production").count,
+  }),
+  "board.invoicing": boardMetric({
+    id: "board.invoicing",
+    label: "Invoicing / Collections",
+    description: "Completed or invoiced jobs not yet paid in full.",
+    unit: "count",
+    caption: "Completed or invoiced",
+    compute: (s) => lane(s, "invoicing").count,
+  }),
+  "board.outstanding": boardMetric({
+    id: "board.outstanding",
+    label: "Outstanding",
+    description: "Billed minus collected on those jobs (payments arrive in Phase 7).",
+    unit: "money",
+    caption: "Billed − collected · payments arrive in Phase 7",
+    compute: (s) => s.outstandingCents,
+  }),
+  "board.paid_month": boardMetric({
+    id: "board.paid_month",
+    label: "Paid in Full",
+    description: "Jobs paid in full this month (Pacific).",
+    unit: "count",
+    caption: "Paid in full this month",
+    compute: (s) => lane(s, "paid").count,
+  }),
+} as const satisfies Record<string, MetricDefinition<"onboarding_board">>;
+export type BoardMetricId = keyof typeof BOARD_METRICS;
+
+export function boardMetricValue(id: BoardMetricId, stats: BoardStats): MetricValue {
+  const m: MetricDefinition<"onboarding_board"> = BOARD_METRICS[id];
+  const raw = m.compute(stats);
+  const value = raw === null || !Number.isFinite(raw) ? null : raw;
+  return {
+    id,
+    label: m.label,
+    caption: m.caption,
+    unit: m.unit,
+    value,
+    display: formatMetricValue(m.unit, value),
+  };
+}
+
 export const METRICS = {
   ...LEAD_METRICS,
+  ...DOCUMENT_METRICS,
+  ...BOARD_METRICS,
   ...ESTIMATE_METRICS,
   ...JOB_METRICS,
   ...JOB_COUNT_METRICS,

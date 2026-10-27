@@ -43,6 +43,14 @@ import {
   ratio,
   type LeadMetricId,
   type LeadStats,
+  BOARD_METRICS,
+  DOCUMENT_METRICS,
+  EMPTY_BOARD_STATS,
+  EMPTY_DOCUMENT_STATS,
+  boardMetricValue,
+  documentMetricValue,
+  parseBoardStats,
+  parseDocumentStats,
 } from "@/lib/metrics/registry";
 
 /** A known fixture (shape of `public.lead_stats()`) with hand-computed expectations. */
@@ -212,7 +220,7 @@ describe("registry shape", () => {
       expect(m.id).toBe(id);
       expect(m.label).not.toBe("");
       expect(m.caption).not.toBe("");
-      expect(["count", "percent", "duration", "money"]).toContain(m.unit);
+      expect(["count", "percent", "duration", "money", "bytes", "days"]).toContain(m.unit);
       expect([
         "lead_stats",
         "job_stats",
@@ -220,7 +228,11 @@ describe("registry shape", () => {
         "attention_summary",
         "approval_counts",
         "estimate_stats",
+        "document_stats",
+        "onboarding_board",
       ]).toContain(m.source);
+      if (id.startsWith("documents.")) expect(m.source).toBe("document_stats");
+      if (id.startsWith("board.")) expect(m.source).toBe("onboarding_board");
       if (id.startsWith("estimates.")) expect(m.source).toBe("estimate_stats");
       if (id.startsWith("attention.")) expect(m.source).toBe("attention_summary");
       if (id.startsWith("approvals.")) expect(m.source).toBe("approval_counts");
@@ -608,5 +620,75 @@ describe("estimate metrics (Phase 4)", () => {
     expect(estimateMetricValue("estimates.sla_24h", empty).value).toBeNull();
     expect(parseEstimateStats("garbage")).toEqual(EMPTY_ESTIMATE_STATS);
     expect(parseEstimateStats({ sent: -3 }).sent).toBe(0);
+  });
+});
+
+describe("document metrics (Phase 5)", () => {
+  const FIX = {
+    total: 12,
+    awaiting_signature: 1,
+    linked_to_jobs: 10,
+    storage_bytes: 5 * 1024 * 1024,
+    recent: 3,
+    needs_action: 2,
+    by_category: { contract: 4, hoa: 2 },
+  };
+  it("reads the document_stats payload", () => {
+    const s = parseDocumentStats(FIX);
+    expect(documentMetricValue("documents.total", s)).toMatchObject({ value: 12, display: "12" });
+    expect(documentMetricValue("documents.awaiting_signature", s).value).toBe(1);
+    expect(documentMetricValue("documents.needs_action", s).value).toBe(2);
+    expect(documentMetricValue("documents.linked_to_jobs", s).value).toBe(10);
+    expect(documentMetricValue("documents.recent", s).value).toBe(3);
+    expect(documentMetricValue("documents.storage_used", s).display).toBe("5 MB");
+    expect(getMetric("documents.total")).toBe(DOCUMENT_METRICS["documents.total"]);
+  });
+  it("malformed payloads read as zero", () => {
+    expect(parseDocumentStats(null)).toEqual(EMPTY_DOCUMENT_STATS);
+    expect(parseDocumentStats({ total: "x" }).total).toBe(0);
+  });
+});
+
+describe("onboarding board metrics (Phase 5)", () => {
+  const FIX = {
+    canSeeMoney: true,
+    lanes: [
+      { lane: "deposit_hold", count: 2, valueCents: 1_500_000, avgDays: 3, overdue: 1 },
+      { lane: "needs_onboarding", count: 4, valueCents: 2_000_000, avgDays: 5, overdue: 0 },
+      { lane: "on_hold", count: 1, valueCents: 400_000, avgDays: 1, overdue: 0 },
+      { lane: "ready", count: 3, valueCents: 900_000, avgDays: null, overdue: 0 },
+      { lane: "in_production", count: 2, valueCents: 0, avgDays: 2, overdue: 0 },
+      { lane: "invoicing", count: 1, valueCents: 100, avgDays: 9, overdue: 0 },
+      { lane: "paid", count: 5, valueCents: 0, avgDays: 1, overdue: 0 },
+    ],
+    activeJobs: 13,
+    activeValueCents: 4_800_100,
+    depositHeldCents: 450_000,
+    outstandingCents: null,
+  };
+  it("reads the board summary", () => {
+    const s = parseBoardStats(FIX);
+    const v = (id: Parameters<typeof boardMetricValue>[0]) => boardMetricValue(id, s);
+    expect(v("board.active_jobs").value).toBe(13);
+    expect(v("board.active_value").display).toBe(formatMoney(4_800_100));
+    expect(v("board.deposit_hold").value).toBe(2);
+    expect(v("board.deposit_held").value).toBe(450_000);
+    expect(v("board.needs_onboarding").value).toBe(4);
+    expect(v("board.needs_onboarding_age").display).toBe("5 days");
+    expect(v("board.on_hold").value).toBe(1);
+    expect(v("board.on_hold_age").display).toBe("1 day");
+    expect(v("board.ready").value).toBe(3);
+    expect(v("board.ready_value").value).toBe(900_000);
+    expect(v("board.in_production").value).toBe(2);
+    expect(v("board.invoicing").value).toBe(1);
+    expect(v("board.outstanding").display).toBe("—");
+    expect(v("board.paid_month").value).toBe(5);
+    expect(getMetric("board.ready")).toBe(BOARD_METRICS["board.ready"]);
+  });
+  it("missing lanes read as zero; malformed payloads as empty", () => {
+    const s = parseBoardStats({ lanes: [] });
+    expect(boardMetricValue("board.ready", s).value).toBe(0);
+    expect(boardMetricValue("board.needs_onboarding_age", s).display).toBe("—");
+    expect(parseBoardStats("junk")).toEqual(EMPTY_BOARD_STATS);
   });
 });
