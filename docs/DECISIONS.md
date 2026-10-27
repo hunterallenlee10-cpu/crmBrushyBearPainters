@@ -865,3 +865,8 @@ Every non-obvious decision, newest at the bottom. Format: date · decision · re
 
 - **Decision:** Brushy Bear gets its own Supabase organization and project (separate from the owners' other business), and its own Vercel project in the existing Vercel team. Production deploys from `main`. Vercel Hobby only allows daily cron jobs, so `vercel.json` runs the worker once a day as a backup and Supabase `pg_cron` + `pg_net` call `/api/cron/worker` every minute (RUNBOOK "Background worker"). The production database starts empty: migrations plus the real configuration seed, no demo data.
 - **Reason:** Owner request (2026-10-27): "a new project and totally separate", "get this live". Per-minute Vercel cron needs Pro; the database schedule is free and keeps the attention engine current.
+
+### 2026-10-27 · Password sign-in added **[Deviation]**
+
+- **Decision:** The login page offers email + password ("Sign in") above the email-link option; Settings → Security has "Change password" (10+ characters). Sign-ups stay off, so only invited accounts can sign in, and two-step sign-in is still required afterwards for owners and the bookkeeper. Wrong password and unknown email get the same message.
+- **Reason:** Owner request (2026-10-27): log in directly with a password instead of waiting for a sign-in email. The free Supabase email sender is limited to a few emails an hour and only reaches organization members. SPEC §4.3 listed Google + magic link only; this adds a third method.

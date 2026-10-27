@@ -1,12 +1,17 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { CircleCheck, Loader2, Mail } from "lucide-react";
+import { CircleCheck, KeyRound, Loader2, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createSupabaseBrowserClient } from "@/lib/db/browser";
-import { requestMagicLink, type MagicLinkState } from "./actions";
+import {
+  requestMagicLink,
+  signInWithPassword,
+  type MagicLinkState,
+  type PasswordState,
+} from "./actions";
 
 const ERRORS: Record<string, string> = {
   link_expired: "That sign-in link has expired or was already used. Request a new one.",
@@ -18,6 +23,10 @@ export function LoginForm({ next, error }: { next: string | null; error: string 
   const [state, formAction, pending] = useActionState<MagicLinkState, FormData>(requestMagicLink, {
     status: "idle",
   });
+  const [pwState, pwAction, pwPending] = useActionState<PasswordState, FormData>(
+    signInWithPassword,
+    { status: "idle" },
+  );
   const [googleError, setGoogleError] = useState<string | null>(null);
   const [googlePending, setGooglePending] = useState(false);
 
@@ -85,8 +94,55 @@ export function LoginForm({ next, error }: { next: string | null; error: string 
         <span className="h-px flex-1 bg-border" />
       </div>
 
+      <form action={pwAction} className="flex flex-col gap-2" noValidate>
+        <Label htmlFor="pw-email">Work email</Label>
+        <Input
+          id="pw-email"
+          name="email"
+          type="email"
+          autoComplete="username"
+          inputMode="email"
+          placeholder="you@example.com"
+          required
+        />
+        <Label htmlFor="password" className="mt-2">
+          Password
+        </Label>
+        <Input
+          id="password"
+          name="password"
+          type="password"
+          autoComplete="current-password"
+          required
+          aria-invalid={pwState.status === "error"}
+          aria-describedby={pwState.status === "error" ? "password-error" : undefined}
+        />
+        {next && <input type="hidden" name="next" value={next} />}
+        {pwState.status === "error" && (
+          <p id="password-error" role="alert" className="text-sm text-danger">
+            {pwState.message}
+          </p>
+        )}
+        <Button
+          type="submit"
+          variant="brand"
+          size="lg"
+          className="mt-2 w-full"
+          disabled={pwPending}
+        >
+          {pwPending ? <Loader2 className="animate-spin" aria-hidden /> : <KeyRound aria-hidden />}
+          Sign in
+        </Button>
+      </form>
+
+      <div className="flex items-center gap-3 text-xs text-muted-foreground">
+        <span className="h-px flex-1 bg-border" />
+        or get a link by email
+        <span className="h-px flex-1 bg-border" />
+      </div>
+
       <form action={formAction} className="flex flex-col gap-2" noValidate>
-        <Label htmlFor="email">Work email</Label>
+        <Label htmlFor="email">Email for a sign-in link</Label>
         <Input
           id="email"
           name="email"
@@ -104,7 +160,13 @@ export function LoginForm({ next, error }: { next: string | null; error: string 
             {state.message}
           </p>
         )}
-        <Button type="submit" variant="brand" size="lg" className="mt-2 w-full" disabled={pending}>
+        <Button
+          type="submit"
+          variant="outline"
+          size="lg"
+          className="mt-2 w-full"
+          disabled={pending}
+        >
           {pending ? <Loader2 className="animate-spin" aria-hidden /> : <Mail aria-hidden />}
           Email me a sign-in link
         </Button>

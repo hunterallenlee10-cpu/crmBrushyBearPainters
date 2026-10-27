@@ -136,9 +136,22 @@ test.describe("signed out", () => {
 
   test("magic-link request answers the same for unknown emails", async ({ page }) => {
     await page.goto("/login");
-    await page.getByRole("textbox", { name: /email/i }).fill("nobody@test.brushybear.local");
+    await page
+      .getByRole("textbox", { name: "Email for a sign-in link" })
+      .fill("nobody@test.brushybear.local");
     await page.getByRole("button", { name: /email me a sign-in link/i }).click();
     await expect(page.getByText(/check your email/i)).toBeVisible();
+  });
+
+  test("password sign-in gives one answer for a wrong password or unknown email", async ({
+    page,
+  }) => {
+    await page.goto("/login");
+    await page.getByRole("textbox", { name: "Work email" }).fill("nobody@test.brushybear.local");
+    await page.getByLabel("Password").fill("not-the-password");
+    await page.getByRole("button", { name: "Sign in", exact: true }).click();
+    await expect(page.getByText("That email and password don't match.")).toBeVisible();
+    await expect(page).toHaveURL(/\/login/);
   });
 
   test("design system page is public", async ({ page }) => {

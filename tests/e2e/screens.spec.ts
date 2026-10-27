@@ -98,7 +98,9 @@ test.describe("sign-in and access", () => {
   test("desktop: login, link sent", async ({ page }) => {
     await page.setViewportSize(DESKTOP);
     await page.goto("/login");
-    await page.getByRole("textbox", { name: /email/i }).fill("someone@test.brushybear.local");
+    await page
+      .getByRole("textbox", { name: "Email for a sign-in link" })
+      .fill("someone@test.brushybear.local");
     await page.getByRole("button", { name: /email me a sign-in link/i }).click();
     await page.getByText(/check your email/i).waitFor();
     await shot(page, "desktop-login-sent");
