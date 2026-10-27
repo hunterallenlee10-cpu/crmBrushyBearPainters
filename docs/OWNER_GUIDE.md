@@ -33,7 +33,19 @@
 
 ## Run the schedule _(Phase 6)_
 
+1. Set up once: **Admin → Schedule Admin** (production days, start time, arrival window, crew-day hours, work rules, skills, checklists) and **Production → Resources** (crews, members, skills, time off). Add subcontractors and their paperwork in **Admin → Subcontractors**.
+2. Open **Schedule → Master Schedule**. Jobs that are Ready to Schedule sit in the tray on the left with a recommended crew and dates; rain reschedules are pinned on top.
+3. Drag a job onto a crew and day (or press **Schedule job**), drag a bar to move it, drag its right edge to change the last day. Anything that breaks a rule shows in red with the reason; nothing is sent yet.
+4. Press **Publish changes**. The customer gets their dates and the crew lead gets the job (simulated until texting is connected). The job moves to Scheduled and its on-time promise date is set.
+5. Rain: **Production → Weather → Mark rain delay** (or on the job's Schedule section). The customer gets the rain-day text, nothing is charged, and the job goes to the top of the tray for rescheduling.
+6. **Command Center** shows what's ready, at risk and starting this week; **Exceptions** lists what needs you (no crew, paint not ordered, missed daily update, open punch items, sub paperwork).
+
 ## Close out a job _(Phases 6–7)_
+
+1. Crew leads press **Start job** on day one (or post the first daily log) and post a **Daily Log** every evening from their phone: what got done, what's next, hours, "Cleanup done" and a cleanup photo. The customer gets the update signed by the job's point of contact.
+2. When the last work order is marked completed, the job moves to **Final Walkthrough**. Book the final walkthrough (job → Schedule → Book appointment).
+3. At the walkthrough add touch-ups on **Punch List** (area, what to fix, photo), mark them fixed, then **Capture customer sign-off** on the phone. The job moves to **Completed**.
+4. If a start was late for a reason other than weather, an **on-time credit** waits for your approval on the job's Schedule section. Approve or waive it; approved credits go on the final invoice (Phase 7).
 
 ## What the CRM promises customers for you
 

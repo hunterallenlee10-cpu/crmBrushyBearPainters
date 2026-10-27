@@ -2,6 +2,34 @@
 
 All notable changes, by build phase. See `docs/PLAN.md` for what each phase covers.
 
+## Phase 6 — Production
+
+### Added
+
+- **Resources:** crews (employee or subcontractor, lead, home territory, max jobs per day, day capacity), members (teammates or names; lead / painter / helper), skills with expiry (RRP certificate), time off and company blackout days (Production → Resources). **Admin → Subcontractors** with insurance / license / W-9 uploads and expiry; status Active / Expiring / Suspended is computed and raises Attention before paperwork lapses.
+- **Admin → Schedule Admin:** production days, day start, arrival window, crew-day hours, recommendation approval / auto-execute / undo window; SPEC §15.1 work types and durations; 11 work rules (on/off, block or warn, owner override, parameters); skills; checklist templates. All seeded with defaults on every organization (idempotent).
+- **Master Schedule:** tray of Ready to Schedule jobs (rain reschedules pinned on top) with the recommended crew, dates and score; crew-row calendar with Day / Week / Multi-week views; drag from the tray, drag bars to move, drag the edge to resize (mouse, touch, keyboard), or use the Schedule dialog. Every placement is checked against the work rules and shows conflicts with plain reasons (double-booking names the other job and dates). Changes stay **drafts** until **Publish changes**, which is refused while any draft is blocked, then sets promised start, on-time guarantee date and crew and records simulated customer and crew notices in the outbox. Owners can override overridable rules with a written reason.
+- **Production Center** (left sub-nav): **Command Center** (registry KPIs: ready, unscheduled, scheduled, in progress, at risk, rain reschedules, starts next 7 days, completed this week, scheduled revenue for finance, daily-update compliance, on-time start, rain-delay days, punch items per job, labor hours estimated vs actual, backlog crew-days); **Field Dispatch** (today's production by city, filters; map waits for the maps integration); **Readiness Queue** and **Crew Queue** (dispatch readiness %, blocks, next action, assign crew); **Paint Orders** (status tabs, supplier, expected date, pickup/delivery, generate from the accepted estimate); **Exceptions** (production Attention items with Resolve); **Recommendations** (approve → draft, reject, undo within 15 minutes; approval on, auto-execute off); **Work Orders**; **Weather** ("Weather not connected" + manual rain delay).
+- **Field screens (mobile-first):** **Today** (today's jobs: address, access notes, parking, pets, today's work order and scope, colors, open punch items, Start job, Daily log, Photos), **Daily Log** and **My Projects** (search, status and city filters, Day / Week / Month / All, mini calendar with job counts per day, project list with "N/6 stages complete", selected project summary with photos).
+- **Daily logs:** finished today, next up, issues, weather, hours per person, required "Cleanup done" + cleanup photo, progress photos. Works offline through the photo queue; on upload the customer update is recorded (simulated) and signed by the point of contact. Job → Daily Logs timeline with thumbnails, cleanup check, hours and update status.
+- **Job sections:** **Schedule** (next steps, production timeline, dispatch readiness checks, crew with recommended crews and scores, schedule entries, on-time start guarantee with credit approve/waive, rain delays, Start job, appointments); **Work Orders** (tiles, status and crew controls, labor vs subcontractor hours, paint orders); **Punch List** (items by area with before/fixed photos, fixed / customer waived / reopen / remove, final-walkthrough status, **customer sign-off** with drawn signature). Tasks & Checklists shows real checklists (add from a template, tick items). Order Paint and New Daily Log shortcuts work.
+- **Stage automation (gates 6–9, TypeScript and SQL):** published entry → Scheduled; materials ready + first day reached (Start job) → In Progress; all work orders done → Final Walkthrough; customer sign-off (or walkthrough completed with no open items) → Completed. All through `advanceJobStage()`.
+- **Promises:** on-time start (missed non-weather start drafts the Company Settings credit for owner approval; stored for Phase 7), rain-day promise (rain delay never charges, priority reschedule, customer text), daily photo update, clean house every evening, final walkthrough sign-off.
+- **Attention rules** (editable thresholds): missing crew, paint not ordered, missed daily update (7 pm Pacific, owner = crew lead), punch list open, start date missed (uses the guarantee date, skips rain slips), subcontractor paperwork expiring, weather risk (dormant until weather is connected). Job health checks for crew, schedule and daily logs are real.
+- Worker: production sweep, daily-update sweep, subcontractor status, recommendations every 15 minutes.
+
+### Changed
+
+- Crew leads and members of a job's crew count as "on the job" (own-scope visibility).
+- Onboarding "Crew assigned" and the lead-safe certified-renovator check are real.
+- Book Walkthrough and appointment texts no longer promise Phase 6 features that need the calendar integration.
+
+### Tests
+
+- SQL/RLS: 586 assertions across 13 files (Phase 6 adds 78: guards on published vs draft fields, Publish-only writes, crew visibility, credits refused for people and for rain slips, daily log cleanup checks, punch sign-off immutability, gates 6–9, `production_stats`, cross-company isolation; rollbacks applied and re-applied by hand).
+- Unit: 1,000 tests across 75 files (Phase 6 adds scheduling domain: conflicts and work rules, crew ranking, readiness, on-time guarantee, daily-update compliance, publish plan, calendar layout, My Projects windows; gates, health, attention rules with a fixed 7 pm clock, registry metrics).
+- E2E + axe on a production build (desktop and phone): conflicting schedule blocked with the reason, Publish records customer and crew outbox rows, job Schedule / Work Orders sections, every Production Center page and Schedule Admin, Today and My Projects (owner and painter), daily log required fields + offline → sync, punch list and customer sign-off → Completed. Screenshots in `docs/screens/phase-6/`.
+
 ## Phase 5 — Onboarding, documents & photos
 
 ### Added

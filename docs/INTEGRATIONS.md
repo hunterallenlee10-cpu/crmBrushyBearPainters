@@ -18,6 +18,19 @@
 
 Source of truth in code: `lib/integrations/registry.ts` (names, env flags, frequencies and the setup checklists shown on the Admin → Integrations cards).
 
+## Production messages (Phase 6)
+
+What the production screens record in the outbox (all `simulated`, draft wording – owner to approve; real templates arrive in Phase 8):
+
+| When                                                        | To                                        | Channel                                                                               | Template key         | `related_type`     |
+| ----------------------------------------------------------- | ----------------------------------------- | ------------------------------------------------------------------------------------- | -------------------- | ------------------ |
+| Publish changes (new dates, moved, crew changed, taken off) | Customer                                  | text if the contact has a mobile and opted in, else email                             | `schedule_published` | message on the job |
+| Publish changes                                             | Crew lead                                 | text if their profile has a mobile, else email; plus in-app notification for the crew | —                    | `crew`             |
+| Mark rain delay ("Text the customer")                       | Customer                                  | text, else email                                                                      | `rain_delay`         | message on the job |
+| Daily log uploaded                                          | Customer (signed by the point of contact) | text, else email                                                                      | `daily_update`       | message on the job |
+
+Weather: the Weather page and the weather work rule read `loadWeather()`, which returns "not connected" until a weather provider is enabled, so no forecast rule ever fires and `weather_forecasts` stays empty. Field Dispatch shows a list by city until Address & Maps is connected. Calendar sync of schedule entries waits for the calendar provider.
+
 ## How the lock works
 
 A real provider is used only when **all three** of these hold. `resolveProviderChoice()` in `lib/integrations/core.ts` enforces it; anything short of all three returns the default provider.

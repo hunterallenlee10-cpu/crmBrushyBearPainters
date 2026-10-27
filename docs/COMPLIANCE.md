@@ -58,3 +58,12 @@
 - [ ] HOA approvals: upload the HOA's written approval (category HOA) before scheduling exterior color changes.
 - [ ] Review the draft customer messages used for onboarding requests and prep instructions ("Draft wording – owner to approve" in the dialog; `lib/onboarding/messages.ts`).
 - [ ] Decide how long uploaded documents and photos are kept. Deleted ones can be restored from Admin → Deleted Records; signed documents can't be deleted.
+
+## Production (Phase 6)
+
+- [ ] **Subcontractors:** upload each sub's certificate of insurance, contractor license and W-9 with expiry dates in Admin → Subcontractors. A sub with missing paperwork or anything expiring within 30 days shows "Expiring" and raises an Attention item; an expired document blocks scheduling their crews. Confirm with your insurer what coverage you require from subs (amounts aren't in the app).
+- [ ] **Lead-safe (RRP):** mark crews that have a certified renovator with the "RRP certified" skill (with the certificate's expiry date) in Production → Resources. Lead-safe jobs then need such a crew, and the onboarding item checks it.
+- [ ] **Customer sign-off:** the final-walkthrough statement customers sign on the crew's phone is draft wording (`lib/domain/scheduling/messages.ts` → `signoffStatement`). Have it reviewed; it records the name, drawn signature, time, IP and device, and can't be changed afterwards.
+- [ ] **Customer messages:** schedule notices, rain-delay texts and daily updates use draft wording (owner to approve) and are only simulated until texting/email are connected. They respect opt-outs (SMS only with opt-in, otherwise email).
+- [ ] **Hours:** crew hours come from daily logs. If you'll use them for payroll, decide who approves them and confirm Washington break/overtime rules with your payroll provider — the app doesn't calculate pay.
+- [ ] **On-time credit:** the amount comes from Company Settings (On-time guarantee). Confirm the amount and the customer-facing terms; credits are drafted for owner approval and never applied automatically.

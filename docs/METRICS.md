@@ -55,6 +55,32 @@ Source: the board summary built on the server from every job on the board (Sold 
 
 Lane "overdue" uses the attention thresholds: sold with no deposit (3 days), onboarding stalled (7), ready not scheduled (5). Fixture tests: `lib/metrics/registry.test.ts`, `lib/domain/onboarding/board.test.ts`.
 
+## Production (Phase 6)
+
+Source: `public.production_stats()` (one server query, row-security scoped; money only with `financials:read`), defined in `PRODUCTION_METRICS`. Shown on the Command Center and Master Schedule. Board counts (`SCHEDULE_BOARD_METRICS`) come from the board the server builds for the visible window.
+
+| Metric                                      | Formula                                                                                                                   | Date field                   |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | ---------------------------- |
+| Ready to Schedule                           | jobs in Ready to Schedule, right now                                                                                      | —                            |
+| Unscheduled                                 | Ready to Schedule with no live schedule entry (draft or published)                                                        | —                            |
+| Scheduled                                   | jobs in Scheduled (dates published, not started)                                                                          | —                            |
+| In Progress                                 | jobs in In Progress                                                                                                       | —                            |
+| At Risk                                     | Scheduled jobs starting within 7 days (or already past their start) with no crew, materials not ready, or a blocking hold | `schedule_entries.starts_on` |
+| Rain reschedules                            | jobs flagged priority reschedule                                                                                          | —                            |
+| Completed this week                         | jobs that reached Completed since Monday (Pacific)                                                                        | `jobs.completed_at`          |
+| Starts next 7 days                          | jobs whose first published day is within 7 days                                                                           | `starts_on`                  |
+| Scheduled revenue (30 days)                 | contract value of jobs whose first published day is in the next 30 days (owner/finance only)                              | `starts_on`                  |
+| Daily update compliance                     | daily logs posted ÷ production days due, last 30 days (a day counts once the cutoff passed; rain days don't count)        | `daily_logs.log_date`        |
+| On-time start                               | started on or before the guarantee date ÷ jobs started, last 90 days; weather slips excluded                              | `jobs.actual_start_date`     |
+| Rain-delay days                             | rain days marked, last 90 days                                                                                            | `rain_delays.delay_date`     |
+| Punch items per job                         | punch items ÷ jobs completed in the last 90 days                                                                          | `jobs.completed_at`          |
+| Labor hours estimated / actual / variance   | budgeted work-order hours vs. hours logged (time entries) on jobs completed in 90 days; actual ÷ estimated × 100          | `jobs.completed_at`          |
+| Backlog                                     | budgeted hours of open work orders on Ready to Schedule, Scheduled and In Progress jobs ÷ crew-day hours (Schedule Admin) | —                            |
+| Crews                                       | active crews                                                                                                              | —                            |
+| Conflicts / Draft changes / To be scheduled | bars with conflicts in the window; entries with a pending draft; cards in the tray                                        | board window                 |
+
+Fixture tests: `lib/metrics/registry.test.ts` (parsing, units, money hidden without financials). SQL: `supabase/tests/012_production.test.sql` checks `production_stats()` counts.
+
 ## Minimum set (SPEC §12.1)
 
 Leads created · leads by source · speed to lead (median, p90) · contact rate · walkthrough set rate · walkthrough show rate · estimates sent · 24h SLA % · close rate (count and $) · avg job value · sales velocity · pipeline value · backlog crew-days · projected revenue · revenue sold/completed/collected · gross margin % · labor hours estimated vs actual · daily-update compliance % · on-time start % · rain-delay days · punch items per job · days completed → paid · A/R aging · collection % · review rate · referral conversions · revenue by city/source/estimator · cost per lead & CAC.

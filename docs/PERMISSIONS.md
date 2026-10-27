@@ -391,3 +391,17 @@ No new permissions; Phase 5 starts using the photo and document ones seeded in P
 - **Documents:** `documents:read` sees documents on jobs/customers the person can open; money documents (proposals, contracts, change orders, invoices, receipts) also need `financials:read` or `estimates:read`, so crew see HOA, lead-safe, color-sheet and warranty paperwork only. `documents:manage` plus edit rights on the job or customer uploads, renames, moves and deletes. Signed documents can't be deleted by anyone.
 - **Onboarding Board** needs `jobs:read`; moving a card needs `jobs:advance_stage`. Money on the board needs `financials:read`.
 - **Camera** (`/field/camera`) needs `photos:upload`.
+
+## Added in Phase 6
+
+No new permissions; Phase 6 starts using the production ones seeded in Phase 1. Crews now count as "on the job": a crew's lead and active members are added to the job's team, so own-scope roles see the jobs their crew works.
+
+- **Production Center and Master Schedule** need `schedule:read` (Owner, Office Manager, crew leads, painters, read-only). Drafting, moving, cancelling entries, assigning crews, approving recommendations and marking rain delays need `schedule:manage` (Production — manage). **Publish changes** needs `schedule:publish`. Overriding an overridable work rule needs `schedule:manage` **and** `job_admin:override` (Owner) plus a written reason. Money on the Command Center (scheduled revenue) needs `financials:read`.
+- **Resources** (crews, members, skills) and **Admin → Subcontractors** need `crews:manage`; time off also accepts `schedule:manage`. Subcontractor paperwork files are readable only with `crews:manage`. **Admin → Schedule Admin** (policies, work types, work rules, skills, checklist templates) needs `settings:manage`.
+- **Work orders:** office changes status and crew with `work_orders:manage`; a crew lead (`daily_logs:create`) on the job may start, finish or flag (pending approval) a work order but not change its crew. **Paint orders** need `paint_orders:manage`.
+- **Daily logs:** `daily_logs:create` (crew leads, Production — manage) posts logs on jobs the person can open; `daily_logs:read` at its scope reads them. Hours: people see their own hours; `time_entries:approve` or `job_costing:read` see everyone's; daily-log readers see the hours on logs they can read.
+- **Start job** and **Mark rain delay** from the field: `daily_logs:create` on the job, or `schedule:manage`.
+- **Punch list and customer sign-off:** `punch_list:manage` (crew leads, Production — manage) on jobs the person can open; everyone who can open the job sees the list. Sign-offs can't be changed by anyone.
+- **On-time credits:** visible with `financials:read`; approve or waive with `credits:approve` (Approvals pack: Owner). Credits are created only by the system.
+- **Checklists on a job:** add with `work_orders:manage` or edit rights on the job; tick with those or `daily_logs:create`.
+- **Field screens:** Today and My Projects need `work_orders:read`; Daily Log needs `daily_logs:create`. Painters (Field crew pack) see their crew's jobs but don't post daily logs — the crew lead does.

@@ -566,6 +566,83 @@ Every non-obvious decision, newest at the bottom. Format: date · decision · re
 - **Decision:** Uploading or deleting a document, adding or deleting photos, and sharing photos write timeline entries (`document_*`, `photo_*`), so the Activity feed's Documents and Photos chips have content. Sharing photos sends one simulated message and marks the photos customer-visible.
 - **Reason:** SPEC §8.5 #14–15 feed filters.
 
+## Phase 6 — Production
+
+### 2026-10-27 · Schedule entries are drafts until "Publish changes"
+
+- **Decision:** `schedule_entries` keep the published slot (`crew_id`, `starts_on`, `ends_on`, `published_at/by`) and a pending draft (`draft_action` create/update/cancel, `draft_crew_id`, `draft_starts_on/ends_on`, `draft_reason`, `draft_note`) in one row. People only write the draft fields (row security + guard); only trusted code writes the published fields, inside `publishSchedule()` (`lib/production/publish.ts`, plan in `lib/domain/scheduling/publish.ts`). Publish refuses the whole batch when any draft still has a blocking conflict, so nobody is told half a schedule. On publish: the job's promised start, guarantee date, crew, estimated completion and priority flag are updated, the customer gets one notice per job (text, else email) and the crew lead one notice per crew, all through adapters → `integration_outbox` (status `simulated`), and Ready to Schedule → Scheduled runs through `advanceIfGatePasses()`.
+- **Reason:** SPEC §8.6 "drafts until Publish changes". Two columns sets in one row keep "what the customer was told" and "what we're planning" side by side without a second table, and the board can show both.
+
+### 2026-10-27 · Conflicts: block vs. heads-up, owner override with a reason
+
+- **Decision:** `checkPlacement()` (pure) returns every conflict with a code, a plain-language reason that names the other job, dates and the fix, a severity (block / warn) and whether an owner may override it. Blocks: past dates, inactive crew, double-booking past the crew's `max_jobs_per_day` (unless both entries are "split"), crew time off and company blackouts, a blocking hold (Deposit Hold is the locked `deposit_before_scheduling` rule — never overridable), missing required skills, expired/missing subcontractor paperwork, closed jobs. Heads-ups: non-production day, exterior out of season, HOA approval pending, walkthrough not done, weather (only when weather is connected). An owner (`job_admin:override`) can override the overridable ones on a saved entry with a reason of ≥ 10 characters (stored on the entry and audited). The same function runs in the browser for instant feedback, in the save action, and in Publish.
+- **Reason:** SPEC §8.6 "conflicts with reasons", §15.1 work rules; PLAN Phase 6 "conflicting schedule is blocked with a clear reason".
+
+### 2026-10-27 · On-time start guarantee and the draft credit
+
+- **Decision:** The first publish sets `jobs.guarantee_start_date`. Later moves for **weather** or **customer** reasons move the guarantee date; **company** moves keep the earlier date (`nextGuaranteeDate`). When the actual start (Start job button, or the first daily log) is later than the guarantee date and no rain delay covers the slip, the system drafts one `on_time_credits` row with the amount from Company Settings → `on_time_guarantee_cents` (status `pending_approval`) and notifies the owners. The database refuses people creating credits and refuses a credit a rain delay covers. Owners (`credits:approve`) approve or waive it on Job → Schedule; approved credits wait for Phase 7 to be applied to the final invoice (`invoice_id`, status `applied`). Waiving sets the job to "Waived by owner".
+- **Reason:** SPEC §1.3 "on-time start or $250 off" (amount stays a company setting the owners confirm), "draft pending owner approval".
+
+### 2026-10-27 · Rain-day promise never costs the customer anything
+
+- **Decision:** "Mark rain delay" (scheduler, or a crew lead on their job) records `rain_delays` (no money column at all), sets `is_priority_reschedule`, pins the job to the top of the Master Schedule tray, logs a timeline entry and event `job.rain_delay`, and texts the customer the SPEC wording (draft – owner to approve) through the outbox. Rain slips never draft an on-time credit. Weather forecasts are not connected, so the "weather risk" attention rule and the weather work rule stay dormant and the Weather page says "Weather not connected" with the manual form.
+- **Reason:** SPEC §1.3 rain-day promise, §10 weather adapter (no real API calls in this build).
+
+### 2026-10-27 · Gates 6–9
+
+- **Decision:** Ready to Schedule → Scheduled: a published schedule entry exists. Scheduled → In Progress: materials ready (no live paint order that isn't picked up, delivered or canceled) and the first published day is today or earlier (Pacific) — "Start job" records the actual start and then tries the gate. In Progress → Final Walkthrough: at least one live work order and all of them completed or canceled. Final Walkthrough → Completed: the customer's sign-off is captured, **or** the final-walkthrough appointment is completed with no open punch items. Same rules in TypeScript (`lib/domain/jobs/gates.ts`) and SQL (`app.job_gate_passes`), checked by tests on both sides.
+- **Reason:** SPEC §6.2 gates 6–9.
+
+### 2026-10-27 · Daily logs: required cleanup photo, offline queue, customer update signed by the point of contact
+
+- **Decision:** A daily log needs "finished today", the "Cleanup done" check (database check `cleanup_done = true`) and a cleanup photo (`cleanup_photo_id not null`). The phone form queues the log with its cleanup photo as one `daily_log` item in the Phase 5 offline queue (client id = log id, idempotent) and progress photos as `photo` items linked by `daily_log_id`; the photo route answers 503 until its log has arrived, so the queue retries in order. The server records hours per person as `time_entries`, then sends the customer update right away (text, else email; draft wording; signed with the point of contact's name) — a worker sweep sends any update still in draft after 2 minutes. "Missed daily update" raises an attention item after the cutoff (default 7 pm Pacific, editable in Admin → Attention Rules, looking back 3 production days), owned by the crew lead.
+- **Reason:** SPEC §1.3 daily photo update and clean house every evening, §8.5 #9, §9.
+
+### 2026-10-27 · Crews count as "on the job"
+
+- **Decision:** `jobs.team_user_ids` now also holds the active members and lead of the job's crew and of crews on its live schedule entries (`app.job_crew_user_ids`, refreshed by triggers when crews, members, entries or the job's crew change). Own-scope roles (painters, crew leads) therefore see exactly the jobs their crew works, on Today, My Projects, Daily Log and the job page.
+- **Reason:** SPEC §4 own scope, §8.8; no separate assignment step for crews.
+
+### 2026-10-27 · Recommendations need approval; auto-execute stays off
+
+- **Decision:** The worker (every 15 minutes) ranks crews for unscheduled and rain-delayed jobs (skills 35, availability 30, workload 20, territory 15 points; first open start in 60 days) and stores `schedule_recommendations`. Approving one creates a **draft** entry and assigns the crew; it can be undone within the undo window (default 15 minutes). Schedule settings default to "approval required = on, auto-execute = off", and the database refuses both on at once.
+- **Reason:** SPEC §8.6 Recommendations "approval ON, auto-execute OFF, 15-min undo".
+
+### 2026-10-27 · Exceptions reuse the Attention Center
+
+- **Decision:** Production → Exceptions lists open attention items from the production rules (missing crew, paint not ordered, missed daily update, punch list open, start date missed, subcontractor paperwork expiring, weather risk) with Resolve; there is no separate exceptions table. Subcontractors are a new attention subject type.
+- **Reason:** One place for SLAs, owners and snoozes (SPEC §9).
+
+### 2026-10-27 · Subcontractor status is computed
+
+- **Decision:** `subcontractors.status` is set by the database from the paperwork: suspended (by hand), else **expiring** when insurance, license or W-9 is missing or any expires within 30 days, else active. An expired document blocks scheduling the sub's crews (`sub_compliance` rule). Paperwork files live in the private documents bucket under `<org>/subcontractors/<id>/` and stream through `/api/files/subcontractors/[id]` for `crews:manage` only.
+- **Reason:** SPEC §13.4, §8.6 Resources; "missing" is treated like "expiring" so the owners see it before it blocks a job.
+
+### 2026-10-27 · Field Dispatch lists by city; no map
+
+- **Decision:** Field Dispatch groups today's production by city with filters (crew, skill, city, status, work type); the map waits for the maps integration (not connected).
+- **Reason:** No real external APIs in this build.
+
+### 2026-10-27 · Seeded production configuration
+
+- **Decision:** `app.seed_production_defaults(org)` (idempotent, `on conflict do nothing`) seeds skills, the SPEC §15.1 work types and durations (keys match appointment types), 11 work rules, the §15.1 checklist templates (walkthrough, exterior prep, interior prep, cabinet process, deck & fence, lead-safe from §13.3, daily cleanup, final walkthrough), schedule settings (Mon–Fri, 8:00 start, 30-minute arrival window, 8-hour crew day) and the production attention rules. Owners can change all of it in Admin → Schedule Admin and Attention Rules.
+- **Reason:** SPEC §15.1; production must be usable on the empty production database. Start time, arrival window and crew-day hours are placeholders for the owners to confirm.
+
+### 2026-10-27 · Customer sign-off on the crew's device
+
+- **Decision:** Punch List → "Capture customer sign-off": typed name + drawn signature, the statement shown to the customer (draft wording – owner to approve) with the number of open items accepted, time, IP and device, SHA-256 of the signature image. Sign-offs can't be edited or deleted by anyone but trusted maintenance. Punch items need `punch_list:manage`; fixed and waived items keep their photos and note.
+- **Reason:** SPEC §1.3 final walkthrough, §8.5 #13.
+
+### 2026-10-27 · Validation schemas stay out of "use server" files
+
+- **Decision:** Zod schemas with `.refine()` callbacks live in `lib/validation/*` or a `schema.ts` next to the actions, never inline in a `"use server"` module.
+- **Reason:** Next.js treats every inline function in a server-action module as a server action and the production build fails ("Server Actions must be async functions"); `tsc` and ESLint don't catch it.
+
+### 2026-10-27 · Deviations and gaps left for later
+
+- **Decision:** Not built in Phase 6: reading gate/lockbox codes is still Owner/Office Manager only (narrowing to the assigned crew on scheduled days, promised in the Phase 2 entry, is left as a gap); suggested walkthrough time slots and calendar sync (calendar integration not connected); map views; real weather forecasts; on-time credit applied to invoices (Phase 7); clock-in/out time entries (hours come from daily logs).
+- **Reason:** Scope and "no real integrations" rule; listed in the Phase 6 report.
+
 ## Hosting
 
 ### 2026-10-27 · Separate hosting; worker every minute from the database

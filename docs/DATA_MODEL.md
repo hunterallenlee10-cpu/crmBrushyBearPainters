@@ -402,3 +402,68 @@ New functions: `apply_onboarding_checks(job, results)` (service role), `app.onbo
 Storage: private buckets `documents` (25 MB, document types) and `photos` (15 MB, JPEG/PNG/WebP). Files are only read by server code after a row-security check.
 
 Migration: `20261027000300_onboarding_documents_photos`, with a rollback.
+
+## Added in Phase 6 — Production
+
+```mermaid
+erDiagram
+  crews ||--o{ crew_members : "members"
+  crews ||--o{ crew_skills : "skills"
+  skills ||--o{ crew_skills : ""
+  crews ||--o{ crew_availability : "time off"
+  subcontractors ||--o{ crews : "sub crews"
+  subcontractors ||--o{ subcontractor_documents : "paperwork"
+  jobs ||--o{ schedule_entries : "schedule"
+  crews ||--o{ schedule_entries : ""
+  jobs ||--o{ daily_logs : "daily logs"
+  daily_logs ||--o{ time_entries : "hours"
+  daily_logs ||--o{ job_photos : "photos"
+  jobs ||--o{ punch_items : "punch list"
+  jobs ||--o{ punch_signoffs : "customer sign-off"
+  jobs ||--o{ rain_delays : ""
+  jobs ||--o| on_time_credits : "draft credit"
+  jobs ||--o{ checklist_instances : "checklists"
+  checklist_instances ||--o{ checklist_items : ""
+  schedule_entries {
+    text status "draft/published/canceled"
+    uuid crew_id "published slot (trusted writes only)"
+    date starts_on
+    date ends_on
+    text draft_action "create/update/cancel"
+    uuid draft_crew_id
+    date draft_starts_on
+    date draft_ends_on
+    text draft_reason "company/weather/customer"
+    bool allow_split
+    text_arr override_rules "owner override + reason"
+  }
+  daily_logs {
+    date log_date
+    text finished_today
+    bool cleanup_done "must be true"
+    uuid cleanup_photo_id "required"
+    text customer_update_status "draft/queued/sent/simulated/skipped"
+  }
+```
+
+| Table / column                                                       | Purpose                                                                                                                                                                                                                                                 |
+| -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `skills`, `crew_skills` (`expires_on`)                               | Skills (interior, high-access exterior, spray, RRP certified, …) and which crews have them; certifications can expire.                                                                                                                                  |
+| `subcontractors`, `subcontractor_documents`                          | Subcontractor companies; insurance / license / W-9 files with expiry in the private documents bucket. `status` (active / expiring / suspended) is computed by the database.                                                                             |
+| `crews`, `crew_members`, `crew_availability`                         | Employee or subcontractor crews (lead, home territory, max jobs per day, day capacity), members (a user or a name, role lead / painter / helper), time off and company blackout days.                                                                   |
+| `work_types`, `work_rules`, `schedule_settings`                      | SPEC §15.1 work types with durations and required skill; the 11 scheduling rules (on/off, block or warn, owner override, parameters); production days, day start, arrival window, crew-day hours, recommendation approval / auto-execute / undo window. |
+| `jobs` + `crew_id`, `guarantee_start_date`, `priority_reschedule_at` | The job's crew, the date the on-time promise is measured against, and when it became a rain-priority reschedule.                                                                                                                                        |
+| `schedule_entries`                                                   | Bars on the Master Schedule: the published slot and the pending draft in one row (see DECISIONS "drafts until Publish").                                                                                                                                |
+| `schedule_recommendations`                                           | Ranked crew/date suggestions (score, reasons), approved / rejected / undone.                                                                                                                                                                            |
+| `weather_forecasts`                                                  | Forecast cache for the weather adapter (empty while weather isn't connected).                                                                                                                                                                           |
+| `rain_delays`                                                        | Rain days (no money columns); sets `is_priority_reschedule`.                                                                                                                                                                                            |
+| `on_time_credits`                                                    | One drafted credit per job (amount from Company Settings), `pending_approval` → `approved` / `waived` → `applied` (Phase 7). Created only by the system.                                                                                                |
+| `checklist_templates`, `checklist_instances`, `checklist_items`      | §15.1 checklists, copied onto a job (optionally a work order) and ticked by crew or office.                                                                                                                                                             |
+| `daily_logs`, `time_entries`                                         | The evening update (finished, next up, issues, weather, cleanup + photo, customer update status) and hours per person (from the log, or clocked later).                                                                                                 |
+| `job_photos` + `daily_log_id`, `work_order_id`                       | Photos linked to a daily log or work order.                                                                                                                                                                                                             |
+| `punch_items`, `punch_signoffs`                                      | Touch-ups by area with before/fixed photos; the customer's immutable sign-off (name, signature PNG + SHA-256, statement, open items, IP, device).                                                                                                       |
+| `attention_items.subject_type`                                       | Adds `subcontractor`.                                                                                                                                                                                                                                   |
+
+New functions: `public.production_stats()` (Command Center numbers, money only with `financials:read`), `public.emit_production_event(type, aggregate, id, payload)` (service role, whitelisted types), `app.job_materials_ready(job)`, `app.job_crew_user_ids(job, crew)`, `app.refresh_job_teams(…)`, `app.jobs_for_crew(crew)`, `app.subcontractor_status(sub, date)`, `app.production_today()`, `app.seed_production_defaults(org)`; `app.job_gate_passes` covers gates 6–9.
+
+Migrations: `20261027000400_production`, `20261027000500_production_seed`, each with a rollback.

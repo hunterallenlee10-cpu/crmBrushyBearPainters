@@ -106,6 +106,15 @@ The website posts quote requests to `POST /api/public/leads` (contract in `docs/
 - **Offline queue:** photos taken without signal live in the browser's IndexedDB on that phone (`brushybear-offline` → `uploads`) until they upload. Clearing site data on the phone deletes photos that haven't uploaded yet. Uploads are idempotent (client id), so retries never duplicate.
 - **Service worker** (`public/sw.js`): caches only hashed static files and `/offline`. After changing what it caches, bump `VERSION` in the file so phones drop the old cache. To turn it off in an emergency, deploy a `sw.js` that calls `self.registration.unregister()`.
 
+## Production schedule, daily logs and field screens _(Phase 6)_
+
+- **Worker:** each minute it also runs `sweepProduction` (gates for production jobs, on-time checks), `sweepDailyUpdates` (customer updates still in draft after 2 minutes) and the subcontractor status refresh; every 15 minutes (or `?recommendations=1`) it ranks crews for the tray. The worker JSON has `production`, `dailyUpdates`, `subcontractors` and `recommendations` counts.
+- **Publish refused:** the Master Schedule lists the drafts that block it with the reason (double-booking, time off, missing skill, expired sub paperwork, hold). Fix the draft or, for overridable rules, an owner overrides it with a reason. Publish never sends half a schedule.
+- **A job didn't move stage:** gates 6–9 are re-checked by the worker. Scheduled → In Progress needs materials picked up/delivered and the first day reached; In Progress → Final Walkthrough needs every work order completed or canceled; Final Walkthrough → Completed needs the customer's sign-off, or the final-walkthrough appointment completed with no open punch items. The job's Schedule section shows the next steps.
+- **Daily logs from phones:** logs wait in the phone's offline queue (with their cleanup photo) until there's signal; progress photos upload after their log (the photo route answers 503 until then and the queue retries). A crew lead who cleared site data before syncing loses unsent logs.
+- **Missed daily update** Attention items appear after the cutoff (default 7 pm Pacific; Admin → Attention Rules). Rain days don't count.
+- **Migrations for production:** `20261027000400_production.sql` and `20261027000500_production_seed.sql` (additive; the seed calls `app.seed_production_defaults` for every organization and is safe to re-run). Rollbacks in `supabase/rollbacks/`.
+
 ## Month close _(Phase 7)_
 
 ## Purge demo data _(Phase 10)_
