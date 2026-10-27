@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/db/types";
 import { ActionFailure } from "@/lib/actions/errors";
 import type { SmsProvider } from "@/lib/integrations/sms_voice/types";
-import type { EmailProvider } from "@/lib/integrations/email/types";
+import type { EmailProvider, EmailSendInput } from "@/lib/integrations/email/types";
 import { DO_NOT_CONTACT, plainTextToHtml, type ContactChannel } from "@/lib/leads/messaging";
 
 /**
@@ -142,7 +142,7 @@ export async function sendJobEmail(
   provider: EmailProvider,
   job: MessagingJob,
   input: { subject: string; body: string },
-  opts: { templateKey?: string } = {},
+  opts: { templateKey?: string; attachments?: EmailSendInput["attachments"] } = {},
 ): Promise<SentJobMessage> {
   blocked(job, "email");
   requireOutbox(provider);
@@ -155,6 +155,7 @@ export async function sendJobEmail(
     text: input.body,
     related: { type: "job", id: job.id },
     messageType: "transactional",
+    ...(opts.attachments?.length ? { attachments: opts.attachments } : {}),
   });
   if (!result.outboxId) throw new Error("The email outbox did not return an entry id.");
   const messageId = await insertMessage(db, {

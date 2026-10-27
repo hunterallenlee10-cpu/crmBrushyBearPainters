@@ -188,6 +188,86 @@ describe("job rules", () => {
     );
   });
 
+  it("sold without a deposit reads the deposit invoice (Phase 7)", () => {
+    const sold = job({ stage: "onboarding", estimateAcceptedAt: "2026-10-22T17:00:00Z" });
+    const partly = evaluateAttention(
+      {
+        ...empty,
+        jobs: [
+          {
+            ...sold,
+            deposit: { number: "INV-2026-0001", totalCents: 300_000, collectedCents: 100_000 },
+            depositRequired: true,
+          },
+        ],
+      },
+      settings,
+      now,
+    );
+    expect(partly.map((i) => i.detail)).toEqual([
+      "Sold 4 days ago. Deposit invoice INV-2026-0001 is $3,000.00, $1,000.00 paid so far.",
+    ]);
+    // Paid in full (even before the milestone is stamped), or a 0% deposit: nothing to chase.
+    expect(
+      keys({
+        ...empty,
+        jobs: [
+          {
+            ...sold,
+            deposit: { number: "INV-1", totalCents: 300_000, collectedCents: 300_000 },
+            depositRequired: true,
+          },
+        ],
+      }),
+    ).toEqual([]);
+    expect(keys({ ...empty, jobs: [{ ...sold, deposit: null, depositRequired: false }] })).toEqual(
+      [],
+    );
+  });
+
+  it("overdue invoices open at 7 days (medium) and escalate at 30 (high)", () => {
+    const inv = {
+      id: "i1",
+      number: "INV-2026-0002",
+      jobId: "j1",
+      jobName: "Smith – Kirkland – Exterior",
+      jobNumber: "BB-2026-0001",
+      balanceCents: 225_000,
+      daysPastDue: 6,
+      ownerId: "poc",
+    };
+    expect(keys({ ...empty, invoices: [inv] })).toEqual([]);
+    expect(keys({ ...empty, invoices: [{ ...inv, daysPastDue: 7 }] })).toEqual([
+      "overdue_invoice:i1|medium",
+    ]);
+    const late = evaluateAttention(
+      { ...empty, invoices: [{ ...inv, daysPastDue: 31 }] },
+      settings,
+      now,
+    );
+    expect(late[0]).toMatchObject({
+      priority: "high",
+      category: "financial",
+      subjectType: "job",
+      subjectId: "j1",
+      ownerId: "poc",
+      title: "Overdue invoice: Smith – Kirkland – Exterior (INV-2026-0002)",
+      detail: "$2,250.00 is 31 days past due. Call the customer or record the payment.",
+    });
+    expect(keys({ ...empty, invoices: [{ ...inv, daysPastDue: 40, balanceCents: 0 }] })).toEqual(
+      [],
+    );
+    const custom = {
+      ...settings,
+      rules: { overdue_invoice: { enabled: true, thresholds: { medium_days: 3, high_days: 10 } } },
+    };
+    expect(keys({ ...empty, invoices: [{ ...inv, daysPastDue: 10 }] }, custom)).toEqual([
+      "overdue_invoice:i1|high",
+    ]);
+    const off = { ...settings, rules: { overdue_invoice: { enabled: false, thresholds: {} } } };
+    expect(keys({ ...empty, invoices: [{ ...inv, daysPastDue: 40 }] }, off)).toEqual([]);
+  });
+
   it("onboarding stalled after 7 days", () => {
     expect(
       keys({

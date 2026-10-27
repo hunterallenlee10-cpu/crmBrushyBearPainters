@@ -18,6 +18,7 @@ import { isJobStageId } from "@/lib/domain/stages";
 import { checklistSummary, shortLabel } from "@/lib/domain/onboarding/checklist";
 import { logError } from "@/lib/log";
 import { loadWeather } from "@/lib/production/weather";
+import { loadMoneySnapshot } from "./money";
 import { loadProductionSnapshot } from "./production";
 
 type Db = SupabaseClient<Database>;
@@ -188,6 +189,7 @@ async function sweepOrg(service: Db, orgId: string, now: Date) {
   };
 
   const production = await loadProductionSnapshot(service, orgId, jobs, now);
+  const money = await loadMoneySnapshot(service, orgId, jobs);
 
   // Jobs in Onboarding: what's still open on the checklist and what holds block them.
   const onboardingIds = jobs.filter((j) => j.stage === "onboarding").map((j) => j.id);
@@ -262,6 +264,7 @@ async function sweepOrg(service: Db, orgId: string, now: Date) {
             onTimeGuaranteeStatus: j.on_time_guarantee_status,
             guaranteeDate: j.guarantee_start_date,
             ...(production.byJob.get(j.id) ?? {}),
+            ...(money.byJob.get(j.id) ?? {}),
             ...(j.stage === "onboarding"
               ? {
                   onboardingOpen: openByJob.get(j.id) ?? null,
@@ -333,6 +336,7 @@ async function sweepOrg(service: Db, orgId: string, now: Date) {
           : [],
       ),
       subcontractors: production.subcontractors,
+      invoices: money.invoices,
       approvals: (approvals.data ?? []).map((a) => ({
         id: a.id,
         type: a.type,

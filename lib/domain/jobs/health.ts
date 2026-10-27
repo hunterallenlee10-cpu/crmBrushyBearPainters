@@ -2,6 +2,7 @@ import { differenceInCalendarDays } from "date-fns";
 import { toZonedTime } from "date-fns-tz";
 import { BUSINESS_TZ } from "@/lib/domain/leads/speed-to-lead";
 import { getStage, type JobStageId } from "@/lib/domain/stages";
+import { formatCents } from "@/lib/format/money";
 import { isTerminal, stageOrder } from "./gates";
 
 /**
@@ -25,7 +26,8 @@ export type HealthAction =
   | "upload_photos"
   | "assign_crew"
   | "schedule_job"
-  | "post_daily_log";
+  | "post_daily_log"
+  | "collect_payment";
 
 export type HealthFactor = {
   key: string;
@@ -54,7 +56,7 @@ export type HealthInput = {
   actualStartDate: string | null;
   /** Onboarding checklist progress; null when the job has no checklist. */
   onboarding?: { required: number; cleared: number; open: readonly string[] } | null;
-  /** The deposit onboarding item is cleared (payments arrive in Phase 7). */
+  /** The deposit onboarding item is cleared (by the payment check or by hand). */
   depositCleared?: boolean;
   /** Photo counts by category; null/undefined when not loaded. */
   photos?: { before: number; progress: number; after: number } | null;
@@ -64,6 +66,8 @@ export type HealthInput = {
   scheduled?: boolean;
   /** Production days whose daily update was due, and how many have no log. */
   dailyLogs?: { due: number; missed: number };
+  /** The job ledger (Phase 7): the past-due part of the balance and how many invoices are late. */
+  money?: { dueCents: number; overdueInvoices: number } | null;
 };
 
 export type HealthResult = { score: number; factors: HealthFactor[] };
@@ -211,7 +215,7 @@ export function computeJobHealth(input: HealthInput, now: Date): HealthResult | 
             weight: 15,
             status: "fail",
             recommendation:
-              "Collect the deposit before scheduling, then clear the deposit item on the onboarding checklist (recording payments arrives in Phase 7).",
+              "Collect the deposit before scheduling and record it in Financial. The deposit item clears and the Deposit Hold releases on their own.",
             action: "record_deposit",
           },
     );
@@ -326,12 +330,21 @@ export function computeJobHealth(input: HealthInput, now: Date): HealthResult | 
     );
   }
 
-  // Checks that need later modules.
-  const unavailable: [string, string, number, number, boolean][] = [
-    ["balance_current", "Balance current", 10, 7, order >= stageOrder("completed")],
-  ];
-  for (const [key, label, weight, phase, applies] of unavailable) {
-    if (applies) factors.push({ key, label, weight, status: "unavailable", arrivesInPhase: phase });
+  // Money (Phase 7): nothing past due once the job is billed.
+  if (order >= stageOrder("completed") && input.money) {
+    const { dueCents, overdueInvoices } = input.money;
+    factors.push(
+      dueCents <= 0
+        ? { key: "balance_current", label: "Balance current", weight: 10, status: "pass" }
+        : {
+            key: "balance_current",
+            label: "Balance current",
+            weight: 10,
+            status: "fail",
+            recommendation: `${formatCents(dueCents)} is past due on ${overdueInvoices} invoice${overdueInvoices === 1 ? "" : "s"}. Follow up with the customer or record the payment.`,
+            action: "collect_payment",
+          },
+    );
   }
 
   const counted = factors.filter((f) => f.status !== "unavailable");

@@ -12,18 +12,14 @@ import {
  * `apply_onboarding_checks()`; a manual "cleared with a note" is never
  * overwritten (that happens in the database function).
  *
- * Rules whose data arrives in a later phase (payments in 7) report "pending"
- * with the phase in their detail, so people know to clear them by hand with a
- * note until then.
+ * The deposit rule reads the money applied to the deposit invoice (the Phase 7
+ * ledger), so recording the payment clears it on its own.
  */
 
 export type DepositLedger = {
   /** The live (not void) deposit invoice, if any. */
   invoice: { number: string; status: string; totalCents: number } | null;
-  /**
-   * Payments applied to the deposit invoice (cents). `null` until payments
-   * exist (Phase 7): the rule then stays pending and says so.
-   */
+  /** Payments applied to the deposit invoice (cents, from the ledger); null when not loaded. */
   appliedCents: number | null;
 };
 
@@ -119,11 +115,10 @@ export function depositRule(d: DepositLedger): Omit<RuleResult, "key"> {
     return { status: "missing", detail: `Deposit invoice ${d.invoice.number} was voided.` };
   }
   const due = d.invoice.totalCents;
-  if (d.appliedCents === null) {
+  if (d.appliedCents === null || d.appliedCents <= 0) {
     return {
       status: "pending",
-      detail: `Waiting for ${money(due)} (invoice ${d.invoice.number}). Recording payments arrives in Phase 7. Until then, mark this cleared with a note when the deposit is in.`,
-      arrivesInPhase: 7,
+      detail: `Waiting for ${money(due)} (invoice ${d.invoice.number}). Record the payment in Financial when it's in; this clears on its own.`,
     };
   }
   if (d.appliedCents >= due) {
@@ -132,13 +127,10 @@ export function depositRule(d: DepositLedger): Omit<RuleResult, "key"> {
       detail: `Deposit paid: ${money(d.appliedCents)} applied to ${d.invoice.number}.`,
     };
   }
-  if (d.appliedCents > 0) {
-    return {
-      status: "pending",
-      detail: `Partly paid: ${money(d.appliedCents)} of ${money(due)} on ${d.invoice.number}.`,
-    };
-  }
-  return { status: "pending", detail: `Waiting for ${money(due)} (invoice ${d.invoice.number}).` };
+  return {
+    status: "pending",
+    detail: `Partly paid: ${money(d.appliedCents)} of ${money(due)} on ${d.invoice.number}.`,
+  };
 }
 
 /** One rule per requirement key. Required/not-required is decided by the caller's row. */

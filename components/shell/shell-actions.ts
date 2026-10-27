@@ -10,7 +10,7 @@ import { createSupabaseServerClient } from "@/lib/db/server";
 /** Top-bar actions: universal search and notifications (SPEC §8.1). */
 
 export type SearchHit = {
-  kind: "lead" | "job" | "account" | "contact";
+  kind: "lead" | "job" | "account" | "contact" | "invoice";
   id: string;
   title: string;
   subtitle: string;
@@ -19,7 +19,7 @@ export type SearchHit = {
 
 const searchSchema = z.object({
   query: z.string().trim().max(120),
-  scope: z.enum(["all", "leads", "jobs", "accounts", "contacts"]).default("all"),
+  scope: z.enum(["all", "leads", "jobs", "accounts", "contacts", "invoices"]).default("all"),
 });
 
 /**
@@ -44,7 +44,11 @@ export async function searchRecords(input: z.input<typeof searchSchema>): Promis
     const key = `${r.kind}:${r.id}`;
     if (
       seen.has(key) ||
-      (r.kind !== "lead" && r.kind !== "job" && r.kind !== "account" && r.kind !== "contact")
+      (r.kind !== "lead" &&
+        r.kind !== "job" &&
+        r.kind !== "account" &&
+        r.kind !== "contact" &&
+        r.kind !== "invoice")
     )
       return [];
     seen.add(key);

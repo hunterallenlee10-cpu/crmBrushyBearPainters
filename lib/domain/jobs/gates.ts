@@ -1,5 +1,6 @@
 import { JOB_STAGES, TERMINAL_STAGES, getStage, type JobStageId } from "@/lib/domain/stages";
 import { formatDay } from "@/lib/domain/scheduling/dates";
+import { formatCents as moneyText } from "@/lib/format/money";
 
 /**
  * Job stage gates and transitions (SPEC §6.2). Pure.
@@ -41,9 +42,11 @@ export const EXIT_GATES: Record<
     requirement:
       "The final walkthrough is done with no open punch items, or the customer signed off.",
   },
-  completed: { requirement: "The final invoice is sent.", arrivesInPhase: 7 },
-  invoiced: { requirement: "The balance is $0.", arrivesInPhase: 7 },
-  paid_in_full: { requirement: "Closes automatically 3 days after Paid in Full." },
+  completed: { requirement: "The final invoice is sent." },
+  invoiced: { requirement: "The balance is $0 and nothing is left to bill." },
+  paid_in_full: {
+    requirement: "Closes automatically 3 days after Paid in Full, while the balance stays $0.",
+  },
 };
 
 /** Facts the gates read. Grows as later phases add data. */
@@ -75,6 +78,10 @@ export type GateContext = {
   workOrders?: { total: number; open: number };
   /** Punch list: open items, final walkthrough completed, customer sign-off. */
   punch?: { open: number; finalWalkthroughDone: boolean; signedOff: boolean };
+  /** Money (Phase 7): the live final invoice, if any, and whether it was sent. */
+  finalInvoice?: { number: string; sent: boolean } | null;
+  /** The job ledger (public.job_ledger / lib/domain/ledger), in cents. */
+  money?: { billedCents: number; leftToBillCents: number; balanceCents: number } | null;
 };
 
 export type GateResult = {
@@ -207,8 +214,52 @@ export function exitGate(stage: JobStageId, ctx: GateContext): GateResult {
         );
       return { ...base, passes: false, reasons };
     }
-    case "paid_in_full":
+    case "completed": {
+      const f = ctx.finalInvoice ?? null;
+      if (f?.sent) return { ...base, passes: true, reasons: [] };
+      return {
+        ...base,
+        passes: false,
+        reasons: [
+          f
+            ? `The final invoice ${f.number} is drafted but not sent. Send it from Financial.`
+            : "There's no final invoice yet. Draft it from Financial (it's drafted on its own when the job reaches Completed).",
+        ],
+      };
+    }
+    case "invoiced": {
+      const m = ctx.money;
+      if (!m) return { ...base, passes: false, reasons: ["The job's money isn't loaded."] };
+      const reasons: string[] = [];
+      if (m.billedCents <= 0) reasons.push("Nothing has been billed yet.");
+      if (m.leftToBillCents > 0)
+        reasons.push(
+          `${moneyText(m.leftToBillCents)} is still left to bill. Create an invoice for it.`,
+        );
+      if (m.leftToBillCents < 0)
+        reasons.push(
+          `Invoices add up to ${moneyText(-m.leftToBillCents)} more than the contract. Void the extra invoice or issue a credit memo.`,
+        );
+      if (m.balanceCents > 0) reasons.push(`The balance is ${moneyText(m.balanceCents)}.`);
+      if (m.balanceCents < 0)
+        reasons.push(
+          `The customer paid ${moneyText(-m.balanceCents)} more than was billed. Refund it first.`,
+        );
+      return { ...base, passes: reasons.length === 0, reasons };
+    }
+    case "paid_in_full": {
+      const m = ctx.money;
+      if (m && m.balanceCents !== 0) {
+        return {
+          ...base,
+          passes: false,
+          reasons: [
+            `The balance is ${moneyText(m.balanceCents)} again (a payment bounced or was refunded). Collect it before closing.`,
+          ],
+        };
+      }
       return { ...base, passes: true, reasons: [] };
+    }
     default:
       return {
         ...base,

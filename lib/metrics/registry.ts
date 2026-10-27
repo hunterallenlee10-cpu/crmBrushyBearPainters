@@ -84,6 +84,7 @@ export type MetricSources = {
   onboarding_board: BoardStats;
   production_stats: ProductionStats;
   schedule_board: ScheduleBoardStats;
+  finance_stats: FinanceStats;
 };
 export type MetricSource = keyof MetricSources;
 
@@ -1387,9 +1388,9 @@ export const BOARD_METRICS = {
   "board.outstanding": boardMetric({
     id: "board.outstanding",
     label: "Outstanding",
-    description: "Billed minus collected on those jobs (payments arrive in Phase 7).",
+    description: "Contract minus collected on those jobs (from the job ledger).",
     unit: "money",
-    caption: "Billed − collected · payments arrive in Phase 7",
+    caption: "Contract − collected",
     compute: (s) => s.outstandingCents,
   }),
   "board.paid_month": boardMetric({
@@ -1702,7 +1703,271 @@ export function scheduleBoardMetricValue(
   };
 }
 
+// ===========================================================================
+// MONEY (Phase 7): SPEC §10, §12.1
+// ===========================================================================
+//
+// Source: `public.finance_stats(p_from, p_to)` (supabase/migrations/
+// 20261028000100_money.sql), run with the viewer's row security over the
+// ledger views (public.invoice_ledger, public.job_ledger). Period figures use
+// Pacific dates; A/R and aging are "right now". Everything is null/zero
+// without financials:read; margin only with job_costing:read.
+
+const centsInt = z.number().int().catch(0);
+const agingSchema = z
+  .object({
+    current: centsInt,
+    d1_30: centsInt,
+    d31_60: centsInt,
+    d61_90: centsInt,
+    d90_plus: centsInt,
+  })
+  .catch({ current: 0, d1_30: 0, d31_60: 0, d61_90: 0, d90_plus: 0 });
+const agingCountSchema = z
+  .object({ current: count, d1_30: count, d31_60: count, d61_90: count, d90_plus: count })
+  .catch({ current: 0, d1_30: 0, d31_60: 0, d61_90: 0, d90_plus: 0 });
+
+export const financeStatsSchema = z.object({
+  can_see_money: z.boolean().catch(false),
+  can_see_costs: z.boolean().catch(false),
+  ar_outstanding_cents: centsInt,
+  ar_open_invoices: count,
+  overdue_cents: centsInt,
+  overdue_invoices: count,
+  aging: agingSchema,
+  aging_counts: agingCountSchema,
+  collected_cents: centsInt,
+  refunded_cents: centsInt,
+  billed_cents: centsInt,
+  billed_collected_cents: centsInt,
+  unapplied_cents: centsInt,
+  sold_cents: centsInt,
+  sold_jobs: count,
+  completed_cents: centsInt,
+  completed_jobs: count,
+  margin_revenue_cents: z.number().int().nullable().catch(null),
+  margin_cost_cents: z.number().int().nullable().catch(null),
+  paid_jobs: count,
+  days_completed_to_paid_avg: z.number().nonnegative().nullable().catch(null),
+  pending_credit_cents: centsInt,
+  invoices: z
+    .object({ all: count, draft: count, open: count, overdue: count, paid: count, void: count })
+    .catch({ all: 0, draft: 0, open: 0, overdue: 0, paid: 0, void: 0 }),
+});
+export type FinanceStats = z.infer<typeof financeStatsSchema>;
+export const EMPTY_FINANCE_STATS: FinanceStats = financeStatsSchema.parse({});
+
+export function parseFinanceStats(raw: unknown): FinanceStats {
+  const parsed = financeStatsSchema.safeParse(raw ?? {});
+  return parsed.success ? parsed.data : EMPTY_FINANCE_STATS;
+}
+
+function financeMetric(
+  def: Omit<MetricDefinition<"finance_stats">, "source" | "ownerOnly"> & { ownerOnly?: boolean },
+): MetricDefinition<"finance_stats"> {
+  return { ownerOnly: false, ...def, source: "finance_stats" };
+}
+
+const money = (s: FinanceStats, v: number) => (s.can_see_money ? v : null);
+
+export const FINANCE_METRICS = {
+  "finance.ar_outstanding": financeMetric({
+    id: "finance.ar_outstanding",
+    label: "A/R Outstanding",
+    description: "What customers owe on sent invoices (credit memos net against it).",
+    unit: "money",
+    caption: "Sent invoices, balance owed · right now",
+    compute: (s) => money(s, s.ar_outstanding_cents),
+  }),
+  "finance.overdue": financeMetric({
+    id: "finance.overdue",
+    label: "Overdue",
+    description: "Balance owed on sent invoices past their due date.",
+    unit: "money",
+    caption: "Past due · right now",
+    compute: (s) => money(s, s.overdue_cents),
+  }),
+  "finance.overdue_invoices": financeMetric({
+    id: "finance.overdue_invoices",
+    label: "Overdue invoices",
+    description: "Sent invoices past their due date with money owed.",
+    unit: "count",
+    caption: "Past due · right now",
+    compute: (s) => (s.can_see_money ? s.overdue_invoices : null),
+  }),
+  "finance.collected": financeMetric({
+    id: "finance.collected",
+    label: "Collected",
+    description:
+      "Payments received in the period and applied to invoices (bounced, void, refunded and unapplied money never counts).",
+    unit: "money",
+    caption: "Applied payments received · in the period",
+    compute: (s) => money(s, s.collected_cents),
+  }),
+  "finance.billed": financeMetric({
+    id: "finance.billed",
+    label: "Billed",
+    description: "Invoices sent in the period (by issue date).",
+    unit: "money",
+    caption: "Invoices issued · in the period",
+    compute: (s) => money(s, s.billed_cents),
+  }),
+  "finance.collection_rate": financeMetric({
+    id: "finance.collection_rate",
+    label: "Collection %",
+    description: "Of the invoices issued in the period, the share already paid.",
+    unit: "percent",
+    caption: "Collected ÷ billed · invoices issued in the period",
+    compute: (s) => (s.can_see_money ? ratio(s.billed_collected_cents, s.billed_cents) : null),
+  }),
+  "finance.revenue_sold": financeMetric({
+    id: "finance.revenue_sold",
+    label: "Revenue sold",
+    description: "Contract value (net of credits) of jobs sold in the period.",
+    unit: "money",
+    caption: "Contracts accepted · in the period",
+    compute: (s) => money(s, s.sold_cents),
+  }),
+  "finance.revenue_completed": financeMetric({
+    id: "finance.revenue_completed",
+    label: "Revenue completed",
+    description: "Contract value (net of credits) of jobs completed in the period.",
+    unit: "money",
+    caption: "Jobs completed · in the period",
+    compute: (s) => money(s, s.completed_cents),
+  }),
+  "finance.gross_margin_completed": financeMetric({
+    id: "finance.gross_margin_completed",
+    label: "Gross Margin % (completed)",
+    description:
+      "Of jobs completed in the period: (contract − labor − materials − subcontractors − expenses) ÷ contract.",
+    unit: "percent",
+    caption: "Gross profit ÷ revenue · jobs completed in the period",
+    ownerOnly: true,
+    compute: (s) =>
+      s.can_see_costs && s.margin_revenue_cents !== null && s.margin_revenue_cents > 0
+        ? (s.margin_revenue_cents - (s.margin_cost_cents ?? 0)) / s.margin_revenue_cents
+        : null,
+  }),
+  "finance.days_completed_to_paid": financeMetric({
+    id: "finance.days_completed_to_paid",
+    label: "Days completed → paid",
+    description: "Average days from Completed to Paid in Full, for jobs paid in the period.",
+    unit: "days",
+    caption: "Average · jobs paid in full in the period",
+    compute: (s) => (s.can_see_money ? s.days_completed_to_paid_avg : null),
+  }),
+  "finance.unapplied": financeMetric({
+    id: "finance.unapplied",
+    label: "Unapplied cash",
+    description: "Payment money not applied to any invoice. It doesn't count as collected.",
+    unit: "money",
+    caption: "Recorded, not on an invoice · right now",
+    compute: (s) => money(s, s.unapplied_cents),
+  }),
+  "finance.aging_current": financeMetric({
+    id: "finance.aging_current",
+    label: "Current",
+    description: "Owed on sent invoices that aren't past due.",
+    unit: "money",
+    caption: "Not past due",
+    compute: (s) => money(s, s.aging.current),
+  }),
+  "finance.aging_1_30": financeMetric({
+    id: "finance.aging_1_30",
+    label: "1–30 days",
+    description: "Owed on invoices 1–30 days past due.",
+    unit: "money",
+    caption: "1–30 days past due",
+    compute: (s) => money(s, s.aging.d1_30),
+  }),
+  "finance.aging_31_60": financeMetric({
+    id: "finance.aging_31_60",
+    label: "31–60 days",
+    description: "Owed on invoices 31–60 days past due.",
+    unit: "money",
+    caption: "31–60 days past due",
+    compute: (s) => money(s, s.aging.d31_60),
+  }),
+  "finance.aging_61_90": financeMetric({
+    id: "finance.aging_61_90",
+    label: "61–90 days",
+    description: "Owed on invoices 61–90 days past due.",
+    unit: "money",
+    caption: "61–90 days past due",
+    compute: (s) => money(s, s.aging.d61_90),
+  }),
+  "finance.aging_90_plus": financeMetric({
+    id: "finance.aging_90_plus",
+    label: "90+ days",
+    description: "Owed on invoices more than 90 days past due.",
+    unit: "money",
+    caption: "Over 90 days past due",
+    compute: (s) => money(s, s.aging.d90_plus),
+  }),
+  "finance.invoices_open": financeMetric({
+    id: "finance.invoices_open",
+    label: "Open invoices",
+    description: "Sent invoices with money still owed.",
+    unit: "count",
+    caption: "Sent, not paid · right now",
+    compute: (s) => s.invoices.open,
+  }),
+  "finance.invoices_draft": financeMetric({
+    id: "finance.invoices_draft",
+    label: "Drafts",
+    description: "Invoices not sent yet.",
+    unit: "count",
+    caption: "Not sent yet",
+    compute: (s) => s.invoices.draft,
+  }),
+  "finance.pending_credits": financeMetric({
+    id: "finance.pending_credits",
+    label: "Credits waiting",
+    description: "Credits waiting for an owner's approval.",
+    unit: "money",
+    caption: "Waiting for approval",
+    compute: (s) => money(s, s.pending_credit_cents),
+  }),
+} as const satisfies Record<string, MetricDefinition<"finance_stats">>;
+export type FinanceMetricId = keyof typeof FINANCE_METRICS;
+
+export function financeMetricValue(id: FinanceMetricId, stats: FinanceStats): MetricValue {
+  const m: MetricDefinition<"finance_stats"> = FINANCE_METRICS[id];
+  const raw = m.compute(stats);
+  const value = raw === null || !Number.isFinite(raw) ? null : raw;
+  return {
+    id,
+    label: m.label,
+    caption: m.caption,
+    unit: m.unit,
+    value,
+    display: formatMetricValue(m.unit, value),
+  };
+}
+
+/** Aging buckets in order, for the A/R aging report and its "View data" table. */
+export const AGING_METRIC_IDS = [
+  "finance.aging_current",
+  "finance.aging_1_30",
+  "finance.aging_31_60",
+  "finance.aging_61_90",
+  "finance.aging_90_plus",
+] as const satisfies readonly FinanceMetricId[];
+
+export function agingCount(stats: FinanceStats, id: (typeof AGING_METRIC_IDS)[number]): number {
+  const key = {
+    "finance.aging_current": "current",
+    "finance.aging_1_30": "d1_30",
+    "finance.aging_31_60": "d31_60",
+    "finance.aging_61_90": "d61_90",
+    "finance.aging_90_plus": "d90_plus",
+  } as const;
+  return stats.aging_counts[key[id]];
+}
+
 export const METRICS = {
+  ...FINANCE_METRICS,
   ...PRODUCTION_METRICS,
   ...SCHEDULE_BOARD_METRICS,
   ...LEAD_METRICS,

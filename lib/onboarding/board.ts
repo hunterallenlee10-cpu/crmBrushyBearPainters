@@ -75,6 +75,7 @@ export async function loadBoard(
     verified_auto: boolean;
   }[] = [];
   const money = new Map<string, number>();
+  const collected = new Map<string, number>();
   const deposits = new Map<string, number>();
   for (let i = 0; i < ids.length; i += 200) {
     const chunk = ids.slice(i, i + 200);
@@ -89,8 +90,17 @@ export async function loadBoard(
         .select("job_id, key, label, group_key, required, status, verified_auto")
         .in("job_id", chunk),
       canSeeMoney
-        ? db.from("job_financials").select("job_id, contract_cents").in("job_id", chunk)
-        : Promise.resolve({ data: [] as { job_id: string; contract_cents: number | null }[] }),
+        ? db
+            .from("job_ledger")
+            .select("job_id, contract_cents, collected_cents")
+            .in("job_id", chunk)
+        : Promise.resolve({
+            data: [] as {
+              job_id: string | null;
+              contract_cents: number | null;
+              collected_cents: number | null;
+            }[],
+          }),
       canSeeMoney && viewer.can("invoices:read")
         ? db
             .from("invoices")
@@ -102,7 +112,11 @@ export async function loadBoard(
     ]);
     holds.push(...(h.data ?? []));
     reqs.push(...(r.data ?? []));
-    for (const x of f.data ?? []) money.set(x.job_id, Number(x.contract_cents ?? 0));
+    for (const x of f.data ?? []) {
+      if (!x.job_id) continue;
+      money.set(x.job_id, Number(x.contract_cents ?? 0));
+      collected.set(x.job_id, Number(x.collected_cents ?? 0));
+    }
     for (const x of d.data ?? []) deposits.set(x.job_id, Number(x.total_cents));
   }
 
@@ -160,7 +174,7 @@ export async function loadBoard(
       stageEnteredAt: j.stage_entered_at,
       holds: myHolds,
       contractCents: canSeeMoney ? (money.get(j.id) ?? null) : null,
-      collectedCents: null, // payments arrive in Phase 7
+      collectedCents: canSeeMoney ? (collected.get(j.id) ?? null) : null,
       depositCents: deposits.get(j.id) ?? null,
       soldAt: j.estimate_accepted_at,
       paidInFullAt: j.paid_in_full_at,

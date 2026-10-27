@@ -79,7 +79,7 @@ describe("auto-verify rules", () => {
     expect(r.detail).toMatch(/2 change orders/);
   });
 
-  it("deposit: designed against the ledger, pending until payments exist", () => {
+  it("deposit: reads the money applied to the deposit invoice (ledger)", () => {
     expect(depositRule({ invoice: null, appliedCents: null }).status).toBe("missing");
     expect(
       depositRule({
@@ -91,9 +91,10 @@ describe("auto-verify rules", () => {
       invoice: { number: "INV-1", status: "draft", totalCents: 150_000 },
       appliedCents: null,
     });
-    expect(waiting).toMatchObject({ status: "pending", arrivesInPhase: 7 });
+    expect(waiting).toMatchObject({ status: "pending" });
+    expect(waiting.arrivesInPhase).toBeUndefined();
     expect(waiting.detail).toMatch(/\$1,500\.00/);
-    expect(waiting.detail).toMatch(/Phase 7/);
+    expect(waiting.detail).toMatch(/Record the payment in Financial/);
     const partial = depositRule({
       invoice: { number: "INV-1", status: "partially_paid", totalCents: 150_000 },
       appliedCents: 50_000,

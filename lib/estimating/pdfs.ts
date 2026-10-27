@@ -101,11 +101,18 @@ export async function invoicePdf(service: Db, invoiceId: string): Promise<Render
   if (!inv) return null;
   const ctx = await loadJobContext(service, inv.job_id);
   if (!ctx) return null;
-  const { data: lines } = await service
-    .from("invoice_lines")
-    .select("description, quantity, amount_cents, sort_order")
-    .eq("invoice_id", invoiceId)
-    .order("sort_order");
+  const [{ data: lines }, { data: ledger }] = await Promise.all([
+    service
+      .from("invoice_lines")
+      .select("description, quantity, amount_cents, sort_order")
+      .eq("invoice_id", invoiceId)
+      .order("sort_order"),
+    service
+      .from("invoice_ledger")
+      .select("collected_cents, balance_cents, display_status")
+      .eq("id", invoiceId)
+      .maybeSingle(),
+  ]);
   const bytes = await renderPdf(
     createElement(InvoiceDocument, {
       company: companyHeader(ctx.company),
@@ -113,7 +120,7 @@ export async function invoicePdf(service: Db, invoiceId: string): Promise<Render
       address: formatAddress(ctx.property),
       invoiceNumber: inv.invoice_number,
       invoiceType: inv.invoice_type,
-      status: inv.status,
+      status: inv.sent_at ? inv.status : "draft",
       issueDate: inv.issue_date,
       dueDate: inv.due_date,
       terms: inv.terms,
@@ -126,6 +133,8 @@ export async function invoicePdf(service: Db, invoiceId: string): Promise<Render
       subtotalCents: inv.subtotal_cents,
       taxCents: inv.tax_cents,
       totalCents: inv.total_cents,
+      paidCents: ledger?.collected_cents ?? 0,
+      balanceCents: ledger?.balance_cents ?? inv.total_cents,
     }),
   );
   return { bytes, fileName: `${inv.invoice_number}.pdf` };

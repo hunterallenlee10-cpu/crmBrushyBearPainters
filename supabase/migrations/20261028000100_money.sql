@@ -795,7 +795,7 @@ begin
     raise exception 'This expense was removed.' using errcode = '42501';
   end if;
   if new.deleted_at is not null and old.deleted_at is null then
-    new.deleted_by := app.effective_user_id();
+    new.deleted_by := coalesce(app.effective_user_id(), app.actor_id(), new.deleted_by);
     if length(btrim(coalesce(new.delete_reason, ''))) < 3 then
       raise exception 'Say why you''re removing the expense.' using errcode = '23514';
     end if;

@@ -4,6 +4,7 @@ import type { Database, Json } from "@/lib/db/types";
 import { getStage, isJobStageId } from "@/lib/domain/stages";
 import { completeAcceptance, completeChangeOrder } from "@/lib/estimating/proposal";
 import { logError } from "@/lib/log";
+import { sendOverdueReminder } from "@/lib/money/reminders";
 
 type Db = SupabaseClient<Database>;
 type EventRow = Database["public"]["Tables"]["events"]["Row"];
@@ -12,7 +13,7 @@ type EventRow = Database["public"]["Tables"]["events"]["Row"];
  * Domain event handlers (SPEC §11.1). Idempotent: an event may be retried
  * after a crash, so handlers only add notifications keyed to the event.
  * Workflows (texts, emails, tasks) arrive in Phase 8; until then most events
- * are marked "skipped".
+ * are marked "skipped". Overdue-invoice reminders (Phase 7) are handled here.
  */
 
 const MAX_ATTEMPTS = 5;
@@ -123,6 +124,40 @@ const handlers: Record<string, Handler> = {
       (n) => `Change order declined: ${n}`,
       null,
     ),
+
+  // Overdue invoices (7 and 30 days): a simulated reminder to the customer and a note in the app.
+  "invoice.overdue": async (service, e) => {
+    if (!e.aggregate_id) return "skipped";
+    const days = payloadOf(e).days;
+    return sendOverdueReminder(service, e.aggregate_id, typeof days === "number" ? days : 7);
+  },
+  // A bounced payment puts money back on the balance: the job's people hear about it.
+  "payment.bounced": async (service, e) => {
+    if (!e.org_id) return "skipped";
+    const jobId = str(payloadOf(e).job_id);
+    if (!jobId) return "skipped";
+    const { data: job } = await service
+      .from("jobs")
+      .select("id, name, owner_id, point_of_contact_id")
+      .eq("id", jobId)
+      .maybeSingle();
+    if (!job) return "skipped";
+    const users = new Set(
+      [job.owner_id, job.point_of_contact_id].filter((u): u is string => !!u && u !== e.actor_id),
+    );
+    await notify(
+      service,
+      [...users].map((user_id) => ({
+        org_id: e.org_id as string,
+        user_id,
+        type: "finance",
+        title: `A payment bounced: ${job.name}`.slice(0, 200),
+        body: "The amount is back on the balance.",
+        link: `/jobs/${job.id}?section=financial&tab=payments`,
+      })),
+    );
+    return "processed";
+  },
 
   // The job's team hears about stage changes they didn't make.
   "job.stage_changed": async (service, e) => {

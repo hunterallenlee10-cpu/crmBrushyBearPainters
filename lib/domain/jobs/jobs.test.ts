@@ -113,8 +113,31 @@ describe("gates", () => {
         punch: { open: 2, finalWalkthroughDone: false, signedOff: true },
       }).passes,
     ).toBe(true);
+  });
+
+  it("money gates read the final invoice and the ledger (Phase 7)", () => {
+    expect(exitGate("completed", measured).reasons[0]).toMatch(/no final invoice yet/);
+    expect(
+      exitGate("completed", { ...measured, finalInvoice: { number: "INV-1", sent: false } })
+        .reasons[0],
+    ).toBe("The final invoice INV-1 is drafted but not sent. Send it from Financial.");
+    expect(
+      exitGate("completed", { ...measured, finalInvoice: { number: "INV-1", sent: true } }).passes,
+    ).toBe(true);
+    const money = (billedCents: number, leftToBillCents: number, balanceCents: number) => ({
+      ...measured,
+      money: { billedCents, leftToBillCents, balanceCents },
+    });
+    expect(exitGate("invoiced", measured).passes).toBe(false);
+    expect(exitGate("invoiced", money(1000, 0, 0)).passes).toBe(true);
+    expect(exitGate("invoiced", money(1000, 0, 250)).reasons).toEqual(["The balance is $2.50."]);
+    expect(exitGate("invoiced", money(0, 0, 0)).reasons).toEqual(["Nothing has been billed yet."]);
+    expect(exitGate("invoiced", money(1000, 500, 0)).reasons[0]).toMatch(/\$5.00 is still left/);
+    expect(exitGate("invoiced", money(1000, -100, -50)).reasons).toHaveLength(2);
+    expect(exitGate("paid_in_full", money(1000, 0, 300)).passes).toBe(false);
+    expect(exitGate("paid_in_full", money(1000, 0, 0)).passes).toBe(true);
     for (const s of ["completed", "invoiced"] as const) {
-      expect(exitGate(s, measured)).toMatchObject({ passes: false, arrivesInPhase: 7 });
+      expect(exitGate(s, measured).arrivesInPhase).toBeUndefined();
     }
   });
 
@@ -286,21 +309,26 @@ describe("job health", () => {
     expect(onboarding?.factors.find((f) => f.key === "deposit_paid")?.status).toBe("fail");
   });
 
-  it("checks from later phases are shown but never lower the score", () => {
-    const h = computeJobHealth(
-      {
-        ...base,
-        stage: "completed",
-        contractSignedAt: "2026-10-20T00:00:00Z",
-        depositPaidAt: "2026-10-21T00:00:00Z",
-      },
-      now,
-    );
-    expect(h?.factors.find((f) => f.key === "balance_current")).toMatchObject({
-      status: "unavailable",
-      arrivesInPhase: 7,
+  it("the balance check reads the ledger once the job is completed (Phase 7)", () => {
+    const done = {
+      ...base,
+      stage: "completed" as const,
+      contractSignedAt: "2026-10-20T00:00:00Z",
+      depositPaidAt: "2026-10-21T00:00:00Z",
+    };
+    const unknown = computeJobHealth(done, now);
+    expect(unknown?.factors.find((f) => f.key === "balance_current")).toBeUndefined();
+    expect(unknown?.factors.find((f) => f.key === "crew_assigned")).toBeUndefined();
+    const current = computeJobHealth({ ...done, money: { dueCents: 0, overdueInvoices: 0 } }, now);
+    expect(current?.factors.find((f) => f.key === "balance_current")?.status).toBe("pass");
+    const late = computeJobHealth({ ...done, money: { dueCents: 22500, overdueInvoices: 1 } }, now);
+    expect(late?.factors.find((f) => f.key === "balance_current")).toMatchObject({
+      status: "fail",
+      action: "collect_payment",
+      recommendation:
+        "$225.00 is past due on 1 invoice. Follow up with the customer or record the payment.",
     });
-    expect(h?.factors.find((f) => f.key === "crew_assigned")).toBeUndefined();
+    expect(late?.score).toBeLessThan(current?.score ?? 0);
   });
 
   it("crew, schedule and daily-log checks count in production", () => {

@@ -10,7 +10,14 @@ export type EmailSendInput = {
   from?: string;
   related?: RelatedRecord | null;
   messageType?: "transactional" | "marketing";
+  /**
+   * Files that go with the email (e.g. the invoice PDF), by their stored
+   * document. Recorded in the outbox; real providers attach them when connected.
+   */
+  attachments?: readonly EmailAttachment[];
 };
+
+export type EmailAttachment = { fileName: string; documentId: string; contentType: string };
 
 export interface EmailProvider {
   readonly provider: string;

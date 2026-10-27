@@ -88,8 +88,8 @@ export async function loadOnboardingSnapshot(
       .limit(1),
     service.from("change_orders").select("status").eq("job_id", jobId).is("deleted_at", null),
     service
-      .from("invoices")
-      .select("invoice_number, status, total_cents")
+      .from("invoice_ledger")
+      .select("invoice_number, status, total_cents, collected_cents")
       .eq("job_id", jobId)
       .eq("invoice_type", "deposit")
       .neq("status", "void")
@@ -172,15 +172,16 @@ export async function loadOnboardingSnapshot(
     changeOrdersSent: cos.filter((x) => x.status === "sent").length,
     changeOrdersSigned: cos.filter((x) => x.status === "signed").length,
     deposit: {
-      invoice: deposit.data
-        ? {
-            number: deposit.data.invoice_number,
-            status: deposit.data.status,
-            totalCents: Number(deposit.data.total_cents),
-          }
-        : null,
-      // Payments arrive in Phase 7; until then the rule reports "pending".
-      appliedCents: null,
+      invoice:
+        deposit.data?.invoice_number && deposit.data.status
+          ? {
+              number: deposit.data.invoice_number,
+              status: deposit.data.status,
+              totalCents: Number(deposit.data.total_cents ?? 0),
+            }
+          : null,
+      // Money applied to it from live payments (public.invoice_ledger).
+      appliedCents: deposit.data ? Number(deposit.data.collected_cents ?? 0) : null,
     },
     contact: c
       ? {

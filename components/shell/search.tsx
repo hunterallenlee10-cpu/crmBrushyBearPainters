@@ -10,6 +10,7 @@ import {
   History,
   Home,
   Loader2,
+  Receipt,
   SearchIcon,
   UserRound,
 } from "lucide-react";
@@ -84,19 +85,33 @@ export function SearchTrigger({ compact = false }: { compact?: boolean }) {
   );
 }
 
-const KIND_ICON = { lead: UserRound, job: Briefcase, account: Home, contact: Contact } as const;
-const KIND_LABEL = { lead: "Lead", job: "Job", account: "Account", contact: "Contact" } as const;
+const KIND_ICON = {
+  lead: UserRound,
+  job: Briefcase,
+  account: Home,
+  contact: Contact,
+  invoice: Receipt,
+} as const;
+const KIND_LABEL = {
+  lead: "Lead",
+  job: "Job",
+  account: "Account",
+  contact: "Contact",
+  invoice: "Invoice",
+} as const;
 
 /** Scopes with records today; the rest say which phase brings them. */
-const SCOPE_TO_RPC: Partial<Record<Scope, "all" | "leads" | "jobs" | "accounts" | "contacts">> = {
+const SCOPE_TO_RPC: Partial<
+  Record<Scope, "all" | "leads" | "jobs" | "accounts" | "contacts" | "invoices">
+> = {
   All: "all",
   Accounts: "accounts",
   Contacts: "contacts",
   Leads: "leads",
   Jobs: "jobs",
+  Invoices: "invoices",
 };
 const SCOPE_PHASE: Partial<Record<Scope, string>> = {
-  Invoices: "Invoice search arrives with invoicing (Phase 7).",
   Mentions: "Mention search arrives with messaging (Phase 8).",
 };
 

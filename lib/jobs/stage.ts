@@ -40,6 +40,8 @@ export async function loadGateContext(service: Db, jobId: string): Promise<GateC
     punch,
     finalWalk,
     signoff,
+    finalInvoice,
+    ledger,
   ] = await Promise.all([
     service
       .from("appointments")
@@ -117,6 +119,19 @@ export async function loadGateContext(service: Db, jobId: string): Promise<GateC
       .is("deleted_at", null)
       .limit(1),
     service.from("punch_signoffs").select("id").eq("job_id", jobId).limit(1),
+    service
+      .from("invoices")
+      .select("invoice_number, sent_at")
+      .eq("job_id", jobId)
+      .eq("invoice_type", "final")
+      .neq("status", "void")
+      .limit(1)
+      .maybeSingle(),
+    service
+      .from("job_ledger")
+      .select("billed_cents, left_to_bill_cents, balance_cents")
+      .eq("job_id", jobId)
+      .maybeSingle(),
   ]);
   const label = new Map((labels.data ?? []).map((v) => [v.value, v.label]));
   const ests = estimates.data ?? [];
@@ -149,6 +164,16 @@ export async function loadGateContext(service: Db, jobId: string): Promise<GateC
       finalWalkthroughDone: (finalWalk.data ?? []).length > 0,
       signedOff: (signoff.data ?? []).length > 0,
     },
+    finalInvoice: finalInvoice.data
+      ? { number: finalInvoice.data.invoice_number, sent: finalInvoice.data.sent_at !== null }
+      : null,
+    money: ledger.data
+      ? {
+          billedCents: ledger.data.billed_cents ?? 0,
+          leftToBillCents: ledger.data.left_to_bill_cents ?? 0,
+          balanceCents: ledger.data.balance_cents ?? 0,
+        }
+      : null,
     onboardingOpen: onboarding.data?.length
       ? checklistSummary(
           onboarding.data.map((r) => ({
@@ -279,12 +304,28 @@ export async function advanceJobStage(
   });
   if (rpcError || !historyId) throw new ActionFailure(mapDbError(rpcError));
 
+  await afterStageChange(service, input.jobId, input.toStage);
   try {
     await recomputeJobHealth(service, [input.jobId]);
   } catch (e) {
     logError("jobs.advance.health", e);
   }
   return { historyId, from, to: input.toStage, overridden };
+}
+
+/**
+ * Work that follows a stage change: at Completed the final invoice is drafted
+ * (SPEC §10, §11.2 #13). Imported lazily (the money module moves jobs through
+ * this one). Best effort; logged.
+ */
+async function afterStageChange(service: Db, jobId: string, to: JobStageId): Promise<void> {
+  if (to !== "completed") return;
+  try {
+    const { ensureFinalInvoice } = await import("@/lib/money/automation");
+    await ensureFinalInvoice(service, jobId);
+  } catch (e) {
+    logError("jobs.advance.final_invoice", e);
+  }
 }
 
 /**
@@ -311,6 +352,7 @@ export async function advanceIfGatePasses(
     logError(`jobs.auto_advance.${getStage(to).id}`, error);
     return false;
   }
+  await afterStageChange(service, jobId, to);
   await recomputeJobHealth(service, [jobId]).catch((e: unknown) =>
     logError("jobs.auto_advance.health", e),
   );

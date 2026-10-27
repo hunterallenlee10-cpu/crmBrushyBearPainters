@@ -83,6 +83,10 @@ export const THRESHOLD_SPECS: Partial<Record<AttentionRuleKey, Record<string, Th
   sub_compliance_expiring: {
     days: { ...DAYS, label: "Expires within (days)" },
   },
+  overdue_invoice: {
+    medium_days: { ...DAYS, label: "Medium after (days past due)" },
+    high_days: { ...DAYS, label: "High after (days past due)" },
+  },
   weather_risk: {
     rain_percent: {
       label: "Rain chance at or above (%)",

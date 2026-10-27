@@ -88,6 +88,7 @@ export default async function OnboardingBoardPage({
     city: one(sp.city) || null,
     soldFrom: isoDay(one(sp.sold_from)),
     soldTo: isoDay(one(sp.sold_to)),
+    underCollected: one(sp.collected) === "under30",
   };
   const supabase = await createSupabaseServerClient();
   const now = new Date();
@@ -111,6 +112,7 @@ export default async function OnboardingBoardPage({
       city: filters.city,
       sold_from: filters.soldFrom,
       sold_to: filters.soldTo,
+      collected: filters.underCollected ? "under30" : null,
       ...patch,
     };
     for (const [k, v] of Object.entries(all)) if (v && !(k === "tab" && v === "board")) p.set(k, v);
@@ -170,7 +172,7 @@ export default async function OnboardingBoardPage({
       label: m("board.invoicing").label,
       value: m("board.invoicing").display,
       caption: money
-        ? `${m("board.outstanding").display} outstanding · payments arrive in Phase 7`
+        ? `${m("board.outstanding").display} outstanding · contract − collected`
         : m("board.invoicing").caption,
       icon: Receipt,
     },
@@ -282,12 +284,31 @@ export default async function OnboardingBoardPage({
           <span className="font-medium">Sold to</span>
           <Input type="date" name="sold_to" defaultValue={filters.soldTo ?? ""} />
         </label>
+        {money && (
+          <label className="flex min-h-11 items-center gap-2 text-sm sm:min-h-9">
+            <input
+              type="checkbox"
+              name="collected"
+              value="under30"
+              defaultChecked={filters.underCollected}
+              className="size-4"
+            />
+            Under 30% collected
+          </label>
+        )}
         <Button type="submit" variant="outline">
           Apply
         </Button>
         {anyFilter && (
           <Link
-            href={qs({ work_type: null, hold: null, city: null, sold_from: null, sold_to: null })}
+            href={qs({
+              work_type: null,
+              hold: null,
+              city: null,
+              sold_from: null,
+              sold_to: null,
+              collected: null,
+            })}
             className="px-2 py-2 text-sm text-bb-forest underline"
           >
             Clear filters

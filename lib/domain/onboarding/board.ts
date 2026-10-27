@@ -157,7 +157,7 @@ export type PlacedCard = BoardCard & {
   lane: BoardLane;
   daysInLane: number;
   overdue: boolean;
-  /** 0–1 share collected; null until payments exist or when money is hidden. */
+  /** 0–1 share of the contract collected; null when money is hidden. */
   collectedShare: number | null;
 };
 
@@ -202,7 +202,7 @@ export type BoardSummary = {
   activeJobs: number;
   activeValueCents: number | null;
   depositHeldCents: number | null;
-  /** Billed − collected; null until payments exist (Phase 7). */
+  /** Contract − collected on jobs in Invoicing / Collections; null when money is hidden. */
   outstandingCents: number | null;
 };
 
@@ -327,7 +327,7 @@ export function boardMove(card: PlacedCard, to: BoardLane): BoardMove {
       allowed: false,
       reason:
         to === "paid"
-          ? "A job is paid in full when its balance reaches $0 (payments arrive in Phase 7)."
+          ? "A job is paid in full when its balance reaches $0. Record payments in the job's Financial section."
           : "Jobs move to invoicing when the work is complete and the final invoice is sent.",
     };
   }
@@ -349,7 +349,12 @@ export type BoardFilters = {
   /** YYYY-MM-DD (Pacific), inclusive. */
   soldFrom?: string | null;
   soldTo?: string | null;
+  /** Only jobs with less than 30% of the contract collected (money viewers). */
+  underCollected?: boolean;
 };
+
+/** "Under 30% collected" (SPEC §8.7). */
+export const UNDER_COLLECTED_SHARE = 0.3;
 
 function pacificIso(iso: string): string {
   const d = toZonedTime(new Date(iso), BUSINESS_TZ);
@@ -364,6 +369,11 @@ export function filterCards<T extends BoardCard>(cards: readonly T[], f: BoardFi
     if (f.hold === "none" && c.holds.length > 0) return false;
     if (f.hold && !["any", "none"].includes(f.hold) && !c.holds.some((h) => h.type === f.hold))
       return false;
+    if (f.underCollected) {
+      if (c.collectedCents === null || c.contractCents === null || c.contractCents <= 0)
+        return false;
+      if (c.collectedCents / c.contractCents >= UNDER_COLLECTED_SHARE) return false;
+    }
     if (f.soldFrom || f.soldTo) {
       if (!c.soldAt) return false;
       const day = pacificIso(c.soldAt);

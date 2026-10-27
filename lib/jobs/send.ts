@@ -3,7 +3,7 @@ import type { ActionContext } from "@/lib/actions/define-action";
 import { ActionFailure, check } from "@/lib/actions/errors";
 import { serverEnv } from "@/lib/env";
 import { type IntegrationContext } from "@/lib/integrations/core";
-import { getEmailProvider } from "@/lib/integrations/email";
+import { getEmailProvider, type EmailSendInput } from "@/lib/integrations/email";
 import { createSupabaseOutboxSink } from "@/lib/integrations/outbox-sink";
 import { getSmsProvider } from "@/lib/integrations/sms_voice";
 import {
@@ -89,7 +89,13 @@ export async function integrationContext(ctx: ActionContext, domain: "sms_voice"
 export async function sendJobMessage(
   ctx: ActionContext,
   jobId: string,
-  input: { channel: "sms" | "email"; subject?: string; body: string; templateKey?: string },
+  input: {
+    channel: "sms" | "email";
+    subject?: string;
+    body: string;
+    templateKey?: string;
+    attachments?: EmailSendInput["attachments"];
+  },
 ): Promise<SentJobMessage> {
   const job = await loadMessagingJob(ctx, jobId);
   if (input.channel === "sms") {
@@ -111,6 +117,6 @@ export async function sendJobMessage(
     provider,
     job,
     { subject: input.subject ?? "", body: input.body },
-    { templateKey: input.templateKey },
+    { templateKey: input.templateKey, attachments: input.attachments },
   );
 }

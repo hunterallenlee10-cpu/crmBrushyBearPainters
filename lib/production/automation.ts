@@ -20,7 +20,8 @@ type Db = SupabaseClient<Database>;
  * - In Progress → Final Walkthrough when every work order is complete;
  * - Final Walkthrough → Completed when the punch list is resolved after the
  *   final walkthrough, or the customer signs off.
- * Completed → Invoiced stays with Money (Phase 7). Service client only.
+ * At Completed the final invoice is drafted (lib/money/automation.ts, from
+ * advanceJobStage); the money gates move it on from there. Service client only.
  */
 
 const ON_TIME: readonly OnTimeStatus[] = [

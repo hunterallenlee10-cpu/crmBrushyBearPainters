@@ -7,12 +7,13 @@ import { getStage, type JobStageId } from "@/lib/domain/stages";
 import { isTerminal, stageOrder } from "@/lib/domain/jobs/gates";
 import { daysBetween, formatDay } from "@/lib/domain/scheduling/dates";
 import { missedDailyUpdates } from "@/lib/domain/scheduling/daily-updates";
+import { formatCents } from "@/lib/format/money";
 
 /**
  * Attention engine v1 (SPEC §9). Pure: a snapshot of open leads, jobs,
  * walkthroughs and approvals goes in; the items that should be open come out.
- * Rules whose data arrives in later phases (invoices, unread messages,
- * warranty) are added with those phases. Weather risk is present but dormant
+ * Rules whose data arrives in later phases (unread messages, warranty) are
+ * added with those phases. Weather risk is present but dormant
  * until weather is connected.
  */
 
@@ -158,6 +159,13 @@ export const ATTENTION_RULES = {
       "A subcontractor's L&I registration, insurance (COI), bond or RRP certificate expires soon, has expired, or is missing.",
     thresholds: { days: 30 },
   },
+  overdue_invoice: {
+    label: "Overdue invoice",
+    category: "financial",
+    description:
+      "A sent invoice past its due date with money still owed: medium after the first threshold, high after the second.",
+    thresholds: { medium_days: 7, high_days: 30 },
+  },
   weather_risk: {
     label: "Weather risk",
     category: "scheduling",
@@ -241,6 +249,25 @@ export type SnapshotJob = {
   punchOpen?: number;
   /** Forecast days at risk (weather connected only). */
   weatherRiskDays?: readonly { date: string; precipProbability: number }[];
+  /**
+   * Money (Phase 7): the live deposit invoice and what's applied to it, and
+   * whether a deposit is asked for at all (false when the accepted estimate
+   * set a 0% deposit, so no deposit invoice was made). Undefined when not loaded.
+   */
+  deposit?: { number: string; totalCents: number; collectedCents: number } | null;
+  depositRequired?: boolean;
+};
+
+/** A sent invoice past due with money owed (from public.invoice_ledger). */
+export type SnapshotInvoice = {
+  id: string;
+  number: string;
+  jobId: string;
+  jobName: string;
+  jobNumber: string;
+  balanceCents: number;
+  daysPastDue: number;
+  ownerId: string | null;
 };
 
 export type SnapshotSubcontractor = {
@@ -281,6 +308,8 @@ export type AttentionSnapshot = {
   approvals: readonly SnapshotApproval[];
   /** Open (sent or viewed) estimates. */
   estimates?: readonly SnapshotEstimate[];
+  /** Overdue invoices (Phase 7). */
+  invoices?: readonly SnapshotInvoice[];
   subcontractors?: readonly SnapshotSubcontractor[];
 };
 
@@ -486,16 +515,27 @@ export function evaluateAttention(
     }
 
     // Sold, no deposit after N days.
-    if (enabled(settings, "sold_no_deposit") && order >= stageOrder("sold") && !j.depositPaidAt) {
+    const depositPaid =
+      !!j.depositPaidAt ||
+      (!!j.deposit && j.deposit.totalCents > 0 && j.deposit.collectedCents >= j.deposit.totalCents);
+    if (
+      enabled(settings, "sold_no_deposit") &&
+      order >= stageOrder("sold") &&
+      !depositPaid &&
+      j.depositRequired !== false
+    ) {
       const soldAt = j.estimateAcceptedAt ?? (j.stage === "sold" ? j.stageEnteredAt : null);
       const days = threshold(settings, "sold_no_deposit", "days", 3);
       if (soldAt && now.getTime() - new Date(soldAt).getTime() >= days * DAY) {
+        const d = j.deposit;
         items.push({
           ruleKey: "sold_no_deposit",
           category: "financial",
           priority: "high",
           title: `Sold, no deposit: ${label}`,
-          detail: `Sold ${plural(daysSince(soldAt, now), "day")} ago and the deposit isn't recorded as paid.`,
+          detail: d
+            ? `Sold ${plural(daysSince(soldAt, now), "day")} ago. Deposit invoice ${d.number} is ${formatCents(d.totalCents)}${d.collectedCents > 0 ? `, ${formatCents(d.collectedCents)} paid so far` : " and nothing is paid yet"}.`
+            : `Sold ${plural(daysSince(soldAt, now), "day")} ago and the deposit isn't recorded as paid.`,
           subjectType: "job",
           subjectId: j.id,
           ownerId: owner,
@@ -736,6 +776,27 @@ export function evaluateAttention(
         ownerId: null,
         dueAt: null,
         dedupeKey: `sub_compliance_expiring:${sub.id}`,
+      });
+    }
+  }
+
+  // Overdue invoice: 7 / 30 days past due → medium / high (one item per invoice; it escalates).
+  if (enabled(settings, "overdue_invoice")) {
+    const medium = threshold(settings, "overdue_invoice", "medium_days", 7);
+    const high = threshold(settings, "overdue_invoice", "high_days", 30);
+    for (const inv of snapshot.invoices ?? []) {
+      if (inv.balanceCents <= 0 || inv.daysPastDue < medium) continue;
+      items.push({
+        ruleKey: "overdue_invoice",
+        category: "financial",
+        priority: inv.daysPastDue >= high ? "high" : "medium",
+        title: `Overdue invoice: ${inv.jobName} (${inv.number})`,
+        detail: `${formatCents(inv.balanceCents)} is ${plural(inv.daysPastDue, "day")} past due. Call the customer or record the payment.`,
+        subjectType: "job",
+        subjectId: inv.jobId,
+        ownerId: inv.ownerId,
+        dueAt: null,
+        dedupeKey: `overdue_invoice:${inv.id}`,
       });
     }
   }

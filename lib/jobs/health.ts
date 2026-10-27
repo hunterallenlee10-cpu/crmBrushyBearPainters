@@ -31,7 +31,7 @@ export async function recomputeJobHealth(service: Db, jobIds: readonly string[],
   let updated = 0;
   for (let i = 0; i < jobIds.length; i += 200) {
     const ids = jobIds.slice(i, i + 200);
-    const [jobs, appts, tasks, reqs, photos, entries, logs, rain, schedSettings] =
+    const [jobs, appts, tasks, reqs, photos, entries, logs, rain, schedSettings, ledger] =
       await Promise.all([
         service
           .from("jobs")
@@ -75,6 +75,7 @@ export async function recomputeJobHealth(service: Db, jobIds: readonly string[],
           .is("deleted_at", null),
         service.from("rain_delays").select("job_id, delay_date").in("job_id", ids),
         service.from("schedule_settings").select("org_id, production_days"),
+        service.from("job_ledger").select("job_id, due_cents, overdue_invoices").in("job_id", ids),
       ]);
     const failed =
       jobs.error ??
@@ -160,6 +161,12 @@ export async function recomputeJobHealth(service: Db, jobIds: readonly string[],
           crewAssigned: Boolean(j.crew_id) || myEntries.some((e) => e.crew_id || e.draft_crew_id),
           scheduled: myEntries.length > 0,
           dailyLogs: { due: due.length, missed: due.filter((d) => !logged.has(d)).length },
+          money: (() => {
+            const row = (ledger.data ?? []).find((x) => x.job_id === j.id);
+            return row
+              ? { dueCents: row.due_cents ?? 0, overdueInvoices: row.overdue_invoices ?? 0 }
+              : null;
+          })(),
         },
         now,
       );

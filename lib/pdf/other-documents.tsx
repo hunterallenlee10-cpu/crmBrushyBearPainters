@@ -122,6 +122,9 @@ export function InvoiceDocument(props: {
   subtotalCents: number;
   taxCents: number;
   totalCents: number;
+  /** Payments applied so far and what's still owed (from the ledger). */
+  paidCents?: number;
+  balanceCents?: number;
 }) {
   const typeLabel =
     props.invoiceType === "deposit"
@@ -181,6 +184,18 @@ export function InvoiceDocument(props: {
             <Text>Total</Text>
             <Text>{formatCents(props.totalCents)}</Text>
           </View>
+          {props.paidCents ? (
+            <View style={styles.totalRow}>
+              <Text>Paid</Text>
+              <Text>−{formatCents(props.paidCents)}</Text>
+            </View>
+          ) : null}
+          {props.balanceCents !== undefined && props.totalCents > 0 ? (
+            <View style={styles.grandTotal}>
+              <Text>Balance due</Text>
+              <Text>{formatCents(props.balanceCents)}</Text>
+            </View>
+          ) : null}
         </View>
         <Text style={[styles.muted, { marginTop: 16 }]}>
           {props.terms ?? "[PAYMENT_TERMS — owner to provide how and when to pay]"}

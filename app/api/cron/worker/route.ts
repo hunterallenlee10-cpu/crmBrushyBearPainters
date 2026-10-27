@@ -6,6 +6,7 @@ import { serverEnv } from "@/lib/env";
 import { recomputeJobHealth } from "@/lib/jobs/health";
 import { advanceIfGatePasses } from "@/lib/jobs/stage";
 import { logError } from "@/lib/log";
+import { sweepMoney } from "@/lib/money/automation";
 import { sweepOnboarding } from "@/lib/onboarding/checks";
 import { processEvents } from "@/lib/worker/events";
 import { sweepProduction } from "@/lib/production/automation";
@@ -18,8 +19,9 @@ import { refreshSubcontractorStatus } from "@/lib/production/subcontractors";
  * `Authorization: Bearer $CRON_SECRET`. Each run: process queued events,
  * auto-close jobs 3 days after Paid in Full, re-run onboarding checks, run the
  * production sweep (on-time guarantee, stage moves, daily updates,
- * subcontractor paperwork, recommendations), refresh job health, and run the
- * attention rules (open new items, auto-resolve cleared ones).
+ * subcontractor paperwork, recommendations), the money sweep (overdue
+ * invoices and reminders, final invoices, money gates), refresh job health,
+ * and run the attention rules (open new items, auto-resolve cleared ones).
  */
 
 export const dynamic = "force-dynamic";
@@ -125,6 +127,15 @@ async function run(request: NextRequest) {
     } catch (e) {
       logError("worker.recommendations", e);
     }
+  }
+
+  // Money (SPEC §10, §9): invoice statuses (overdue) and reminder events,
+  // final invoices for completed jobs, and the money stage gates.
+  try {
+    summary.money = await sweepMoney(service);
+  } catch (e) {
+    logError("worker.money", e);
+    summary.money = { error: true };
   }
 
   try {

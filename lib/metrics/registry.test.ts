@@ -248,7 +248,9 @@ describe("registry shape", () => {
         "onboarding_board",
         "production_stats",
         "schedule_board",
+        "finance_stats",
       ]).toContain(m.source);
+      if (id.startsWith("finance.")) expect(m.source).toBe("finance_stats");
       if (id.startsWith("production.")) expect(m.source).toBe("production_stats");
       if (id.startsWith("schedule.")) expect(m.source).toBe("schedule_board");
       if (id.startsWith("documents.")) expect(m.source).toBe("document_stats");

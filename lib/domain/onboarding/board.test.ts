@@ -193,7 +193,7 @@ describe("moves", () => {
     expect(reason(card({ stage: "ready_to_schedule" }), "in_production")).toMatch(
       /Master Schedule/,
     );
-    expect(reason(card({ stage: "in_progress" }), "paid")).toMatch(/Phase 7/);
+    expect(reason(card({ stage: "in_progress" }), "paid")).toMatch(/Financial section/);
     expect(reason(card({ stage: "in_progress" }), "invoicing")).toMatch(/final invoice/);
     expect(reason(card(), "in_production")).toMatch(/one step at a time/);
   });
@@ -216,6 +216,17 @@ describe("filters, expedite and data audit", () => {
     expect(ids({ hold: "lead_safe" })).toEqual(["c"]);
     expect(ids({ soldFrom: "2026-10-02" })).toEqual(["b"]);
     expect(ids({ soldTo: "2026-10-01" })).toEqual(["a"]);
+  });
+
+  it("filters jobs under 30% collected (money from the ledger)", () => {
+    const money = [
+      card({ id: "low", contractCents: 1_000_000, collectedCents: 299_999 }),
+      card({ id: "at", contractCents: 1_000_000, collectedCents: 300_000 }),
+      card({ id: "hidden", contractCents: null, collectedCents: null }),
+      card({ id: "none", contractCents: 0, collectedCents: 0 }),
+    ];
+    expect(filterCards(money, { underCollected: true }).map((c) => c.id)).toEqual(["low"]);
+    expect(filterCards(money, { underCollected: false })).toHaveLength(4);
   });
 
   it("expedite lists held or overdue cards, longest wait first", () => {
