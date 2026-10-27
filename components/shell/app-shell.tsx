@@ -13,6 +13,7 @@ import {
 import { ViewAsBanner, ViewAsButton, type ViewAsUser } from "@/components/shell/view-as";
 import { HelpButton } from "@/components/shell/help-button";
 import { CrewTabBar } from "@/components/shell/crew-tab-bar";
+import { ExportProvider } from "@/components/kpi/export-context";
 import { requireViewer } from "@/lib/auth/viewer";
 import { initials } from "@/lib/auth/access";
 import { createSupabaseServerClient } from "@/lib/db/server";
@@ -134,7 +135,9 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </header>
       <main id="main" className={viewer.isCrew ? "pb-20 lg:pb-0" : undefined}>
-        {children}
+        <ExportProvider canExport={viewer.can("data:export") && !viewer.impersonating}>
+          {children}
+        </ExportProvider>
       </main>
       <HelpButton aiConnected={false} />
       {viewer.isCrew && <CrewTabBar />}

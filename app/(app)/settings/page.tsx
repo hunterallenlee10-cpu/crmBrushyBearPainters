@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { PageContainer, PageHeader } from "@/components/layout/page-header";
 import { requireViewer } from "@/lib/auth/viewer";
 import { createSupabaseServerClient } from "@/lib/db/server";
-import { readPreferences, type OwnProfileInput } from "@/lib/validation/users";
+import { readPreferences, roleDefaultHome, type OwnProfileInput } from "@/lib/validation/users";
 import { loadMyRows } from "@/lib/notifications/settings";
 import { SettingsTabs } from "./settings-tabs";
 
@@ -42,7 +42,8 @@ export default async function SettingsPage() {
         department={me.department}
         roleName={viewer.role.name}
         profile={profile}
-        preferences={readPreferences(me.preferences)}
+        preferences={readPreferences(me.preferences, roleDefaultHome(viewer.isOwner))}
+        canExecutive={viewer.can("analytics:read")}
         requiresMfa={viewer.real.role.requiresMfa}
         notifications={notifications}
         hasPhone={!!me.phone}

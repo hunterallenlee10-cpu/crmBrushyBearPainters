@@ -198,6 +198,14 @@ export const ADMIN_SECTIONS: readonly AdminSection[] = [
     description: "Monthly spend per lead source for cost per lead.",
   },
   {
+    label: "Revenue Goals",
+    href: "/admin/revenue-goals",
+    group: "Finance",
+    phase: 9,
+    requiresAny: ["settings:manage"],
+    description: "Monthly sold-revenue goals for the forecast and On Pace.",
+  },
+  {
     label: "Data Import",
     href: "/admin/import",
     group: "Data",
@@ -244,4 +252,4 @@ export function visibleAdminSections(can: (p: Permission) => boolean): AdminSect
 }
 
 /** The phase being built; sections and nav pages from later phases are shown as upcoming. */
-export const CURRENT_PHASE = 8;
+export const CURRENT_PHASE = 9;

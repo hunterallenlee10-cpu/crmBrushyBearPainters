@@ -24,6 +24,7 @@ export function SettingsTabs({
   roleName,
   profile,
   preferences,
+  canExecutive = true,
   requiresMfa,
   notifications,
   hasPhone,
@@ -34,6 +35,8 @@ export function SettingsTabs({
   roleName: string;
   profile: OwnProfileInput;
   preferences: PreferencesValues;
+  /** Executive Overview needs analytics:read; without it the option is off. */
+  canExecutive?: boolean;
   requiresMfa: boolean;
   notifications: MatrixRow[];
   hasPhone: boolean;
@@ -77,7 +80,7 @@ export function SettingsTabs({
         <SecurityPanel requiresMfa={requiresMfa} readOnly={readOnly} />
       </TabsContent>
       <TabsContent value="preferences">
-        <PreferencesForm defaults={preferences} readOnly={readOnly} />
+        <PreferencesForm defaults={preferences} readOnly={readOnly} canExecutive={canExecutive} />
       </TabsContent>
       <TabsContent value="notifications">
         <section aria-labelledby="notif-title" className="flex flex-col gap-3">

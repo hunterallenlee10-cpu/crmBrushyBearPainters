@@ -14,6 +14,7 @@ import {
   parseOpenWorkCounts,
   preferencesSchema,
   readPreferences,
+  roleDefaultHome,
   userProfileSchema,
   type UserListRow,
 } from "@/lib/validation/users";
@@ -149,6 +150,12 @@ describe("preferences", () => {
       default_home: "my_day",
       time_format: "24h",
     });
+    // Phase 9: non-owners land on My Day until they pick otherwise.
+    expect(readPreferences(null, roleDefaultHome(false)).default_home).toBe("my_day");
+    expect(readPreferences(null, roleDefaultHome(true)).default_home).toBe("executive_overview");
+    expect(readPreferences({ default_home: "executive_overview" }, "my_day").default_home).toBe(
+      "executive_overview",
+    );
   });
 
   it("merges without dropping other keys", () => {

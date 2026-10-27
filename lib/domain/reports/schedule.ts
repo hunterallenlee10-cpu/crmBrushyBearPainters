@@ -82,3 +82,59 @@ export function describeSchedule(rule: ScheduleRule): string {
       return `Monthly on day ${rule.monthDay ?? 1} at ${time}`;
   }
 }
+
+/**
+ * Whether a schedule's owner may still have it delivered. The worker runs
+ * reports with the service role, so it only does so when the owner (still)
+ * builds reports and reads the module's records company-wide ("all" scope);
+ * money and cost columns are dropped when they lack those permissions.
+ */
+export function deliveryAccess(
+  scopes: Readonly<Record<string, string | null | undefined>>,
+  modulePermission: string,
+  moduleLabel: string,
+): { ok: true } | { ok: false; note: string } {
+  if (!scopes["reports:build"]) {
+    return { ok: false, note: "The person who scheduled this can no longer build reports." };
+  }
+  if (scopes[modulePermission] !== "all") {
+    return {
+      ok: false,
+      note: `Skipped: scheduled deliveries need access to all ${moduleLabel.toLowerCase()} (the scheduler's role sees only some).`,
+    };
+  }
+  return { ok: true };
+}
+
+/** The plain-text email for a delivery (no customer data beyond the report's own rows). */
+export function deliveryEmail(input: {
+  reportName: string;
+  rowCount: number;
+  truncated: boolean;
+  totals: { label: string; value: string }[];
+  preview: { header: string[]; rows: string[][] };
+  link: string;
+  schedule: string;
+}): { subject: string; body: string } {
+  const lines = [
+    `${input.reportName}`,
+    `${input.schedule} · ${input.rowCount.toLocaleString("en-US")} row${input.rowCount === 1 ? "" : "s"}${input.truncated ? " (first rows only)" : ""}`,
+    "",
+    ...input.totals.map((t) => `${t.label}: ${t.value}`),
+    "",
+  ];
+  if (input.preview.rows.length) {
+    lines.push(input.preview.header.join(" | "));
+    for (const r of input.preview.rows) lines.push(r.join(" | "));
+    if (input.rowCount > input.preview.rows.length) {
+      lines.push(
+        `… and ${(input.rowCount - input.preview.rows.length).toLocaleString("en-US")} more`,
+      );
+    }
+    lines.push("");
+  } else {
+    lines.push("No records match this report right now.", "");
+  }
+  lines.push(`Open the full report (and Export CSV): ${input.link}`);
+  return { subject: `Scheduled report: ${input.reportName}`, body: lines.join("\n") };
+}

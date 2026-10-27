@@ -165,11 +165,22 @@ export function isScopedPermission(permission: Permission): boolean {
   return SCOPED.has(permission);
 }
 
+/**
+ * The home a person lands on when they haven't picked one (SPEC §8.3): owners
+ * get the Executive Overview, everyone else My Day.
+ */
+export function roleDefaultHome(isOwner: boolean): DefaultHome {
+  return isOwner ? "executive_overview" : "my_day";
+}
+
 /** Reads saved preferences, falling back to defaults for missing or unknown values. */
-export function readPreferences(raw: unknown): PreferencesValues {
+export function readPreferences(
+  raw: unknown,
+  fallbackHome: DefaultHome = "executive_overview",
+): PreferencesValues {
   const o =
     raw && typeof raw === "object" && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {};
-  const home = DEFAULT_HOMES.find((h) => h === o.default_home) ?? "executive_overview";
+  const home = DEFAULT_HOMES.find((h) => h === o.default_home) ?? fallbackHome;
   const time = TIME_FORMATS.find((t) => t === o.time_format) ?? "12h";
   return { default_home: home, time_format: time };
 }

@@ -16,6 +16,7 @@ import { refreshSubcontractorStatus } from "@/lib/production/subcontractors";
 import { sweepCampaigns } from "@/lib/campaigns/worker";
 import { sweepDrips } from "@/lib/drips/worker";
 import { resumeDueRuns } from "@/lib/workflows/engine";
+import { sweepReportSchedules } from "@/lib/analytics/schedules";
 import {
   sweepReferrals,
   sweepStaleLeads,
@@ -137,6 +138,13 @@ async function run(request: NextRequest) {
     } catch (e) {
       logError("worker.recommendations", e);
     }
+  }
+
+  // Scheduled report deliveries (SPEC §8.14): email through the outbox (simulated).
+  try {
+    summary.reportSchedules = await sweepReportSchedules(service, now);
+  } catch (e) {
+    logError("worker.report_schedules", e);
   }
 
   // Money (SPEC §10, §9): invoice statuses (overdue) and reminder events,

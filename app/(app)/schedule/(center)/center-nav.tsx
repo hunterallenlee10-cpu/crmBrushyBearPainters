@@ -6,15 +6,23 @@ import { cn } from "@/lib/utils";
 
 export type CenterLink = { href: string; label: string; badge?: number | null };
 
-/** Production Center left sub-nav (SPEC §8.6); a scrolling row on phones. */
-export function CenterNav({ links }: { links: CenterLink[] }) {
+/** Production Center left sub-nav (SPEC §8.6); a scrolling row on phones. Analytics reuses it. */
+export function CenterNav({
+  links,
+  label = "Production Center",
+  exact = "/schedule",
+}: {
+  links: CenterLink[];
+  label?: string;
+  /** The link that is active only on its exact path (the workspace's home). */
+  exact?: string;
+}) {
   const pathname = usePathname();
   return (
-    <nav aria-label="Production Center">
+    <nav aria-label={label}>
       <ul className="flex gap-1 overflow-x-auto pb-1 lg:flex-col lg:overflow-visible lg:pb-0">
         {links.map((l) => {
-          const active =
-            l.href === "/schedule" ? pathname === "/schedule" : pathname.startsWith(l.href);
+          const active = l.href === exact ? pathname === exact : pathname.startsWith(l.href);
           return (
             <li key={l.href} className="shrink-0">
               <Link

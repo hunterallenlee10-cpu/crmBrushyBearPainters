@@ -24,9 +24,12 @@ const HOME_HELP: Record<(typeof DEFAULT_HOMES)[number], string> = {
 export function PreferencesForm({
   defaults,
   readOnly,
+  canExecutive = true,
 }: {
   defaults: PreferencesValues;
   readOnly: boolean;
+  /** The Executive Overview needs analytics access; otherwise home is always My Day. */
+  canExecutive?: boolean;
 }) {
   const form = useForm<PreferencesValues>({
     resolver: zodResolver(preferencesSchema),
@@ -67,11 +70,16 @@ export function PreferencesForm({
                     type="radio"
                     value={h}
                     className="mt-1 size-4 accent-bb-forest"
+                    disabled={h === "executive_overview" && !canExecutive}
                     {...register("default_home")}
                   />
                   <span>
                     <span className="block text-sm font-medium">{DEFAULT_HOME_LABELS[h]}</span>
-                    <span className="block text-xs text-muted-foreground">{HOME_HELP[h]}</span>
+                    <span className="block text-xs text-muted-foreground">
+                      {h === "executive_overview" && !canExecutive
+                        ? "Needs analytics access (ask an owner)."
+                        : HOME_HELP[h]}
+                    </span>
                   </span>
                 </label>
               ))}

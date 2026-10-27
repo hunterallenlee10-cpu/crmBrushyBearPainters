@@ -394,9 +394,11 @@ insert into public.tasks (org_id, title, assignee_id, due_at, subject_type, subj
 select tests.login((select id from u where k = 'est_a'));
 insert into st values ('myday', public.workspace_summary());
 select tests.logout();
-select tests.assert_eq((select (v ->> 'tasks_due_today') || '/' || (v ->> 'tasks_overdue') || '/' || (v ->> 'tasks_upcoming') || '/' || (v ->> 'tasks_no_due')
-                               || '/' || (v ->> 'leads_follow_ups_today') || '/' || (v ->> 'jobs_active') || '/' || (v ->> 'estimates_awaiting_reply') from st where k = 'myday'),
-  '1/1/1/1/1/4/1', 'My Day: tasks by due date, lead follow-ups today, my open jobs, estimates awaiting reply');
+select tests.assert_eq((select ((v ->> 'tasks_due_today')::int + (v ->> 'tasks_overdue')::int) || '/' || (v ->> 'tasks_upcoming')
+                               || '/' || (v ->> 'tasks_no_due') || '/' || (v ->> 'leads_follow_ups_today') || '/' || (v ->> 'jobs_active')
+                               || '/' || (v ->> 'estimates_awaiting_reply') from st where k = 'myday'),
+  '2/1/1/1/4/1', 'My Day: tasks due later today or overdue, upcoming, no date; lead follow-ups today; my open jobs; estimates awaiting reply');
+select tests.assert((select (v ->> 'tasks_overdue')::int >= 1 from st where k = 'myday'), 'a task due three days ago is overdue');
 select tests.login((select id from u where k = 'est_b'));
 select tests.assert_eq((public.workspace_summary() ->> 'leads_awaiting_contact'), '1', 'My Day: new leads nobody has reached');
 select tests.logout();

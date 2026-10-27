@@ -2777,7 +2777,9 @@ export const ANALYTICS_METRICS = {
     detail: (s, w) =>
       s.margin_revenue_cents === null
         ? "Owners and the bookkeeper only"
-        : `${formatMoney(s.margin_revenue_cents - (s.margin_cost_cents ?? 0))} profit on ${formatMoney(s.margin_revenue_cents)} · ${w.period}`,
+        : s.margin_revenue_cents === 0
+          ? `No jobs completed ${w.period} yet`
+          : `${formatMoney(s.margin_revenue_cents - (s.margin_cost_cents ?? 0))} profit on ${formatMoney(s.margin_revenue_cents)} · ${w.period}`,
     keywords: ["margin", "gross margin", "profit"],
     compute: (s) =>
       s.can_see_costs && s.margin_revenue_cents !== null && s.margin_revenue_cents > 0

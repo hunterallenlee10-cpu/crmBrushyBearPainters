@@ -1123,8 +1123,9 @@ as $$
     where j.deleted_at is null and j.team_user_ids @> array[b.id] and j.stage not in ('closed_won', 'closed_lost')
   )
   select jsonb_build_object(
-    'tasks_due_today', (select count(*) from my_tasks t, bounds b where t.due_at >= b.day_start and t.due_at < b.day_end),
-    'tasks_overdue', (select count(*) from my_tasks t, bounds b where t.due_at < now() and not (t.due_at >= b.day_start)),
+    -- Due later today; anything whose due time has passed is overdue.
+    'tasks_due_today', (select count(*) from my_tasks t, bounds b where t.due_at >= now() and t.due_at < b.day_end),
+    'tasks_overdue', (select count(*) from my_tasks t where t.due_at < now()),
     'tasks_upcoming', (select count(*) from my_tasks t, bounds b where t.due_at >= b.day_end),
     'tasks_no_due', (select count(*) from my_tasks where due_at is null),
     'appointments_today', (select count(*) from public.appointments a, bounds b
