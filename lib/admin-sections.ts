@@ -89,7 +89,7 @@ export const ADMIN_SECTIONS: readonly AdminSection[] = [
     label: "Notification Settings",
     href: "/admin/notifications",
     group: "Platform",
-    phase: 3,
+    phase: 8,
     requiresAny: ["settings:manage"],
     description: "Which events notify whom.",
   },
@@ -97,9 +97,17 @@ export const ADMIN_SECTIONS: readonly AdminSection[] = [
     label: "Job Recovery",
     href: "/admin/job-recovery",
     group: "Data",
-    phase: 3,
+    phase: 10,
     requiresAny: ["job_admin:override"],
     description: "Fix stuck jobs and stage history.",
+  },
+  {
+    label: "Attention Rules",
+    href: "/admin/attention-rules",
+    group: "Sales & messaging",
+    phase: 3,
+    requiresAny: ["settings:manage"],
+    description: "Turn rules on or off and set their thresholds.",
   },
   {
     label: "Lead Scoring",
@@ -236,4 +244,4 @@ export function visibleAdminSections(can: (p: Permission) => boolean): AdminSect
 }
 
 /** The phase being built; sections and nav pages from later phases are shown as upcoming. */
-export const CURRENT_PHASE = 2;
+export const CURRENT_PHASE = 3;
