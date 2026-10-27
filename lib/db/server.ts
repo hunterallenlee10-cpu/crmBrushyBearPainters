@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { requireSupabaseEnv } from "@/lib/env";
 import { auditHeaders } from "@/lib/db/request-context";
 import type { Database } from "@/lib/db/types";
+import { SESSION_COOKIE_OPTIONS } from "@/lib/db/cookie-options";
 
 /**
  * Supabase client for Server Components, Server Actions and Route Handlers.
@@ -14,6 +15,7 @@ export async function createSupabaseServerClient() {
   const cookieStore = await cookies();
 
   return createServerClient<Database>(url, anonKey, {
+    cookieOptions: SESSION_COOKIE_OPTIONS,
     global: { headers: await auditHeaders() },
     cookies: {
       getAll() {

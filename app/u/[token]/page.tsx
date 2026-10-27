@@ -5,6 +5,7 @@ import { serverEnv } from "@/lib/env";
 import { linkSecret, verifyUnsubscribeToken } from "@/lib/messaging/links";
 import { companyNameFor } from "@/lib/messaging/public-links";
 import { UnsubscribeForm } from "./unsubscribe-form";
+import { consumePublicLimit, PUBLIC_LIMITS, requestIp } from "@/lib/security/rate-limit";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
@@ -19,11 +20,23 @@ export const metadata: Metadata = {
  */
 export default async function UnsubscribePage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
+  const service = await createSupabaseServiceClient();
+  if (
+    !(await consumePublicLimit(
+      service,
+      `unsubscribe:view:${await requestIp()}`,
+      PUBLIC_LIMITS.unsubscribeViewPerIp,
+    ))
+  ) {
+    return (
+      <PublicMessage title="Please wait a moment" companyName={null}>
+        <p>Too many requests from this network. Try the link again in a few minutes.</p>
+      </PublicMessage>
+    );
+  }
   const secret = linkSecret(serverEnv());
   const target = secret ? verifyUnsubscribeToken(token, secret) : null;
-  const company = target
-    ? await companyNameFor(await createSupabaseServiceClient(), target.orgId)
-    : null;
+  const company = target ? await companyNameFor(service, target.orgId) : null;
   if (!target) {
     return (
       <PublicMessage title="This link isn't valid" companyName={null}>

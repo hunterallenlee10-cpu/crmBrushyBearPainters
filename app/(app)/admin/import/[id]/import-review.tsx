@@ -86,7 +86,7 @@ export function ImportReview(props: {
             Consent to texts or marketing email is never imported; record it on the contact when the
             customer gives it.
           </p>
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Column mapping">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b text-left text-xs text-muted-foreground">

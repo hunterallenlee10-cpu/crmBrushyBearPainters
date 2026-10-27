@@ -44,6 +44,8 @@ export type FieldJob = {
   city: string | null;
   address: string | null;
   accessNotes: string | null;
+  /** A gate/lockbox code is saved and this person may read it now (crew on site today, or the office). */
+  hasAccessCode: boolean;
   pets: string | null;
   parking: string | null;
   workTypes: readonly string[];
@@ -82,7 +84,7 @@ export async function loadFieldJobs(
   let q = supabase
     .from("jobs")
     .select(
-      "id, name, job_number, stage, work_types, crew_id, team_user_ids, is_priority_reschedule, property:properties!jobs_property_id_fkey(street, unit, city, state, zip, access_notes, pets, parking)",
+      "id, name, job_number, stage, work_types, crew_id, team_user_ids, is_priority_reschedule, property_id, property:properties!jobs_property_id_fkey(street, unit, city, state, zip, access_notes, pets, parking)",
     )
     .in("stage", [
       ...(input.stages ?? [
@@ -101,7 +103,10 @@ export async function loadFieldJobs(
   const { data: jobs } = await q;
   const ids = (jobs ?? []).map((j) => j.id);
   if (!ids.length) return { jobs: [], today, workdays: [1, 2, 3, 4, 5] };
-  const [entries, wos, colors, punch, logs, settings] = await Promise.all([
+  const propertyIds = [
+    ...new Set((jobs ?? []).flatMap((j) => (j.property_id ? [j.property_id] : []))),
+  ];
+  const [entries, wos, colors, punch, logs, settings, secrets] = await Promise.all([
     service
       .from("schedule_entries")
       .select("job_id, crew_id, starts_on, ends_on")
@@ -131,7 +136,10 @@ export async function loadFieldJobs(
       .select("production_days")
       .eq("org_id", input.orgId)
       .maybeSingle(),
+    // Row security decides: the crew sees a code only on their scheduled day.
+    supabase.from("property_secrets").select("property_id").in("property_id", propertyIds),
   ]);
+  const withCode = new Set((secrets.data ?? []).map((s) => s.property_id));
   const workdays = (settings.data?.production_days ?? [1, 2, 3, 4, 5]).map(Number);
   const crewIds = [
     ...new Set(
@@ -186,6 +194,7 @@ export async function loadFieldJobs(
             .join(", ") || null
         : null,
       accessNotes: p?.access_notes ?? null,
+      hasAccessCode: j.property_id ? withCode.has(j.property_id) : false,
       pets: p?.pets ?? null,
       parking: p?.parking ?? null,
       workTypes: j.work_types,

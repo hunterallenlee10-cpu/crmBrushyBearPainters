@@ -16,6 +16,7 @@ import { formatRange } from "@/lib/domain/scheduling/dates";
 import type { FieldJob } from "@/lib/production/field";
 import { PRODUCTION_STEPS } from "@/lib/production/field";
 import { StartJobButton } from "./start-job-button";
+import { AccessCodeButton } from "./access-code-button";
 
 const WO_STATUS: Record<string, string> = {
   new: "New",
@@ -96,6 +97,7 @@ export function FieldJobCard({
           )}
         </p>
       )}
+      {job.hasAccessCode && job.onToday && <AccessCodeButton jobId={job.id} disabled={readOnly} />}
       {(job.accessNotes || job.parking || job.pets) && (
         <dl className="grid gap-1 rounded-xl bg-muted/50 p-3 text-sm">
           {job.accessNotes && (

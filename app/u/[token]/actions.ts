@@ -6,6 +6,7 @@ import { serverEnv } from "@/lib/env";
 import { linkSecret, verifyUnsubscribeToken } from "@/lib/messaging/links";
 import { applyUnsubscribe } from "@/lib/messaging/public-links";
 import { logError } from "@/lib/log";
+import { consumePublicLimit, PUBLIC_LIMITS, requestIp } from "@/lib/security/rate-limit";
 
 /**
  * Unsubscribe from marketing email (SPEC §8.11, §13.2). No login: the signed
@@ -26,6 +27,16 @@ export async function confirmUnsubscribe(
   if (!target) return { ok: false, message: "This link isn't valid." };
   try {
     const service = await createSupabaseServiceClient();
+    const ip = await requestIp();
+    if (
+      !(await consumePublicLimit(
+        service,
+        `unsubscribe:confirm:${ip}`,
+        PUBLIC_LIMITS.unsubscribeConfirmPerIp,
+      ))
+    ) {
+      return { ok: false, message: "Too many tries. Please wait a few minutes and try again." };
+    }
     await applyUnsubscribe(service, target);
     return { ok: true };
   } catch (e) {

@@ -41,9 +41,11 @@ function env(name: string): string {
   return v;
 }
 
-export function adminClient(): SupabaseClient {
+/** Service-role client; `actorId` records that user as the actor (stage changes need an owner). */
+export function adminClient(actorId?: string): SupabaseClient {
   return createClient(env("NEXT_PUBLIC_SUPABASE_URL"), env("SUPABASE_SERVICE_ROLE_KEY"), {
     auth: { persistSession: false, autoRefreshToken: false },
+    ...(actorId ? { global: { headers: { "x-bb-actor-id": actorId } } } : {}),
   });
 }
 

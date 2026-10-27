@@ -103,7 +103,12 @@ export default async function ExportControlsPage({ searchParams }: { searchParam
           </Link>
           ). Lead exports also need “Export leads”, which is in the same pack.
         </p>
-        <div className="overflow-x-auto">
+        <div
+          className="overflow-x-auto"
+          tabIndex={0}
+          role="region"
+          aria-label="Export permission by role"
+        >
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b text-left text-xs text-muted-foreground">
@@ -217,7 +222,7 @@ export default async function ExportControlsPage({ searchParams }: { searchParam
             Every “Download CSV” and “Export CSV” is recorded here with who, what and how many rows.
           </EmptyState>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Export log">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b text-left text-xs text-muted-foreground">

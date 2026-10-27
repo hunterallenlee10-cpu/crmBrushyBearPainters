@@ -1,8 +1,13 @@
 /** Masks emails and phone numbers so logs stay PII-free (SPEC §13.1). */
 export function maskPii(text: string): string {
-  return text
-    .replace(/[^\s@]+@[^\s@]+\.[^\s@]+/g, "[email]")
-    .replace(/(?:\+?\d|\()[\d\s().-]{7,}\d/g, "[phone]");
+  return (
+    text
+      .replace(/[^\s@]+@[^\s@]+\.[^\s@]+/g, "[email]")
+      // North American numbers in any common format (+1 425 555 0100, (425) 555-0100,
+      // 4255550100) and other E.164 numbers; job/invoice numbers like BB-2026-0001 stay.
+      .replace(/(?:\+?1[\s.-]?)?\(?\b\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}\b/g, "[phone]")
+      .replace(/\+\d{8,15}\b/g, "[phone]")
+  );
 }
 
 /** Server-side error log with PII masked. */
