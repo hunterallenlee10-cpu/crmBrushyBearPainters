@@ -2,6 +2,35 @@
 
 All notable changes, by build phase. See `docs/PLAN.md` for what each phase covers.
 
+## Phase 10 — Hardening & launch prep
+
+### Added
+
+- **Module Manager** (Admin): custom fields for leads, jobs, accounts and contacts (all SPEC §5.9 types) shown on the record's "More fields" card and as list columns and filters; page layouts (section order and visibility); validation rules (required, pattern, min/max, length) enforced by the database on save.
+- **Data Import**: CSV → column mapping → review queue (errors, possible duplicates with skip / update / create) → apply (rows with errors stay listed with the reason); consent is never imported.
+- **Bulk Update**: from a list selection ("Bulk update…") or a CSV; preview with before/after per record → apply → revert (records changed since are reported as conflicts).
+- **Merge Customers**: compare two accounts or contacts, pick values per field, merge (every jobs/messages/documents reference moves), **Undo**.
+- **Export Controls**: list exports on/off per role (Data export pack), Export CSV on the Lead and Job lists (current filter and columns) and the Audit Log, all logged in the export log.
+- **Job Recovery** (owners): jobs whose stage and records disagree, missing milestones, unusually long stays, each with a reasoned owner fix.
+- **Help Center**: categories, 10 starter articles, full-text search, article pages, Help → Manage (`help:manage`), Release Notes from this changelog; the floating Help panel searches it. The Help button no longer covers content on phones or the last item of the job rail.
+- **Commissions** (off by default): settings, plans per role or person, the engine (company vs self-generated leads, overhead, eligibility at paid in full, review threshold, frozen once approved), a simulator, and **My commissions** on My Numbers.
+- **Demo data**: `DEMO_DATA=true pnpm seed:demo` — ~300 leads and 120 jobs over every stage and work type in the five cities, estimates with two options and add-ons, invoices and payments (some overdue), daily logs, three crews (two employee, one subcontractor), every hold type, rain delays and the attention items they cause; all tagged `is_demo`; guarded to local Supabase; Admin → Demo Data purge (also removes demo photo files).
+- **Settings**: density preference (comfortable / compact) and an Integrations tab.
+- **Security**: nonce-based Content-Security-Policy on every page; Secure + SameSite session cookies; rate limits on the unsubscribe page and review links (intake, proposal and inbound already had them); gate/lockbox codes revealable by the crew scheduled at the property today (logged); tighter PII masking in logs.
+
+### Changed
+
+- Website leads get their text-back right after the form is submitted (the intake route runs the lead's own events instead of waiting for the next worker minute).
+- Every leftover "arrives in Phase N" placeholder is gone (stage gates, health checks, onboarding, empty sections, nav placeholders, Setup cards, disabled Export buttons).
+- The estimate's Discount, deposit & notes form keeps unsaved typing when another change refreshes the page.
+- The demo purge takes contacts of demo accounts with it and unlinks (doesn't block on) real leads that point at a demo customer.
+- `pnpm build` / `pnpm typecheck` run TypeScript with a larger heap.
+- Merged from `main`: email + password sign-in and Change password (Settings → Security). Owner two-step sign-in is off in production at the owners' request (data setting; see DECISIONS).
+
+### Tests
+
+TESTS_PLACEHOLDER
+
 ## Phase 9 — Analytics & home
 
 ### Added

@@ -417,7 +417,8 @@ test.describe("Job List", () => {
     await page.getByRole("checkbox", { name: new RegExp(`Select .*${N.fence}`) }).check();
     const bar = page.getByRole("region", { name: "Bulk actions" });
     await expect(bar.getByText("2 selected")).toBeVisible();
-    await expect(bar.getByRole("button", { name: "Export" })).toBeDisabled();
+    // Exports run from the list's Export CSV (current filter); the bar has none.
+    await expect(bar.getByRole("button", { name: "Export" })).toHaveCount(0);
     await expect(bar.getByRole("combobox", { name: /status|stage/i })).toHaveCount(0);
     await bar.getByRole("button", { name: "Assign owner" }).click();
     await page

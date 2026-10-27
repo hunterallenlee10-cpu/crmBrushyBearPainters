@@ -144,6 +144,11 @@ function ScheduleDialog({
   const [note, setNote] = React.useState("");
   const [overrideReason, setOverrideReason] = React.useState("");
   const [conflicts, setConflicts] = React.useState<Conflict[]>([]);
+  const targetKey = !target
+    ? null
+    : target.kind === "new"
+      ? `new:${target.card.jobId}`
+      : `bar:${target.bar.id}`;
   React.useEffect(() => {
     if (!target) return;
     if (target.kind === "new") {
@@ -168,7 +173,10 @@ function ScheduleDialog({
     }
     setNote("");
     setOverrideReason("");
-  }, [target, crews, productionDays]);
+    // Reset only when a different job or bar opens: a refresh after saving
+    // hands us new objects for the same target and must not wipe the form.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the target's identity
+  }, [targetKey]);
   if (!target) return null;
   const jobId = target.kind === "new" ? target.card.jobId : target.bar.jobId;
   const label = target.kind === "new" ? target.card.label : (target.bar.jobLabel ?? "Booked job");
