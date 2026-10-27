@@ -4,6 +4,7 @@ import { PageContainer, PageHeader } from "@/components/layout/page-header";
 import { requireViewer } from "@/lib/auth/viewer";
 import { createSupabaseServerClient } from "@/lib/db/server";
 import { readPreferences, type OwnProfileInput } from "@/lib/validation/users";
+import { loadMyRows } from "@/lib/notifications/settings";
 import { SettingsTabs } from "./settings-tabs";
 
 export const metadata: Metadata = { title: "Settings" };
@@ -19,6 +20,7 @@ export default async function SettingsPage() {
     .eq("id", viewer.id)
     .maybeSingle();
   if (!me) notFound();
+  const notifications = await loadMyRows(supabase, viewer.id);
 
   const profile: OwnProfileInput = {
     full_name: me.full_name,
@@ -42,6 +44,8 @@ export default async function SettingsPage() {
         profile={profile}
         preferences={readPreferences(me.preferences)}
         requiresMfa={viewer.real.role.requiresMfa}
+        notifications={notifications}
+        hasPhone={!!me.phone}
       />
     </PageContainer>
   );

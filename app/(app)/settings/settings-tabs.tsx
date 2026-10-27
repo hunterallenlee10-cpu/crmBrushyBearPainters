@@ -7,6 +7,7 @@ import { type OwnProfileInput, type PreferencesValues } from "@/lib/validation/u
 import { OwnProfileForm } from "./own-profile-form";
 import { PreferencesForm } from "./preferences-form";
 import { SecurityPanel } from "./security-panel";
+import { NotificationMatrix, type MatrixRow } from "@/components/notifications/notification-matrix";
 
 const TABS = [
   { value: "profile", label: "Profile" },
@@ -24,6 +25,8 @@ export function SettingsTabs({
   profile,
   preferences,
   requiresMfa,
+  notifications,
+  hasPhone,
 }: {
   readOnly: boolean;
   email: string;
@@ -32,6 +35,8 @@ export function SettingsTabs({
   profile: OwnProfileInput;
   preferences: PreferencesValues;
   requiresMfa: boolean;
+  notifications: MatrixRow[];
+  hasPhone: boolean;
 }) {
   const [tab, setTab] = React.useState<Tab>("profile");
 
@@ -75,14 +80,26 @@ export function SettingsTabs({
         <PreferencesForm defaults={preferences} readOnly={readOnly} />
       </TabsContent>
       <TabsContent value="notifications">
-        <section className="rounded-2xl border bg-card p-5">
-          <h2 className="flex items-center gap-2 text-base font-semibold">
-            <Bell className="size-4" aria-hidden /> Notifications
-          </h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Notification preferences arrive with notifications (Phase 3). You&apos;ll choose, per
-            event, whether to get an in-app alert, an email or a text.
-          </p>
+        <section aria-labelledby="notif-title" className="flex flex-col gap-3">
+          <div>
+            <h2 id="notif-title" className="flex items-center gap-2 text-base font-semibold">
+              <Bell className="size-4" aria-hidden /> Notifications
+            </h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Choose, per event, how you hear about it. Some in-app alerts are required by your
+              company. While email and texting aren&apos;t connected, those copies are recorded as
+              “Simulated – not sent”.
+            </p>
+          </div>
+          <NotificationMatrix
+            rows={notifications}
+            readOnly={readOnly}
+            note={
+              hasPhone
+                ? null
+                : "Texts need a mobile number on your Profile (in +1 format, e.g. +14255550100)."
+            }
+          />
         </section>
       </TabsContent>
     </Tabs>

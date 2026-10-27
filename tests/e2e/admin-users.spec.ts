@@ -339,7 +339,9 @@ test.describe("/settings", () => {
     await expect(page.getByRole("button", { name: "Sign out of all devices" })).toBeVisible();
 
     await page.getByRole("tab", { name: "Notifications" }).click();
-    await expect(page.getByText(/arrive with notifications \(Phase 3\)/)).toBeVisible();
+    await expect(page.getByRole("checkbox", { name: "Customer messages: email" })).toBeVisible();
+    // Required by the company: the in-app mention alert can't be turned off.
+    await expect(page.getByRole("checkbox", { name: /Mentions: in-app/ })).toBeDisabled();
   });
 
   test("owner sees their verified authenticator and cannot remove the only one", async ({
