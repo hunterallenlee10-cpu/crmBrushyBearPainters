@@ -10,7 +10,9 @@ import { useOfflineSync } from "./offline-sync";
  */
 export function SyncIndicator({ jobId, className }: { jobId?: string; className?: string }) {
   const sync = useOfflineSync();
-  if (!sync.ready) return null;
+  // Hold the line's height until the queue has loaded, so the page below
+  // doesn't jump when the status appears (layout shift on slow phones).
+  if (!sync.ready) return <span className={`min-h-5 ${className ?? ""}`} aria-hidden />;
   const pending = sync.items.filter(
     (i) => i.state !== "failed" && (!jobId || i.jobId === jobId),
   ).length;
@@ -18,7 +20,7 @@ export function SyncIndicator({ jobId, className }: { jobId?: string; className?
   const Icon = !sync.online ? CloudOff : pending ? Loader2 : Cloud;
   return (
     <span
-      className={`inline-flex items-center gap-1 text-xs ${sync.online ? "text-muted-foreground" : "font-medium text-warning"} ${className ?? ""}`}
+      className={`inline-flex min-h-5 items-center gap-1 text-xs ${sync.online ? "text-muted-foreground" : "font-medium text-warning"} ${className ?? ""}`}
       role="status"
       aria-live="polite"
       data-testid="sync-indicator"

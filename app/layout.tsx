@@ -1,10 +1,10 @@
 import type { Metadata, Viewport } from "next";
 import { headers } from "next/headers";
-import "@fontsource-variable/manrope";
-import "@fontsource/lilita-one";
 import "./globals.css";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
+import { ZodConfig } from "@/components/zod-config";
+import { lilita, manrope } from "./fonts";
 
 export const metadata: Metadata = {
   title: { default: "Brushy Bear CRM", template: "%s · Brushy Bear CRM" },
@@ -26,8 +26,9 @@ export const viewport: Viewport = {
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   await headers();
   return (
-    <html lang="en">
+    <html lang="en" className={`${manrope.variable} ${lilita.variable}`}>
       <body>
+        <ZodConfig />
         <TooltipProvider delayDuration={200}>{children}</TooltipProvider>
         <Toaster position="bottom-right" />
       </body>

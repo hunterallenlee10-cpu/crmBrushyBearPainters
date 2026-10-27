@@ -869,6 +869,7 @@ export function MasterSchedule({
         </aside>
         <section
           aria-label="Crew calendar"
+          tabIndex={0}
           className="min-w-0 flex-1 overflow-x-auto rounded-2xl border bg-card"
         >
           <div

@@ -941,6 +941,11 @@ Every non-obvious decision, newest at the bottom. Format: date · decision · re
 - **Decision:** `tests/e2e/golden-path.spec.ts` runs SPEC §19 end to end. Where real time must pass (the text-back SLA, workflow waits, "closes 3 days after Paid in Full") it moves timestamps on the test's own records with the service role and runs the worker. Painters can view their jobs but posting a daily log needs the Project Manager / office role (seeded permissions), so the test posts it as the owner on a phone-sized screen. Exterior work in late October is outside the default exterior season, so the test exercises the owner override on the Master Schedule.
 - **Reason:** A test can't wait days; the logic under test (worker, gates, workflows) is unchanged.
 
+### 2026-10-31 · Fonts through next/font; zod "jitless"; Lighthouse targets
+
+- **Decision:** The brand fonts load through `next/font/local` from the @fontsource files already in the project (preload + metric-matched fallback, Latin subset; other scripts use the system font) instead of the @fontsource CSS. zod is configured `jitless` in the browser (`components/zod-config.tsx`) so its eval probe doesn't trip the CSP. Lighthouse ≥ 90 is met on desktop for all five pages; on Lighthouse's throttled phone profile the Executive Overview, Lead List and proposal page score 79–87 for Performance (Accessibility and Best Practices 100) — listed as a gap in `docs/PERFORMANCE.md`.
+- **Reason:** SPEC Phase 10 performance target. The font reflow caused the job page's layout shift on phones; nothing is fetched from Google at build or run time.
+
 ## Hosting
 
 ### 2026-10-27 · Separate hosting; worker every minute from the database

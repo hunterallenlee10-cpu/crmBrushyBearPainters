@@ -161,7 +161,7 @@ export function ListShell(props: ListShellProps) {
   return (
     <div className="flex flex-col gap-3" data-list-ready={ready ? "true" : undefined}>
       {/* Status tabs with live counts */}
-      <nav aria-label={`${props.noun} status`} className="-mx-1 overflow-x-auto">
+      <nav aria-label={`${props.noun} status`} className="overflow-x-auto">
         <ul className="flex min-w-max gap-1 border-b px-1">
           {props.tabs.map((t) => {
             const active = t.id === state.tab;

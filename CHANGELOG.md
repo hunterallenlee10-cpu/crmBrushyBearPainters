@@ -25,11 +25,15 @@ All notable changes, by build phase. See `docs/PLAN.md` for what each phase cove
 - The estimate's Discount, deposit & notes form keeps unsaved typing when another change refreshes the page.
 - The demo purge takes contacts of demo accounts with it and unlinks (doesn't block on) real leads that point at a demo customer.
 - `pnpm build` / `pnpm typecheck` run TypeScript with a larger heap.
+- Brand fonts load through `next/font` (no text reflow on phones); fixed sideways scrolling on Messages (phone), Schedule Admin (phone), the Invoices tabs and the Onboarding Board KPIs; the Master Schedule calendar is keyboard-scrollable; the Schedule job dialog keeps its fields after saving.
 - Merged from `main`: email + password sign-in and Change password (Settings → Security). Owner two-step sign-in is off in production at the owners' request (data setting; see DECISIONS).
 
 ### Tests
 
-TESTS_PLACEHOLDER
+- SQL/RLS: 1,027 assertions across 17 files (Phase 10 adds 109 in `016_hardening.test.sql`: custom fields and validation rules, imports, bulk update apply/revert/conflicts, merge and undo, export log kinds, Help Center rows, commissions (off by default, own vs all, frozen entries), demo counts, purge (real records untouched) and stage backdating, gate codes for the crew on site today, Job Recovery facts, row security per role and across companies; migrations applied, rolled back and re-applied).
+- Unit: 1,388 tests across 99 files (Phase 10 adds custom fields, bulk planning and CSV, imports, merge, commissions engine and simulator, job recovery, Help markdown and release notes, CSP builder, PII masking, the demo plan and its guard).
+- E2E + axe on a production build (desktop and phone, one worker, per spec file): 376 passed, 153 skipped (role- or device-specific), 0 failed. New: `golden-path.spec.ts` (SPEC §19, website form → Closed Won), `edge-cases.spec.ts` (missed-start credit, pre-1978 renovator rule, out-of-area, duplicate submission, crew can't see money, View as logged), `hardening.spec.ts` (Module Manager, Import, Bulk Update, Merge, Export, Help, Commissions, Job Recovery, gate code), `a11y.spec.ts` (every nav page and Admin section: no serious/critical axe violations, no sideways scroll). Screenshots in `docs/screens/phase-10/`.
+- Lighthouse (local production build, desktop): 99–100 Performance, 100 Accessibility, 100 Best Practices on login, home, lead list, job detail and the proposal page (`docs/PERFORMANCE.md`, with the phone numbers).
 
 ## Phase 9 — Analytics & home
 

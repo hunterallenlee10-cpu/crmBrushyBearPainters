@@ -136,7 +136,7 @@ export default async function MessagesPage({ searchParams }: { searchParams: Sea
         </nav>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,24rem)_minmax(0,1fr)]">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,24rem)_minmax(0,1fr)]">
         <section
           aria-label="Conversations"
           className={cn("rounded-2xl border bg-card", thread && "hidden lg:block")}

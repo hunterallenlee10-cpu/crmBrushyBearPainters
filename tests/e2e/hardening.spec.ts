@@ -226,7 +226,7 @@ test("Data Import: mapping, review queue with an error and a duplicate, apply", 
   await axe(page);
   await shot(page, "import-review");
   await page.getByRole("button", { name: "Apply import" }).click();
-  await expect(page.getByText("1 added, 1 skipped, 0 failed.")).toBeVisible();
+  await expect(page.getByText("1 added, 1 skipped, 0 failed.").first()).toBeVisible();
   const db = adminClient();
   const { data } = await db
     .from("leads")

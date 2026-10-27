@@ -246,7 +246,7 @@ export default async function OnboardingBoardPage({
       />
       <section
         aria-label="Board KPIs"
-        className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-9"
+        className="grid grid-cols-2 gap-3 sm:grid-cols-[repeat(auto-fill,minmax(10rem,1fr))]"
       >
         {kpis.map((k) => (
           <KpiCard

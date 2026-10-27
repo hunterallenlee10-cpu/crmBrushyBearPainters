@@ -82,8 +82,8 @@
 }
 
 @theme inline {
-  --font-sans: "Manrope Variable", ui-sans-serif, system-ui, sans-serif;
-  --font-display: "Lilita One", "Manrope Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-manrope), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-lilita), var(--font-manrope), ui-sans-serif, system-ui, sans-serif;
 
   --color-bb-forest: var(--bb-forest);
   --color-bb-forest-dark: var(--bb-forest-dark);

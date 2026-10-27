@@ -329,7 +329,7 @@ export function WorkTypesEditor({ rows, skills }: { rows: WorkTypeRow[]; skills:
       title="Work types"
       description="Scheduling work types with default durations, who they're assigned to, and the skill a crew needs for them."
     >
-      <div className="overflow-x-auto">
+      <div className="relative overflow-x-auto">
         <table className="w-full min-w-[720px] text-sm">
           <thead className="text-left text-xs text-muted-foreground">
             <tr>
@@ -540,7 +540,7 @@ export function SkillsEditor({ rows }: { rows: SkillRow[] }) {
       title="Skills"
       description="Skills crews can have. The scheduler matches them to each job (spray for cabinets, high access for 2-story exteriors, a certified renovator for pre-1978 homes)."
     >
-      <div className="overflow-x-auto">
+      <div className="relative overflow-x-auto">
         <table className="w-full min-w-[560px] text-sm">
           <thead className="text-left text-xs text-muted-foreground">
             <tr>
