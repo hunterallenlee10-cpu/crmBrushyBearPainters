@@ -859,6 +859,88 @@ Every non-obvious decision, newest at the bottom. Format: date · decision · re
 - **Decision:** `export_log` and `report_run_stats` have no audit trigger (they are logs themselves; `000_rls_everywhere` exempts them). Dashboards are lists of widget ids (`dashboards.widgets text[]`), not a drag-and-drop layout; a custom dashboard picks KPIs and charts from the catalog in order. Favorites are per person. Deviations/gaps: no drag-to-resize dashboard grid; no PDF of reports; scheduled deliveries have no attachment; Ask doesn't understand free-form comparisons beyond "this vs last month/year"; the walkthrough show rate is completed ÷ (completed + no-show) for walkthrough appointments whose time came in the period.
 - **Reason:** Keep Phase 9 to SPEC §8.14's must-haves; the rest is listed in the Phase 9 report.
 
+## Phase 10 — Hardening & launch prep
+
+### 2026-10-31 · Nonce-based CSP; every page rendered per request
+
+- **Decision:** `middleware.ts` builds a Content-Security-Policy per request (`lib/security/csp.ts`): `script-src 'self' 'nonce-…' 'strict-dynamic'` (plus `'unsafe-eval'` only in `next dev`), `style-src 'self' 'unsafe-inline'`, images/media from the app, `data:`/`blob:` and the Supabase project, `connect-src` to the app and the Supabase project (https + wss), `frame-ancestors 'none'`, `object-src 'none'`, `base-uri 'self'`, `form-action 'self'`. Next.js reads the nonce from the request header and stamps its own scripts. The root layout reads `headers()`, so every page is dynamic (no static HTML that would carry a stale nonce). `upgrade-insecure-requests` is added only when the Supabase URL is https, so a local production build against `http://127.0.0.1` keeps working. API routes and static files get no page CSP.
+- **Reason:** SPEC §13.1; DECISIONS 2026-10-26 "CSP deferred to Phase 10". Inline styles stay allowed: React `style` attributes, Recharts and the toast library set them, and style injection can't run code. The cost of dynamic rendering is small: every app page already reads the session.
+
+### 2026-10-31 · Session cookies, CSRF
+
+- **Decision:** Supabase auth cookies are set with `Secure` (except on local http), `SameSite=Lax`, path `/` (`lib/db/cookie-options.ts`, used by the middleware and both Supabase clients). They are not `HttpOnly`: the Supabase browser client reads the session from them (Realtime, uploads). CSRF: Server Actions are POST-only and Next.js refuses them when `Origin` doesn't match the host; the public route handlers need an HMAC signature; there are no state-changing GET routes.
+- **Reason:** SPEC §13.1. HttpOnly would break the browser client by design; `SameSite=Lax` + the Origin check cover cross-site posts.
+
+### 2026-10-31 · Rate limits on the public pages
+
+- **Decision:** Per-IP limits counted in Postgres (`consume_rate_limit()`): intake (per remote address and per visitor IP), proposal page view/accept/decline, unsubscribe view and confirm, review-link clicks (60 per 10 minutes) and inbound messages. The limiter fails open (logged) so a limiter outage can't take the customer pages down.
+- **Reason:** SPEC §13.1. Serverless instances don't share memory, so counting has to be in the database.
+
+### 2026-10-31 · Gate codes for the crew on site today
+
+- **Decision:** `property_secrets` are readable by people with `properties:view_access_codes` (owners, office) **or** by a member/lead of a crew with a published schedule day at that property today (Pacific), through `app.crew_on_site_today()` in the row policy. The field card shows "Show gate code" only on those days; revealing it is an action (decrypts server-side, logged on the account timeline), never part of the page HTML.
+- **Reason:** SPEC §5.1/§13.1: the crew needs the code on the day they work there, and nobody else should.
+
+### 2026-10-31 · Module Manager: what the database enforces
+
+- **Decision:** Custom field values live in a `custom_field_values jsonb` column per module, checked by `app.check_module_fields()` on save: type and picklist checks always; **required** fields only block _clearing_ a value on update (records created before a field existed, or by imports, aren't rejected on unrelated edits); validation rules (required/regex/min/max/length) apply only to fields that changed. Trusted writes (service role: worker, merges, imports' own checks) skip the trigger. Lists can show any custom field as a column and filter text, number, checkbox, picklist, user and URL fields; dates, currency and multi-picklists are columns only (a JSON text compare wouldn't match the date filters' Pacific days). Page layouts reorder/hide whole sections of the detail page.
+- **Reason:** SPEC §5.9/§8.19. Blocking unrelated edits on old records would make a new required field break every existing record.
+
+### 2026-10-31 · Data Import, Bulk Update and Merge limits
+
+- **Decision:** Import: CSV only, up to 5,000 rows per file for leads, accounts and contacts; duplicates (same email or phone digits) go to a review queue (skip / update / create); **consent (SMS/email opt-in) is never imported**. Bulk Update: up to 2,000 records per run, from a list selection or a CSV (id + new values); preview stores before/after per record; Revert puts back only records nobody changed since (others are reported as conflicts). Merge: accounts and contacts, every referencing row moves to the survivor and is recorded so **Undo** can move it back; for contacts, Do Not Contact and an opt-out on either record carry over to the survivor (never lose an opt-out). Merges and undos are service-only functions behind `records:merge`.
+- **Reason:** SPEC §8.19. Imported consent has no proof of when or how it was given (TCPA/CAN-SPAM, `docs/COMPLIANCE.md`).
+
+### 2026-10-31 · Export Controls through the Data export pack
+
+- **Decision:** Admin → Export Controls lists roles with an on/off switch that adds or removes the **Data export** permission pack (the same change Roles & Permissions makes), and shows the export log. List exports (Lead List, Job List: the current filter and columns, up to 10,000 rows) and the Audit Log CSV are logged in `export_log` with kinds `list` and `audit_log`. Exports are off while viewing as another user.
+- **Reason:** SPEC §8.19, §13.2. One permission path, no second switch to drift out of sync.
+
+### 2026-10-31 · Help Center search is a GET route
+
+- **Decision:** The floating Help panel and the Help Center search published articles through `GET /api/help/search` (Postgres full-text on title, summary, tags and body), not a Server Action. 10 starter how-to articles are seeded (generic steps through the app, no business facts; owners should read them and adjust the wording) and edited in Help → Manage (`help:manage`). Release Notes render `CHANGELOG.md`.
+- **Reason:** Actions are refused while viewing as someone (read-only), but reading help must keep working there.
+
+### 2026-10-31 · Commissions: off, config-driven, not a registry KPI
+
+- **Decision:** The commissions engine (`lib/domain/commissions`) is **off by default** with every rate, overhead and threshold at 0 / empty until the owners set them. Entries become eligible only when the job is paid in full (and payments cleared, if required); high-dollar entries need an owner's review; approved/paid entries are frozen. The simulator runs the same engine without saving. The "My commissions" card on My Numbers is a list of the person's own entries (like record totals), not a registry KPI.
+- **Reason:** SPEC §10; CLAUDE.md "don't invent business facts" (commission rules are the owners' call).
+
+### 2026-10-31 · Job Recovery thresholds
+
+- **Decision:** Job Recovery (owners) flags: stage and records that disagree (e.g. Scheduled with no published schedule, Sold without an accepted estimate), missing milestone dates, and long stays: days in stage over a fixed prompt (21 for Walkthrough Scheduled … 7 for Paid in Full, `STAGE_AGE_FLAG_DAYS`) **and** over the company's own 90th percentile for that stage when 10+ jobs are there. Every fix is an owner override with a reason, recorded in the job's history.
+- **Reason:** The fixed numbers are prompts to look, not business rules; the percentile keeps a slow season from flagging everything.
+
+### 2026-10-31 · Demo data: tagged rows, purge by subject, local-only script
+
+- **Decision:** `is_demo` on the 26 tables the script writes; `purge_demo_data()` deletes those rows and everything attached to them (by subject: messages, outbox rows, attention items, tasks, notes, activity, workflow runs; jobs cascade estimates, invoices, schedule, logs and photos), takes the contacts of demo accounts with them and detaches any real lead linked to a demo customer. The admin purge also deletes the demo photo files from Storage. `pnpm seed:demo` uses the app's own functions (convert, create/send/accept estimate, invoices, payments, stage changes) so the data is consistent, then backdates timestamps; `demo_backdate_stage()` (service only, demo jobs only) moves a demo job's stage date. The script refuses without `DEMO_DATA=true` and a local Supabase URL (or `--i-know-this-is-not-production`); migrations never insert demo data.
+- **Reason:** SPEC §15.2. Production starts empty and must never get demo rows; a tag + purge is reversible and testable (`016_hardening.test.sql`).
+
+### 2026-10-31 · Instant text-back after website intake
+
+- **Decision:** After a new website lead is saved, the intake route processes **that lead's** queued events right after answering (`after()` + `claim_subject_events()`), so workflow 1 (text-back) runs within a second instead of waiting for the next worker minute. Same idempotent processing as the worker; claims use `SKIP LOCKED`.
+- **Reason:** SPEC §19 golden path: "auto-text in outbox within 1 s". The worker runs every minute from `pg_cron`.
+
+### 2026-10-31 · Settings additions and gaps
+
+- **Decision:** Settings → Preferences adds **density** (comfortable / compact, per person) and Settings shows an Integrations tab (connection status, all simulated). Not built: profile photo upload (initials avatars stay), a re-encryption script for `FIELD_ENCRYPTION_KEY` rotation, an automatic purge of Storage files for long-deleted rows, mention search in the search modal (it points to Notifications).
+- **Reason:** Keep Phase 10 on hardening; the gaps are listed in the Phase 10 report.
+
+### 2026-10-31 · Build and typecheck memory
+
+- **Decision:** `pnpm build` and `pnpm typecheck` set `NODE_OPTIONS=--max-old-space-size=6144`. Type checking the whole app (generated database types + ~2,900 files) needs ~2.7 GB, over Node's default heap on some machines.
+- **Reason:** The production build failed with "heap out of memory" during type checking; Vercel build machines have 8 GB.
+
+### 2026-10-31 · Scripts import app code with a small loader
+
+- **Decision:** `pnpm seed:demo` runs TypeScript directly on Node 22 (`--experimental-transform-types`) with `scripts/lib/ts-alias-loader.mjs` resolving `@/…` and extensionless imports, and `--conditions=react-server` so `import "server-only"` is a no-op. `buildAcceptOutputs` moved to `lib/estimating/accept-outputs.ts` so scripts can accept proposals without loading the PDF code.
+- **Reason:** Reuse the real pricing and acceptance code instead of re-implementing it in the script; no new build tool.
+
+### 2026-10-31 · Golden-path E2E moves the clock on the record
+
+- **Decision:** `tests/e2e/golden-path.spec.ts` runs SPEC §19 end to end. Where real time must pass (the text-back SLA, workflow waits, "closes 3 days after Paid in Full") it moves timestamps on the test's own records with the service role and runs the worker. Painters can view their jobs but posting a daily log needs the Project Manager / office role (seeded permissions), so the test posts it as the owner on a phone-sized screen. Exterior work in late October is outside the default exterior season, so the test exercises the owner override on the Master Schedule.
+- **Reason:** A test can't wait days; the logic under test (worker, gates, workflows) is unchanged.
+
 ## Hosting
 
 ### 2026-10-27 · Separate hosting; worker every minute from the database

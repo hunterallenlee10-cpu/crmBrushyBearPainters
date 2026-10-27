@@ -288,3 +288,9 @@ Shown on: Home (Executive Overview, My Day), `/analytics` (Ask Brushy Bear, Dail
 All of these are `kpi.*` entries since Phase 9 (table above).
 
 Leads created · leads by source · speed to lead (median, p90) · contact rate · walkthrough set rate · walkthrough show rate · estimates sent · 24h SLA % · close rate (count and $) · avg job value · sales velocity · pipeline value · backlog crew-days · projected revenue · revenue sold/completed/collected · gross margin % · labor hours estimated vs actual · daily-update compliance % · on-time start % · rain-delay days · punch items per job · days completed → paid · A/R aging · collection % · review rate · referral conversions · revenue by city/source/estimator · cost per lead & CAC.
+
+## Phase 10 notes
+
+- **No new registry KPIs.** The My Numbers → **My commissions** card lists the person's own commission entries (pending / eligible / needs review / approved / paid, with amounts) straight from `commission_entries` under row security, like a record list; it isn't a metric and isn't aggregated across people. Commissions are off until an owner turns them on (DECISIONS "Commissions: off, config-driven, not a registry KPI").
+- **Custom fields** (Module Manager) appear as list columns and filters, not as KPIs.
+- **Demo data** (`is_demo = true`) is counted like any other data while loaded, so dashboards look realistic on a test copy; purge it before real use. Production never has it.

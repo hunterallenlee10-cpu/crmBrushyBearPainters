@@ -65,6 +65,11 @@ Every workflow, drip, campaign, case and dialer message goes through `lib/messag
 
 Scheduled report deliveries go through `recordOutbound()` → the email adapter → `integration_outbox` (`simulated`), one per recipient (their profile email), `related_type` `report_schedule`, message type transactional. The email has the totals, the first 20 rows and a link to the report; no attachment until a real email provider is connected. Ask Brushy Bear and the Daily Brief use no AI provider (keyword rules and fixed sentences); the optional AI integration stays disabled.
 
+## Hardening (Phase 10)
+
+- **Content-Security-Policy:** pages may only load scripts from the app and connect to the app and the Supabase project. A provider that runs in the browser (Google Places autocomplete, a Stripe payment element, Mapbox tiles) needs its origins added to `buildCsp()` in `lib/security/csp.ts` (`script-src`, `connect-src`, `img-src`/`frame-src` as the provider documents) in the same change that connects it. Server-side providers (Twilio, email, QuickBooks, weather) need nothing here.
+- **Inbound webhooks** stay HMAC-signed and rate limited; the instant text-back for website leads runs inside the intake request (no extra setup).
+
 ## How the lock works
 
 A real provider is used only when **all three** of these hold. `resolveProviderChoice()` in `lib/integrations/core.ts` enforces it; anything short of all three returns the default provider.

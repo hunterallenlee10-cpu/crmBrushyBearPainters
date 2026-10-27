@@ -616,3 +616,53 @@ erDiagram
 New functions (security invoker unless noted): `analytics_stats(from, to, filters)`, `analytics_monthly(from_month, months, filters)`, `season_backlog(year)`, `my_numbers(user, from, to)`, `workspace_summary()`, `daily_brief(day)`, `log_export(...)` and `note_report_run(id)` (security definer, permission-checked), `user_permission_scopes(user, permissions[])` (service role; the worker's delivery check), `app.seed_analytics_defaults(org)` (idempotent), helpers `app.try_uuid`, `app.job_direct_cost_cents`, `app.work_type_service`, `app.production_days_between`. Event types: `export.created`, plus the change events of the new tables.
 
 Migrations: `20261030000100_analytics` and `20261030000200_analytics_seed`, each with a rollback.
+
+## Added in Phase 10 — Hardening & launch prep
+
+```mermaid
+erDiagram
+  custom_field_definitions ||..o{ leads : "custom_field_values (jsonb)"
+  custom_field_definitions ||..o{ jobs : "custom_field_values (jsonb)"
+  imports ||--o{ import_rows : "one row per CSV line"
+  bulk_updates ||--o{ bulk_update_rows : "before / after per record"
+  kb_categories ||--o{ kb_articles : "groups"
+  kb_articles ||--o| kb_article_stats : "views"
+  commission_plans ||--o{ commission_entries : "rates used"
+  jobs ||--o{ commission_entries : "one per rep and source"
+  commission_entries ||--o{ commission_adjustments : "manual changes"
+  custom_field_definitions {
+    text module "leads/jobs/accounts/contacts"
+    text api_name "unique per module"
+    text field_type "text…user, url (SPEC 5.9)"
+    jsonb options "picklist values"
+    boolean required
+    boolean show_in_list
+  }
+  record_merges {
+    text module "accounts/contacts"
+    uuid survivor_id
+    uuid merged_id
+    jsonb moved "table.column → ids (for Undo)"
+    text status "merged/undone"
+  }
+```
+
+| Table                                          | Purpose                                                                                                                                                                                                                                                                             |
+| ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `custom_field_definitions`                     | Admin → Module Manager fields per module (SPEC §5.9 types). Values live in `custom_field_values jsonb` on `leads`, `jobs`, `accounts`, `contacts` (GIN-indexed); `app.check_module_fields()` validates types, picklist values and required fields on save (trusted writes skip it). |
+| `validation_rules`                             | Required / regex / min / max / length rules per module field (`field` or `cf:<api_name>`), enforced by the same trigger, with the admin's message.                                                                                                                                  |
+| `module_layouts`                               | Section order and visibility on a module's detail page (one row per company and module).                                                                                                                                                                                            |
+| `imports`, `import_rows`                       | Data Import: CSV file → column mapping → review queue (valid / error / duplicate, with a decision per duplicate) → apply. Up to 5,000 rows; consent fields are never imported.                                                                                                      |
+| `bulk_updates`, `bulk_update_rows`             | Bulk Update from a list selection or a CSV: preview (before/after per record) → `bulk_update_apply()` → `bulk_update_revert()` (skips records changed since, reported as conflicts). Up to 2,000 rows.                                                                              |
+| `record_merges`                                | Merge Customers (accounts or contacts): field choices, both records before the merge and every moved reference, so `undo_merge()` can put it back. Service-only functions; owners and `records:merge`.                                                                              |
+| `kb_categories`, `kb_articles`                 | Help Center: categories and Markdown articles (draft / published, audience, tags, full-text `search`). Read: everyone signed in (published) / `help:manage` (drafts); written with `help:manage`. Seeded with 10 starter articles (`seed_key`).                                     |
+| `kb_article_stats`                             | View counts (`kb_article_viewed()`); not audited.                                                                                                                                                                                                                                   |
+| `commission_settings`                          | One row per company: **off by default**, basis (contract or collected), overhead deduction, review threshold, self-generated lead sources.                                                                                                                                          |
+| `commission_plans`                             | Rates for company vs self-generated leads, per role template or person.                                                                                                                                                                                                             |
+| `commission_entries`, `commission_adjustments` | Calculated commissions per job, rep and source (pending → eligible → approved → paid; approved/paid rows are frozen) and manual adjustments with a reason.                                                                                                                          |
+
+Also: `is_demo boolean` (+ partial index) on 26 tables the demo script writes; `export_log.kind` also allows `list`, `audit_log`, `import_errors`; `property_secrets` are readable by the crew scheduled at the property today (`app.crew_on_site_today()`); new permission `help:manage`.
+
+New functions: `bulk_update_apply(id)`, `bulk_update_revert(id, reason)` (security invoker), `merge_customers(...)`, `undo_merge(id, reason)`, `purge_demo_data(org)`, `demo_data_counts(org)`, `demo_backdate_stage(job, at)` (demo jobs only), `job_recovery_scan(org, limit)`, `claim_subject_events(type, id, limit)` (service role), `kb_article_viewed(id)`, `app.seed_help_defaults(org)`. Event types: change events of the new tables, `demo_data.purged`.
+
+Migrations: `20261031000100_hardening` and `20261031000200_hardening_seed`, each with a rollback.

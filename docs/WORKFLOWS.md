@@ -5,6 +5,7 @@ The workflow engine and the 17 seeded workflows (SPEC §11) were built in **Phas
 ## Engine rules
 
 - Domain events land in `events`. For each event the engine finds the workflows whose trigger matches (event type + trigger conditions) and runs their actions in order.
+- **Website leads don't wait for the worker** (Phase 10): right after the intake route answers, it processes that lead's own queued events (`claim_subject_events`), so workflow 1's text-back is in the outbox within a second. Everything else runs from the worker every minute.
 - **Once per (workflow, event):** the run row (`workflow_runs`, unique `idempotency_key = <workflow>:<event id>`) is inserted before anything is sent; the inline dispatch right after the action and the worker can both try, and the second one stops at the unique index.
 - **Waits** ("2 days after", "the day before at 4 pm", the review and referral delays from Messaging settings) park the run as `waiting` with `resume_at`; the worker resumes due runs every minute. **Exit rules** are checked before every step after a wait (for example, estimate follow-ups stop once the estimate is accepted or the customer replied).
 - **Quiet hours** (Messaging settings, default 8 pm – 8 am Pacific): an automated text due then waits until they end, unless the customer texted us in the last 24 hours. Emails aren't held.

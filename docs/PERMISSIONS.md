@@ -267,22 +267,23 @@ Scope only applies to permissions marked as scoped in the catalog (`lib/permissi
 
 **Administration** (`administration`, 14 permissions). Users, roles, settings, picklists, workflows, templates, integrations, audit log and data tools.
 
-| Permission                            | Key                   | Scope |
-| ------------------------------------- | --------------------- | ----- |
-| View users                            | `users:read`          | —     |
-| Invite, edit and deactivate users     | `users:manage`        | —     |
-| View as another user                  | `users:view_as`       | —     |
-| Edit roles and permissions            | `roles:manage`        | —     |
-| Edit company settings and territories | `settings:manage`     | —     |
-| Edit field picklists                  | `picklists:manage`    | —     |
-| Manage workflows                      | `workflows:manage`    | —     |
-| Manage message templates              | `templates:manage`    | —     |
-| View integrations and the outbox      | `integrations:read`   | —     |
-| Configure integrations                | `integrations:manage` | —     |
-| View the audit log                    | `audit:read`          | —     |
-| Restore deleted records               | `records:restore`     | —     |
-| Merge duplicate records               | `records:merge`       | —     |
-| Bulk update records                   | `bulk:update`         | —     |
+| Permission                             | Key                   | Scope |
+| -------------------------------------- | --------------------- | ----- |
+| View users                             | `users:read`          | —     |
+| Invite, edit and deactivate users      | `users:manage`        | —     |
+| View as another user                   | `users:view_as`       | —     |
+| Edit roles and permissions             | `roles:manage`        | —     |
+| Edit company settings and territories  | `settings:manage`     | —     |
+| Edit field picklists                   | `picklists:manage`    | —     |
+| Manage workflows                       | `workflows:manage`    | —     |
+| Manage message templates               | `templates:manage`    | —     |
+| View integrations and the outbox       | `integrations:read`   | —     |
+| Configure integrations                 | `integrations:manage` | —     |
+| View the audit log                     | `audit:read`          | —     |
+| Restore deleted records                | `records:restore`     | —     |
+| Merge duplicate records                | `records:merge`       | —     |
+| Bulk update records                    | `bulk:update`         | —     |
+| Write and publish Help Center articles | `help:manage`         | —     |
 
 **Office admin** (`office_admin`, 4 permissions). User directory, message templates, integrations view, restore deleted records.
 
@@ -440,3 +441,20 @@ No new permission keys; Phase 9 uses the Data & Reporting ones from Phase 1.
 - **My Numbers** needs `leads:read` or `jobs:read`; it shows your own numbers. Owners (role grants all) can pick any rep.
 - **Admin → Marketing Spend** and **Admin → Revenue Goals** need `settings:manage`.
 - **My Day** (`/workspace`): everyone; it only shows what the person can already see.
+
+## Added in Phase 10
+
+One new permission: **`help:manage`** (Write and publish Help Center articles), in the **Administration** pack; owners have it through "grants all".
+
+| Screen / action                                  | Needs                                                                                                                                                                                                                                                                                         |
+| ------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Admin → Module Manager (fields, rules, layouts)  | `settings:manage`. Filling in custom fields on a record needs the record's own update permission; validation rules apply to everyone.                                                                                                                                                         |
+| Admin → Data Import                              | `bulk:update` (plus create permission on the module for the rows it creates).                                                                                                                                                                                                                 |
+| Admin → Bulk Update (preview, apply, revert)     | `bulk:update`; apply and revert run as the person (security invoker), so row security and scopes still decide which records change.                                                                                                                                                           |
+| Admin → Merge Customers (merge, undo)            | `records:merge`                                                                                                                                                                                                                                                                               |
+| Admin → Export Controls                          | `audit:read` to see the log; turning exports on for a role needs `roles:manage` (it adds the Data export pack). List exports (Leads, Jobs) need `data:export` (+ `leads:export` for leads); the Audit Log CSV needs `data:export` and `audit:read`. Exports are off while viewing as someone. |
+| Admin → Job Recovery                             | `job_admin:override` **and** owner                                                                                                                                                                                                                                                            |
+| Admin → Commissions (settings, plans, simulator) | `commissions:manage`; My Numbers → My commissions shows your own entries with `commissions:read` (owners see everyone's).                                                                                                                                                                     |
+| Admin → Demo Data (counts, purge)                | `users:view_as` **and** owner                                                                                                                                                                                                                                                                 |
+| Help Center (read)                               | Everyone signed in reads published articles; drafts and Help → Manage need `help:manage`.                                                                                                                                                                                                     |
+| Gate / lockbox code                              | `properties:view_access_codes` (owners, office), or being on the crew with a published schedule day at that property **today** (Pacific).                                                                                                                                                     |

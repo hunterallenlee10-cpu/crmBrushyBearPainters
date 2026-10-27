@@ -15,7 +15,7 @@
 ## Lead-safe work in pre-1978 homes (SPEC §13.3)
 
 - [ ] **Washington runs its own RRP (Renovation, Repair and Painting) program through the Department of Commerce. Verify current requirements with them** — firm certification, certified renovator rules, recordkeeping, and required pamphlet ("Renovate Right") delivery and acknowledgment.
-- [ ] Enter the firm's RRP certification and each certified renovator (with expiry dates) in Company Settings / Subcontractors once Phase 6 lands.
+- [ ] Enter the firm's RRP certification and each certified renovator (with expiry dates) in Production → Resources (crew skills, with expiry dates) and Admin → Subcontractors.
 - [ ] Approve the lead-safe checklist used on work orders (containment, cleanup, cleaning verification).
 - [ ] Decide how "Not sure" year-built homes are handled (the CRM treats them as needing lead-safe prep until confirmed).
 
@@ -39,7 +39,7 @@
 ## Data and privacy
 
 - [ ] Decide data retention for leads that never became customers.
-- [ ] Confirm who may export customer data (Export Controls, Phase 10).
+- [ ] Confirm who may export customer data (Admin → Export Controls).
 
 ## Accounts and access (Phase 1)
 
@@ -90,3 +90,13 @@
 - [ ] **Who can export:** Download CSV needs the "Export data to CSV" permission (`data:export`). Exports contain customer names and addresses; check Admin → Users that only the right people have it. Every export is logged (who, what, filters, row count).
 - [ ] **Scheduled report emails:** they go only to active teammates and carry a preview of the report's rows; decide which reports may be emailed (A/R and margin reports include money). Nothing is actually sent until email is connected.
 - [ ] **Revenue goals and marketing spend** are owner inputs; nothing is pre-filled. Margins are visible only to owners and the bookkeeper.
+
+## Hardening & launch (Phase 10)
+
+- [ ] **Two-step sign-in for owners** is off in production at your request (2026-10-27). Owner accounts can see and change everything; turn it back on when you can (RUNBOOK "Sign-in setup"). The bookkeeper still uses it.
+- [ ] **Imports never carry consent.** Customers imported from a spreadsheet start with no text/email opt-in; record consent on the contact when the customer gives it (with the source). Do Not Contact and opt-outs survive a merge.
+- [ ] **Exports:** decide which roles may download lists (Admin → Export Controls). Every list and Audit Log export is logged with who, what and how many rows.
+- [ ] **Demo data** only ever goes into a test copy (the script refuses a hosted database unless told it isn't production). Don't load it into the live CRM.
+- [ ] **Gate and lockbox codes** are encrypted; only owners/office and the crew scheduled at that house today can reveal them, and every reveal is logged on the account. Keep `FIELD_ENCRYPTION_KEY` in your password manager.
+- [ ] **Commissions:** if you turn them on, write down the rules you set (rates, overhead, review threshold) and keep them with payroll records.
+- [ ] **Help articles** are generic how-to steps; review them so they match how you actually work before sharing with the team.

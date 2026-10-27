@@ -1,6 +1,6 @@
 # Runbook
 
-Operational procedures. Sections marked _(Phase N)_ are filled in when that feature exists.
+Operational procedures. The _(Phase N)_ marks say which build phase added a section.
 
 ## Local development
 
@@ -63,7 +63,7 @@ The website posts quote requests to `POST /api/public/leads` (contract in `docs/
 ## Gate and lockbox codes _(Phase 2)_
 
 - Codes are encrypted in the app (AES-256-GCM) with `FIELD_ENCRYPTION_KEY` (32 random bytes, base64: `openssl rand -base64 32`) before they reach the database.
-- **Losing or changing the key makes saved codes unreadable.** Keep a copy in the owners' password manager. To rotate: export the codes while the old key is set, change the key, re-enter them. A re-encryption script is a Phase 10 hardening item.
+- **Losing or changing the key makes saved codes unreadable.** Keep a copy in the owners' password manager. To rotate: export the codes while the old key is set, change the key, re-enter them. (A re-encryption script isn't built yet; see the Phase 10 gaps.)
 - Without the key set, the app still works; saving a code shows "Gate codes can't be saved until FIELD_ENCRYPTION_KEY is set."
 
 ## Background worker _(Phase 3)_
@@ -103,7 +103,7 @@ The website posts quote requests to `POST /api/public/leads` (contract in `docs/
 ## Onboarding, documents, photos and offline _(Phase 5)_
 
 - **Onboarding checks** run in the worker every minute for jobs in Sold or Onboarding (`summary.onboarding` in the worker's JSON: jobs checked, rows changed, jobs moved to Ready to Schedule). A job that should have moved: open it → Onboarding → **Re-verify all**; the item that's still open says why. Manual clears show who cleared them and the note.
-- **Storage buckets:** `documents` (25 MB per file: PDF, photos, Word, Excel, text, CSV) and `photos` (display copies and thumbnails, `<org>/jobs/<job>/<uuid>.jpg` and `-thumb.jpg`). Both are private; never make them public. Back them up with the database (Storage isn't in the database dump). Deleting a row soft-deletes it; files stay until a purge job (Phase 10) removes files of rows deleted long ago.
+- **Storage buckets:** `documents` (25 MB per file: PDF, photos, Word, Excel, text, CSV) and `photos` (display copies and thumbnails, `<org>/jobs/<job>/<uuid>.jpg` and `-thumb.jpg`). Both are private; never make them public. Back them up with the database (Storage isn't in the database dump). Deleting a row soft-deletes it; the file stays in Storage (no automatic file purge yet; see the Phase 10 gaps).
 - **Uploads that fail on Vercel:** documents upload straight to Supabase Storage (no Vercel size limit); photos go through `/api/jobs/<id>/photos` after the browser shrinks them (8 MB max per photo).
 - **Offline queue:** photos taken without signal live in the browser's IndexedDB on that phone (`brushybear-offline` → `uploads`) until they upload. Clearing site data on the phone deletes photos that haven't uploaded yet. Uploads are idempotent (client id), so retries never duplicate.
 - **Service worker** (`public/sw.js`): caches only hashed static files and `/offline`. After changing what it caches, bump `VERSION` in the file so phones drop the old cache. To turn it off in an emergency, deploy a `sw.js` that calls `self.registration.unregister()`.
@@ -146,9 +146,26 @@ The website posts quote requests to `POST /api/public/leads` (contract in `docs/
 4. **Numbers look wrong:** every KPI has a "View data" table with its date field and filters; compare with the matching report. The definitions are in `docs/METRICS.md` and `lib/metrics/registry.ts`; `supabase/tests/015_analytics.test.sql` has a worked example.
 5. **Who exported what:** `select * from export_log order by created_at desc` (Admin → Audit Log lists audited changes; `export_log` itself isn't audited).
 
-## Purge demo data _(Phase 10)_
+## Hardening & launch prep _(Phase 10)_
 
-Demo data only exists in dev/preview (`DEMO_DATA=true`) and is tagged `is_demo = true`. An owner-only admin action removes it.
+1. **Migrations for production** (apply in order, after CI is green, with `pnpm supabase db push` against the linked project; both additive and safe to re-run):
+   - `20261031000100_hardening.sql`: Module Manager (custom fields, validation rules, page layouts), Data Import, Bulk Update, Merge Customers, export log kinds, Help Center tables, commissions (off by default), `is_demo` columns + `purge_demo_data()` / `demo_data_counts()`, gate codes for the crew on site today, Job Recovery facts, `claim_subject_events()` (instant text-back) and `demo_backdate_stage()` (demo jobs only).
+   - `20261031000200_hardening_seed.sql`: the Help Center's 6 categories and 10 starter articles for every organization (idempotent by `seed_key`).
+   - Rollbacks: `supabase/rollbacks/20261031000200_hardening_seed.down.sql` then `…000100_hardening.down.sql` (drops custom fields, imports, bulk updates, merges, articles and commissions data; owner approval required).
+2. **No new required env vars.** `DEMO_DATA` is only for the demo script (never set it in production).
+3. **Build memory:** `pnpm build` and `pnpm typecheck` run TypeScript with a 6 GB heap (`NODE_OPTIONS=--max-old-space-size=6144` in `package.json`); type checking needs about 2.7 GB. Vercel's build machine has 8 GB. If a build dies with "JavaScript heap out of memory", check that the `build` script still sets it.
+4. **Security headers:** every page gets a nonce-based Content-Security-Policy from `middleware.ts` (`lib/security/csp.ts`). A blocked script or connection shows in the browser console as "Refused to …". New third-party script or API origin = add it to `buildCsp()` (and to `connect-src` for fetches). Session cookies are `Secure` + `SameSite=Lax` (not HttpOnly: the Supabase browser client reads them).
+5. **Rate limits** (per IP, counted in Postgres by `consume_rate_limit()`): website intake, proposal page and actions, unsubscribe page, review link, inbound messages. A `429` with `Retry-After` means the limit worked; limits are in `lib/security/rate-limit.ts`, `app/p/[token]/limits.ts` and the intake/inbound routes.
+6. **Export Controls:** Admin → Export Controls turns list exports on per role (adds the Data export pack) and shows the export log. `select * from export_log order by created_at desc` for the raw log.
+7. **Job Recovery** (Admin, owners only) lists jobs whose stage and records disagree, missing milestone dates and unusually long stays, each with a fix that needs a reason and is recorded in the job's history.
+
+## Demo data _(Phase 10)_
+
+Demo data is for local and preview projects only. Every record it writes has `is_demo = true`.
+
+- **Load:** `DEMO_DATA=true pnpm seed:demo` (local Supabase). It refuses unless `DEMO_DATA=true` **and** the Supabase URL is local (`127.0.0.1`/`localhost`), or you pass `--i-know-this-is-not-production` for a hosted non-production project. It refuses if demo data is already loaded; `--replace` purges and reloads, `--seed=42` gives a different (repeatable) set. Needs at least one active owner (`pnpm seed:owners`). It writes ~300 leads, 120 jobs across every stage and work type in the five cities, estimates with two options and add-ons, invoices and payments (some overdue), daily logs with a placeholder photo, three crews (two employee, one subcontractor), every hold type, rain delays, then runs the attention sweep and job health. Nothing is sent: messages go to the outbox as simulated, like everywhere else.
+- **Never run it against production.** Production starts empty and stays real.
+- **Purge:** Admin → Demo Data → **Purge demo data** (owners; type PURGE), or `DEMO_DATA=true pnpm seed:demo --purge`. It removes every `is_demo` record and what hangs off it (estimates, invoices, payments, schedule, logs, photos and their files, messages, attention items), detaches any real lead that was linked to a demo customer, and never touches real records. The counts it removed are shown and the purge is recorded as a `demo_data.purged` event.
 
 ## Incident basics
 

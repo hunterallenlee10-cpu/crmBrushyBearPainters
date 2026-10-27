@@ -34,15 +34,18 @@ pnpm supabase start
 # Optional: create your owner accounts (emails are never committed)
 SEED_OWNER_EMAILS="you@example.com" pnpm seed:owners
 
+# Optional: ~300 leads / 120 jobs of demo data (local only; tagged is_demo)
+DEMO_DATA=true pnpm seed:demo        # --replace to reload, --purge to remove
+
 pnpm dev            # http://localhost:3000
 ```
 
-Signing in locally: enter your email on `/login`, then open the link from Mailpit at http://127.0.0.1:54324 (local Supabase catches every email). Owners set up two-step sign-in on first login with any authenticator app.
+Signing in locally: enter your email and password on `/login`, or ask for a sign-in link and open it from Mailpit at http://127.0.0.1:54324 (local Supabase catches every email). Owners set up two-step sign-in on first login with any authenticator app.
 
 Useful pages while developing:
 
 - `/` — the app shell
-- `/login` — sign-in (magic link; Google once it's configured)
+- `/login` — sign-in (password or magic link; Google once it's configured)
 - `/admin` — Setup: company settings, users, roles & permissions, picklists, territories, integrations, audit log, deleted records
 - `/dev/ui` — design system: tokens, contrast ratios, stage colors, components (hidden in production)
 - Supabase Studio: http://127.0.0.1:54323
@@ -60,6 +63,7 @@ Useful pages while developing:
 | `pnpm test:e2e`                     | E2E + accessibility tests (Playwright, desktop + mobile)                          |
 | `pnpm screens`                      | Screenshots → `docs/screens/phase-N/` (`PHASE=N pnpm screens`)                    |
 | `pnpm db:test`                      | SQL / RLS tests (see below)                                                       |
+| `pnpm seed:demo`                    | Demo data (`DEMO_DATA=true`, local only; `--replace`, `--purge`)                  |
 | `pnpm db:types`                     | Regenerate `lib/db/types.ts` from the local database                              |
 | `pnpm bench:leads`                  | Lead List benchmark with 50k fake leads (local DB only; `--cleanup` removes them) |
 | `pnpm supabase <cmd>`               | Supabase CLI (pinned version), e.g. `start`, `stop`, `db reset`, `migration new`  |
