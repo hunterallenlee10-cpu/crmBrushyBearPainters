@@ -2,6 +2,10 @@
 
 > Draft outline. Each section is written as its feature ships, and finished in Phase 10.
 
+## Signing in
+
+Sign in at `/login` with your work email and password (or a sign-in link by email). Change your password in Settings → Security. Two-step sign-in (an authenticator app code) is **off for owners** right now because you asked for email + password only. We recommend turning it back on once you're settled in — your accounts can see and change everything. It's one line in the database (RUNBOOK "Sign-in setup"); ask whoever maintains the CRM.
+
 ## Daily routine
 
 1. **Home**: owners open the **Executive Overview** (the whole company at a glance); everyone else opens **My Day** with their Ready Score, today's appointments, tasks and new leads. Switch between them at the top, or change your default in Settings → Preferences.

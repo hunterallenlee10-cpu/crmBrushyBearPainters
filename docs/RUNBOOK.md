@@ -22,6 +22,8 @@ Do this once per Supabase project (preview and production). Local dev reads all 
 6. **Google sign-in (optional):** create an OAuth client in Google Cloud (Web application, redirect URI `https://<project>.supabase.co/auth/v1/callback`), then paste its client ID and secret in **Auth → Providers → Google**. Until then, the Google button says Google sign-in isn't set up.
 7. **First owners:** set `SEED_OWNER_EMAILS` (comma-separated: Hunter first, then Erik) and run `pnpm seed:owners` with that project's URL and secret key. Each owner then signs in with a magic link and sets up two-step sign-in.
 
+**Owner two-step sign-in (production):** turned **off** on 2026-10-27 at the owners' request (DECISIONS "Owner two-step sign-in turned off in production"); the Bookkeeper still requires it. It's a setting on the Owner role template, not code: turn it back on in the Supabase SQL editor with `update role_templates set requires_mfa = true where key = 'owner';`. Local and CI databases keep it on.
+
 ## Locked out
 
 - **Lost authenticator (owner):** another owner can't reset it from the app. In Supabase → Authentication → Users, open the user and delete their MFA factor. They set it up again at next sign-in.

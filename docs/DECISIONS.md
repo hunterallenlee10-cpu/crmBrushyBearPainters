@@ -870,3 +870,8 @@ Every non-obvious decision, newest at the bottom. Format: date · decision · re
 
 - **Decision:** The login page offers email + password ("Sign in") above the email-link option; Settings → Security has "Change password" (10+ characters). Sign-ups stay off, so only invited accounts can sign in, and two-step sign-in is still required afterwards for owners and the bookkeeper. Wrong password and unknown email get the same message.
 - **Reason:** Owner request (2026-10-27): log in directly with a password instead of waiting for a sign-in email. The free Supabase email sender is limited to a few emails an hour and only reaches organization members. SPEC §4.3 listed Google + magic link only; this adds a third method.
+
+### 2026-10-27 · Owner two-step sign-in turned off in production **[Deviation]**
+
+- **Decision:** In the production database the Owner role template has `requires_mfa = false` (the Bookkeeper still requires two-step sign-in). This is a data setting on the role template, not a code or migration change: the seed, migrations, local stack and CI keep owner two-step sign-in **on**, so the MFA tests still cover the flow. Re-enable it in the Supabase SQL editor with `update role_templates set requires_mfa = true where key = 'owner';` (Admin → Roles shows the "Two-step sign-in" badge but has no switch for it).
+- **Reason:** Owner request (2026-10-27): the owners asked to sign in with email + password only. SPEC §4.3/§13.1 call for two-step sign-in on owner accounts; recommended to turn it back on once day-to-day use settles.
