@@ -78,6 +78,18 @@ export const ATTENTION_RULES = {
       "Walkthrough complete with no estimate sent: warning and breach hours come from Company Settings.",
     thresholds: {},
   },
+  estimate_awaiting_reply: {
+    label: "Estimate awaiting reply",
+    category: "communication",
+    description: "An estimate sent a while ago that the customer hasn't opened or answered.",
+    thresholds: { days: 3 },
+  },
+  estimate_expiring: {
+    label: "Expiring estimate",
+    category: "sales",
+    description: "A sent estimate that expires soon without an answer.",
+    thresholds: { days: 5 },
+  },
   approval_pending: {
     label: "Approval needed",
     category: "approvals",
@@ -165,8 +177,24 @@ export type SnapshotJob = {
   onTimeGuaranteeStatus: string;
 };
 
+export type SnapshotEstimate = {
+  id: string;
+  number: string;
+  jobId: string;
+  jobName: string;
+  jobNumber: string;
+  /** "sent" or "viewed" (open estimates only). */
+  status: string;
+  sentAt: string;
+  viewedAt: string | null;
+  expiresAt: string | null;
+  ownerId: string | null;
+};
+
 export type SnapshotApproval = {
   id: string;
+  /** "stage_override" or "estimate_discount". */
+  type?: string;
   jobId: string;
   jobName: string;
   requestedAt: string;
@@ -178,6 +206,8 @@ export type AttentionSnapshot = {
   walkthroughs: readonly SnapshotWalkthrough[];
   jobs: readonly SnapshotJob[];
   approvals: readonly SnapshotApproval[];
+  /** Open (sent or viewed) estimates. */
+  estimates?: readonly SnapshotEstimate[];
 };
 
 export type AttentionSettings = {
@@ -446,6 +476,51 @@ export function evaluateAttention(
     }
   }
 
+  // Estimate awaiting reply: sent N+ days ago and not opened (accepted/declined estimates aren't open).
+  if (enabled(settings, "estimate_awaiting_reply")) {
+    const days = threshold(settings, "estimate_awaiting_reply", "days", 3);
+    for (const e of snapshot.estimates ?? []) {
+      if (e.status !== "sent" || e.viewedAt) continue;
+      const waited = (now.getTime() - new Date(e.sentAt).getTime()) / DAY;
+      if (waited < days) continue;
+      items.push({
+        ruleKey: "estimate_awaiting_reply",
+        category: "communication",
+        priority: "medium",
+        title: `Estimate awaiting reply: ${e.jobName} (${e.jobNumber})`,
+        detail: `${e.number} was sent ${plural(Math.floor(waited), "day")} ago and the customer hasn't opened it. Follow up by phone or text.`,
+        subjectType: "job",
+        subjectId: e.jobId,
+        ownerId: e.ownerId,
+        dueAt: null,
+        dedupeKey: `estimate_awaiting_reply:${e.id}`,
+      });
+    }
+  }
+
+  // Expiring estimate: expires within N days.
+  if (enabled(settings, "estimate_expiring")) {
+    const days = threshold(settings, "estimate_expiring", "days", 5);
+    for (const e of snapshot.estimates ?? []) {
+      if ((e.status !== "sent" && e.status !== "viewed") || !e.expiresAt) continue;
+      const left = (new Date(e.expiresAt).getTime() - now.getTime()) / DAY;
+      if (left < 0 || left > days) continue;
+      const whole = Math.floor(left);
+      items.push({
+        ruleKey: "estimate_expiring",
+        category: "sales",
+        priority: "medium",
+        title: `Estimate expiring: ${e.jobName} (${e.jobNumber})`,
+        detail: `${e.number} expires ${whole === 0 ? "today" : `in ${plural(whole, "day")}`}. Check in with the customer or send a new version.`,
+        subjectType: "job",
+        subjectId: e.jobId,
+        ownerId: e.ownerId,
+        dueAt: e.expiresAt,
+        dedupeKey: `estimate_expiring:${e.id}`,
+      });
+    }
+  }
+
   // Approval needed for more than N hours.
   if (enabled(settings, "approval_pending")) {
     const hours = threshold(settings, "approval_pending", "hours", 2);
@@ -457,7 +532,7 @@ export function evaluateAttention(
         category: "approvals",
         priority: "high",
         title: `Approval needed: ${a.jobName}`,
-        detail: `${a.requesterName} asked ${Math.floor(waited)} h ago for a stage override.`,
+        detail: `${a.requesterName} asked ${Math.floor(waited)} h ago for ${a.type === "estimate_discount" ? "a discount over their limit" : "a stage override"}.`,
         subjectType: "job",
         subjectId: a.jobId,
         ownerId: null,

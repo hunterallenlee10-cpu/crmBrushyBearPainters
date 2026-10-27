@@ -60,10 +60,35 @@ export function isApprovalStatus(v: string): v is ApprovalStatus {
   return v === "pending" || v === "approved" || v === "rejected" || v === "canceled";
 }
 
-/** Plain-English request types (stage overrides now; discounts and change orders later). */
+/** Plain-English request types. */
 export const APPROVAL_TYPE_LABELS: Record<string, string> = {
   stage_override: "Stage override",
+  estimate_discount: "Estimate discount",
 };
+
+/** What a discount request asks for: `{ version_id, estimate_number, discount_percent }`. */
+export type DiscountPayload = {
+  versionId: string;
+  estimateNumber: string | null;
+  discountPercent: number;
+};
+
+export function parseDiscountPayload(raw: unknown): DiscountPayload | null {
+  const o =
+    raw && typeof raw === "object" && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {};
+  const version = str(o.version_id);
+  const pct = typeof o.discount_percent === "number" ? o.discount_percent : Number.NaN;
+  if (
+    !version ||
+    !/^[0-9a-f-]{36}$/.test(version) ||
+    !Number.isFinite(pct) ||
+    pct < 0 ||
+    pct > 100
+  ) {
+    return null;
+  }
+  return { versionId: version, estimateNumber: str(o.estimate_number), discountPercent: pct };
+}
 
 export function approvalTypeLabel(type: string): string {
   return APPROVAL_TYPE_LABELS[type] ?? type.replace(/_/g, " ");

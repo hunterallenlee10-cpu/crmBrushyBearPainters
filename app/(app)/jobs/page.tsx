@@ -135,12 +135,12 @@ export default async function JobsDashboardPage({ searchParams }: { searchParams
   if (money && recentRows.length) {
     const { data: fin } = await supabase
       .from("job_financials")
-      .select("job_id, contract_baseline_cents")
+      .select("job_id, contract_cents")
       .in(
         "job_id",
         recentRows.map((j) => j.id),
       );
-    for (const f of fin ?? []) amounts.set(f.job_id, f.contract_baseline_cents);
+    for (const f of fin ?? []) amounts.set(f.job_id, f.contract_cents);
   }
   const recent: RecentJob[] = recentRows.flatMap((j) =>
     isJobStageId(j.stage)

@@ -230,11 +230,11 @@ export function Overview({ data }: { data: JobDetailData }) {
               label="Contract"
               value={data.contractCents !== null ? formatMoney(data.contractCents) : "Not set"}
               caption={
-                data.contractCents !== null
-                  ? "Contract baseline (estimates arrive in Phase 4)"
-                  : can.override
-                    ? "Set a contract baseline in Admin until estimates arrive (Phase 4)."
-                    : "An owner sets the contract baseline until estimates arrive (Phase 4)."
+                data.contractFromEstimate
+                  ? "Accepted estimate + signed change orders"
+                  : data.contractCents !== null
+                    ? "Contract baseline (no estimate accepted yet)"
+                    : "Set when the customer accepts an estimate."
               }
             />
             <MoneyTile

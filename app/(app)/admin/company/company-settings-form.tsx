@@ -358,7 +358,7 @@ export function CompanySettingsForm({
             ) : (
               <>
                 <Badge variant="warning">Not set</Badge> Confirm Washington sales-tax treatment with
-                your accountant. Tax rules are set up with estimating (Phase 4).
+                your accountant. Set the rate in Admin → Estimate Setup.
               </>
             )}
           </p>

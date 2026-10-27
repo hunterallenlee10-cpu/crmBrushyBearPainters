@@ -76,73 +76,86 @@ export async function runAttentionSweep(service: Db, now = new Date()): Promise<
 
 async function sweepOrg(service: Db, orgId: string, now: Date) {
   const soon = new Date(now.getTime() + 3 * 24 * 3_600_000).toISOString();
-  const [settingsRow, rules, leads, walkthroughs, jobs, approvals, existing] = await Promise.all([
-    service
-      .from("company_settings")
-      .select(
-        "business_hours, text_back_sla_minutes, estimate_sla_hours, estimate_sla_warn_hours, exterior_season_start, exterior_season_end",
-      )
-      .eq("org_id", orgId)
-      .maybeSingle(),
-    service.from("attention_rules").select("rule_key, enabled, thresholds").eq("org_id", orgId),
-    all((from, to) =>
+  const [settingsRow, rules, leads, walkthroughs, jobs, approvals, existing, estimates] =
+    await Promise.all([
       service
-        .from("leads")
+        .from("company_settings")
         .select(
-          "id, first_name, last_name, status, owner_id, created_at, first_contacted_at, last_activity_at",
+          "business_hours, text_back_sla_minutes, estimate_sla_hours, estimate_sla_warn_hours, exterior_season_start, exterior_season_end",
         )
         .eq("org_id", orgId)
-        .is("deleted_at", null)
-        .in("status", ["new", "contacted", "walkthrough_scheduled"])
-        .order("id")
-        .range(from, to),
-    ),
-    all((from, to) =>
+        .maybeSingle(),
+      service.from("attention_rules").select("rule_key, enabled, thresholds").eq("org_id", orgId),
+      all((from, to) =>
+        service
+          .from("leads")
+          .select(
+            "id, first_name, last_name, status, owner_id, created_at, first_contacted_at, last_activity_at",
+          )
+          .eq("org_id", orgId)
+          .is("deleted_at", null)
+          .in("status", ["new", "contacted", "walkthrough_scheduled"])
+          .order("id")
+          .range(from, to),
+      ),
+      all((from, to) =>
+        service
+          .from("appointments")
+          .select(
+            "id, starts_at, status, job_id, lead_id, lead:leads(first_name, last_name, owner_id), job:jobs(name, owner_id, point_of_contact_id)",
+          )
+          .eq("org_id", orgId)
+          .eq("type", "walkthrough")
+          .is("deleted_at", null)
+          .in("status", ["scheduled", "tentative"])
+          .gt("starts_at", now.toISOString())
+          .lt("starts_at", soon)
+          .order("id")
+          .range(from, to),
+      ),
+      all((from, to) =>
+        service
+          .from("jobs")
+          .select(
+            "id, name, job_number, stage, stage_entered_at, owner_id, point_of_contact_id, work_types, promised_start_date, actual_start_date, walkthrough_completed_at, estimate_sent_at, estimate_accepted_at, deposit_paid_at, on_time_guarantee_status",
+          )
+          .eq("org_id", orgId)
+          .is("deleted_at", null)
+          .not("stage", "in", "(closed_won,closed_lost)")
+          .order("id")
+          .range(from, to),
+      ),
       service
-        .from("appointments")
+        .from("approval_requests")
         .select(
-          "id, starts_at, status, job_id, lead_id, lead:leads(first_name, last_name, owner_id), job:jobs(name, owner_id, point_of_contact_id)",
+          "id, type, job_id, requested_at, job:jobs(name), requester:profiles!approval_requests_requested_by_fkey(full_name)",
         )
         .eq("org_id", orgId)
-        .eq("type", "walkthrough")
-        .is("deleted_at", null)
-        .in("status", ["scheduled", "tentative"])
-        .gt("starts_at", now.toISOString())
-        .lt("starts_at", soon)
-        .order("id")
-        .range(from, to),
-    ),
-    all((from, to) =>
-      service
-        .from("jobs")
-        .select(
-          "id, name, job_number, stage, stage_entered_at, owner_id, point_of_contact_id, work_types, promised_start_date, actual_start_date, walkthrough_completed_at, estimate_sent_at, estimate_accepted_at, deposit_paid_at, on_time_guarantee_status",
-        )
-        .eq("org_id", orgId)
-        .is("deleted_at", null)
-        .not("stage", "in", "(closed_won,closed_lost)")
-        .order("id")
-        .range(from, to),
-    ),
-    service
-      .from("approval_requests")
-      .select(
-        "id, job_id, requested_at, job:jobs(name), requester:profiles!approval_requests_requested_by_fkey(full_name)",
-      )
-      .eq("org_id", orgId)
-      .eq("status", "pending"),
-    all((from, to) =>
-      service
-        .from("attention_items")
-        .select(
-          "id, dedupe_key, status, priority, title, detail, due_at, owner_id, snoozed_until, resolution, condition_cleared_at",
-        )
-        .eq("org_id", orgId)
-        .or("status.neq.resolved,and(resolution.eq.manual,condition_cleared_at.is.null)")
-        .order("id")
-        .range(from, to),
-    ),
-  ]);
+        .eq("status", "pending"),
+      all((from, to) =>
+        service
+          .from("attention_items")
+          .select(
+            "id, dedupe_key, status, priority, title, detail, due_at, owner_id, snoozed_until, resolution, condition_cleared_at",
+          )
+          .eq("org_id", orgId)
+          .or("status.neq.resolved,and(resolution.eq.manual,condition_cleared_at.is.null)")
+          .order("id")
+          .range(from, to),
+      ),
+      all((from, to) =>
+        service
+          .from("estimates")
+          .select(
+            "id, estimate_number, status, sent_at, viewed_at, expires_at, owner_id, job:jobs!estimates_job_id_fkey(id, name, job_number, owner_id, point_of_contact_id, deleted_at)",
+          )
+          .eq("org_id", orgId)
+          .is("deleted_at", null)
+          .in("status", ["sent", "viewed"])
+          .order("id")
+          .range(from, to),
+      ),
+    ]);
   if (settingsRow.error) throw settingsRow.error;
   if (rules.error) throw rules.error;
   if (approvals.error) throw approvals.error;
@@ -234,8 +247,27 @@ async function sweepOrg(service: Db, orgId: string, now: Date) {
         return [];
       }),
       jobs: snapshotJobs,
+      estimates: estimates.flatMap((e) =>
+        e.job && !e.job.deleted_at && e.sent_at
+          ? [
+              {
+                id: e.id,
+                number: e.estimate_number,
+                jobId: e.job.id,
+                jobName: e.job.name,
+                jobNumber: e.job.job_number,
+                status: e.status,
+                sentAt: e.sent_at,
+                viewedAt: e.viewed_at,
+                expiresAt: e.expires_at,
+                ownerId: e.job.point_of_contact_id ?? e.owner_id ?? e.job.owner_id,
+              },
+            ]
+          : [],
+      ),
       approvals: (approvals.data ?? []).map((a) => ({
         id: a.id,
+        type: a.type,
         jobId: a.job_id,
         jobName: a.job?.name ?? "A job",
         requestedAt: a.requested_at,

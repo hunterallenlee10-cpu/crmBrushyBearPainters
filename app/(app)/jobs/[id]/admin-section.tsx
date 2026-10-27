@@ -338,8 +338,8 @@ function ContractBaseline({
         Contract baseline
       </h3>
       <p className="mb-3 text-sm text-muted-foreground">
-        The contract amount until estimates arrive (Phase 4). Only people who see financials can
-        read it.
+        Used as the contract amount only while no estimate is accepted (jobs started before
+        estimating, or sold outside the CRM). Only people who see financials can read it.
       </p>
       <form
         noValidate

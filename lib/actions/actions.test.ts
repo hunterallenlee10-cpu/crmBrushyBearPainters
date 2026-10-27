@@ -221,3 +221,17 @@ describe("parseAccess / sessionGate", () => {
     expect(initials("")).toBe("?");
   });
 });
+
+describe("checkOne", () => {
+  it("returns the row, or throws not found / the mapped database error", async () => {
+    const { checkOne, ActionFailure } = await import("./errors");
+    expect(checkOne({ data: { id: "x" }, error: null })).toEqual({ id: "x" });
+    expect(() => checkOne({ data: null, error: null }, "Gone.")).toThrow("Gone.");
+    try {
+      checkOne({ data: null, error: { code: "42501", message: "permission denied for table x" } });
+    } catch (e) {
+      expect(e).toBeInstanceOf(ActionFailure);
+      expect((e as InstanceType<typeof ActionFailure>).error.code).toBe("forbidden");
+    }
+  });
+});

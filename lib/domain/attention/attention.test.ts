@@ -348,3 +348,72 @@ describe("urgency", () => {
     expect(highOverdue).toBeGreaterThan(highLater);
   });
 });
+
+describe("estimate rules (Phase 4)", () => {
+  const est = {
+    id: "e1",
+    number: "EST-2026-0001",
+    jobId: "j1",
+    jobName: "Smith",
+    jobNumber: "BB-2026-0001",
+    status: "sent",
+    sentAt: "2026-10-22T17:00:00Z",
+    viewedAt: null,
+    expiresAt: "2026-11-21T17:00:00Z",
+    ownerId: "poc",
+  };
+
+  it("flags an estimate sent 3+ days ago that the customer hasn't opened", () => {
+    expect(keys({ ...empty, estimates: [est] })).toEqual(["estimate_awaiting_reply:e1|medium"]);
+    const item = evaluateAttention({ ...empty, estimates: [est] }, settings, now)[0];
+    expect(item?.detail).toMatch(/sent 4 days ago/);
+    expect(keys({ ...empty, estimates: [{ ...est, sentAt: "2026-10-25T17:00:00Z" }] })).toEqual([]);
+    expect(
+      keys({ ...empty, estimates: [{ ...est, status: "viewed", viewedAt: now.toISOString() }] }),
+    ).toEqual([]);
+  });
+
+  it("flags an estimate expiring within 5 days", () => {
+    const soon = { ...est, sentAt: "2026-10-25T17:00:00Z", expiresAt: "2026-10-29T18:00:00Z" };
+    expect(keys({ ...empty, estimates: [soon] })).toEqual(["estimate_expiring:e1|medium"]);
+    const today = {
+      ...soon,
+      status: "viewed",
+      viewedAt: soon.sentAt,
+      expiresAt: "2026-10-26T20:00:00Z",
+    };
+    expect(evaluateAttention({ ...empty, estimates: [today] }, settings, now)[0]?.detail).toMatch(
+      /expires today/,
+    );
+    expect(keys({ ...empty, estimates: [{ ...soon, expiresAt: "2026-10-20T00:00:00Z" }] })).toEqual(
+      [],
+    );
+    expect(keys({ ...empty, estimates: [{ ...soon, expiresAt: null }] })).toEqual([]);
+    expect(keys({ ...empty, estimates: [{ ...soon, status: "accepted" }] })).toEqual([]);
+  });
+
+  it("respects thresholds and switches", () => {
+    const s = {
+      ...settings,
+      rules: {
+        estimate_awaiting_reply: { enabled: false, thresholds: {} },
+        estimate_expiring: { enabled: true, thresholds: { days: 30 } },
+      },
+    };
+    expect(keys({ ...empty, estimates: [est] }, s)).toEqual(["estimate_expiring:e1|medium"]);
+  });
+
+  it("says which kind of approval is waiting", () => {
+    const approval = {
+      id: "a1",
+      type: "estimate_discount",
+      jobId: "j1",
+      jobName: "Smith",
+      requestedAt: "2026-10-26T12:00:00Z",
+      requesterName: "Eli",
+    };
+    expect(
+      evaluateAttention({ ...empty, approvals: [approval] }, settings, now)[0]?.detail,
+    ).toMatch(/discount over their limit/);
+  });
+});

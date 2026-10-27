@@ -149,7 +149,7 @@ export default async function JobDetailPage({
     can.readFinancials
       ? supabase
           .from("job_financials")
-          .select("contract_baseline_cents")
+          .select("contract_baseline_cents, contract_cents, estimate_contract_cents")
           .eq("job_id", id)
           .maybeSingle()
       : none,
@@ -384,7 +384,9 @@ export default async function JobDetailPage({
     pendingApproval,
     history: historyItems,
     recentActivity,
-    contractCents: financials.data?.contract_baseline_cents ?? null,
+    contractCents: financials.data?.contract_cents ?? null,
+    contractBaselineCents: financials.data?.contract_baseline_cents ?? null,
+    contractFromEstimate: financials.data?.estimate_contract_cents != null,
     gate,
     counts: {
       notes: notesCount.count ?? null,
@@ -398,6 +400,10 @@ export default async function JobDetailPage({
       override: writable(canOverride),
       delete: writable(viewer.can("jobs:delete") && canUpdate),
       readFinancials: can.readFinancials,
+      readEstimates: viewer.can("estimates:read"),
+      editEstimates: writable(viewer.can("estimates:create") && canUpdate),
+      sendEstimates: writable(viewer.can("estimates:send") && canUpdate),
+      draftChangeOrders: writable(viewer.can("change_orders:draft")),
       readAppointments: can.readAppointments,
       manageAppointments: writable(viewer.can("appointments:manage")),
       readMessages: viewer.can("messages:read"),

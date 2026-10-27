@@ -53,6 +53,13 @@ async function run(request: NextRequest) {
   }
 
   try {
+    const { data: expired } = await service.rpc("expire_proposals");
+    summary.expiredProposals = expired ?? 0;
+  } catch (e) {
+    logError("worker.expire_proposals", e);
+  }
+
+  try {
     const cutoff = new Date(now.getTime() - AUTO_CLOSE_DAYS * 24 * 3_600_000).toISOString();
     const { data: paid } = await service
       .from("jobs")

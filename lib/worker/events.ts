@@ -2,6 +2,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, Json } from "@/lib/db/types";
 import { getStage, isJobStageId } from "@/lib/domain/stages";
+import { completeAcceptance, completeChangeOrder } from "@/lib/estimating/proposal";
 import { logError } from "@/lib/log";
 
 type Db = SupabaseClient<Database>;
@@ -40,7 +41,89 @@ async function notify(
 
 type Handler = (service: Db, e: EventRow) => Promise<"processed" | "skipped">;
 
+/** Tells the job's owner and point of contact what the customer did. */
+async function notifyJobPeople(
+  service: Db,
+  e: EventRow,
+  jobId: string | undefined,
+  title: (jobName: string) => string,
+  body: string | null,
+): Promise<"processed" | "skipped"> {
+  if (!e.org_id || !jobId) return "skipped";
+  const { data: job } = await service
+    .from("jobs")
+    .select("id, name, owner_id, point_of_contact_id")
+    .eq("id", jobId)
+    .maybeSingle();
+  if (!job) return "skipped";
+  const users = new Set(
+    [job.owner_id, job.point_of_contact_id].filter((u): u is string => !!u && u !== e.actor_id),
+  );
+  await notify(
+    service,
+    [...users].map((user_id) => ({
+      org_id: e.org_id as string,
+      user_id,
+      type: "estimate",
+      title: title(job.name).slice(0, 200),
+      body,
+      link: `/jobs/${job.id}?section=estimate`,
+    })),
+  );
+  return "processed";
+}
+
+const str = (v: Json | undefined) => (typeof v === "string" ? v : undefined);
+
 const handlers: Record<string, Handler> = {
+  // Signed proposal PDF and the stage moves (idempotent: also run right after signing).
+  "estimate.accepted": async (service, e) => {
+    if (!e.aggregate_id) return "skipped";
+    await completeAcceptance(service, e.aggregate_id);
+    return notifyJobPeople(
+      service,
+      e,
+      str(payloadOf(e).job_id),
+      (name) => `Estimate accepted and signed: ${name}`,
+      "The deposit invoice and onboarding checklist are ready.",
+    );
+  },
+  "estimate.viewed": async (service, e) =>
+    notifyJobPeople(
+      service,
+      e,
+      str(payloadOf(e).job_id),
+      (n) => `Customer opened the estimate: ${n}`,
+      null,
+    ),
+  "estimate.declined": async (service, e) =>
+    notifyJobPeople(
+      service,
+      e,
+      str(payloadOf(e).job_id),
+      (n) => `Customer declined the estimate: ${n}`,
+      str(payloadOf(e).reason) ?? null,
+    ),
+  "change_order.signed": async (service, e) => {
+    if (!e.aggregate_id) return "skipped";
+    await completeChangeOrder(service, e.aggregate_id);
+    return notifyJobPeople(
+      service,
+      e,
+      str(payloadOf(e).job_id),
+      (n) => `Change order signed: ${n}`,
+      null,
+    );
+  },
+  "change_order.declined": async (service, e) =>
+    notifyJobPeople(
+      service,
+      e,
+      str(payloadOf(e).job_id),
+      (n) => `Change order declined: ${n}`,
+      null,
+    ),
+
   // The job's team hears about stage changes they didn't make.
   "job.stage_changed": async (service, e) => {
     if (!e.org_id || !e.aggregate_id) return "skipped";
@@ -77,7 +160,7 @@ const handlers: Record<string, Handler> = {
     if (!e.org_id || !e.aggregate_id) return "skipped";
     const { data: req } = await service
       .from("approval_requests")
-      .select("id, job:jobs(name)")
+      .select("id, type, job:jobs(name)")
       .eq("id", e.aggregate_id)
       .maybeSingle();
     if (!req) return "skipped";
@@ -96,7 +179,10 @@ const handlers: Record<string, Handler> = {
           user_id: o.id,
           type: "approval",
           title: `Approval needed: ${req.job?.name ?? "a job"}`.slice(0, 200),
-          body: "A stage override is waiting for your decision.",
+          body:
+            req.type === "estimate_discount"
+              ? "An estimate discount over the limit is waiting for your decision."
+              : "A stage override is waiting for your decision.",
           link: "/jobs/approvals",
         })),
     );

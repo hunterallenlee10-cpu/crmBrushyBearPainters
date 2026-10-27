@@ -56,11 +56,7 @@ export const getJobPreview = defineAction({
         .maybeSingle(),
       loadJobOptions(supabase),
       canSeeMoney
-        ? supabase
-            .from("job_financials")
-            .select("contract_baseline_cents")
-            .eq("job_id", id)
-            .maybeSingle()
+        ? supabase.from("job_financials").select("contract_cents").eq("job_id", id).maybeSingle()
         : Promise.resolve(null),
     ]);
     const { data: j, error } = jobRes;
@@ -101,7 +97,7 @@ export const getJobPreview = defineAction({
       projectManagerName: j.pm?.full_name ?? null,
       leadSource: j.lead_source ? labelFor(options.picklists.lead_source, j.lead_source) : null,
       startDate: j.promised_start_date,
-      ...(canSeeMoney ? { amountCents: moneyRes?.data?.contract_baseline_cents ?? null } : {}),
+      ...(canSeeMoney ? { amountCents: moneyRes?.data?.contract_cents ?? null } : {}),
       healthScore: j.health_score,
       createdAt: j.created_at,
       stageEnteredAt: j.stage_entered_at,

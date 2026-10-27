@@ -95,3 +95,15 @@ export function check<T>(result: { data: T; error: DbError | null }): T {
   if (result.error) throw new ActionFailure(mapDbError(result.error));
   return result.data;
 }
+
+/** Like check(), for a query that must return a row (`.single()` / `.maybeSingle()`). */
+export function checkOne<R extends { data: unknown; error: DbError | null }>(
+  result: R,
+  notFound = "That record no longer exists.",
+): NonNullable<R["data"]> {
+  if (result.error) throw new ActionFailure(mapDbError(result.error));
+  if (result.data === null || result.data === undefined) {
+    throw new ActionFailure(actionError("not_found", notFound));
+  }
+  return result.data as NonNullable<R["data"]>;
+}

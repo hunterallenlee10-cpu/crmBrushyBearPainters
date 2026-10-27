@@ -181,7 +181,7 @@ export function SectionContent({ data, tab }: { data: JobDetailData; tab?: strin
           gate={data.gate}
           milestones={job.milestones}
           promisedStartDate={job.promisedStartDate}
-          contractCents={data.contractCents}
+          contractCents={data.contractBaselineCents}
           canSeeMoney={can.readFinancials}
           onTimeStatus={job.onTimeStatus}
           activeHoldCount={data.holds.filter((h) => !h.releasedAt).length}

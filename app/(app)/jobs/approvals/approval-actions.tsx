@@ -28,7 +28,9 @@ export function ApprovalActions({
   canDecide,
   canCancel,
   staleReason = null,
+  kind = "stage_override",
 }: {
+  kind?: "stage_override" | "estimate_discount";
   id: string;
   /** "BB-2026-0001 · Smith – Kirkland – Interior" */
   jobLabel: string;
@@ -81,7 +83,9 @@ export function ApprovalActions({
       }
       toast.success(
         mode === "approve"
-          ? `Approved. ${jobLabel} moved: ${moveLabel}.`
+          ? kind === "estimate_discount"
+            ? `Approved. ${moveLabel} can be sent now.`
+            : `Approved. ${jobLabel} moved: ${moveLabel}.`
           : mode === "reject"
             ? "Request rejected. The requester will be notified."
             : "Request canceled.",
@@ -93,7 +97,9 @@ export function ApprovalActions({
 
   const title =
     mode === "approve"
-      ? "Approve override"
+      ? kind === "estimate_discount"
+        ? "Approve discount"
+        : "Approve override"
       : mode === "reject"
         ? "Reject request"
         : "Cancel your request";
@@ -131,9 +137,13 @@ export function ApprovalActions({
             <DialogTitle>{title}</DialogTitle>
             <DialogDescription>
               {mode === "approve"
-                ? `Moves ${jobLabel} (${moveLabel}) as an owner override. The request's reason and your name go in the stage history.`
+                ? kind === "estimate_discount"
+                  ? `Lets ${moveLabel} go out for ${jobLabel}. A bigger discount later needs a new approval.`
+                  : `Moves ${jobLabel} (${moveLabel}) as an owner override. The request's reason and your name go in the stage history.`
                 : mode === "reject"
-                  ? `The job stays where it is. ${jobLabel} (${moveLabel}).`
+                  ? kind === "estimate_discount"
+                    ? `The estimate stays a draft. ${jobLabel} (${moveLabel}).`
+                    : `The job stays where it is. ${jobLabel} (${moveLabel}).`
                   : `Withdraws your request for ${jobLabel} (${moveLabel}).`}
             </DialogDescription>
           </DialogHeader>
@@ -196,7 +206,9 @@ export function ApprovalActions({
               >
                 {pending && <Loader2 className="animate-spin" aria-hidden />}
                 {mode === "approve"
-                  ? "Approve and move job"
+                  ? kind === "estimate_discount"
+                    ? "Approve discount"
+                    : "Approve and move job"
                   : mode === "reject"
                     ? "Reject request"
                     : "Cancel request"}

@@ -4,7 +4,7 @@ import { type CreateEnvelopeInput, type ESignProvider } from "@/lib/integrations
 
 /**
  * Default e-sign provider ("builtin"). The in-app BearSign click-to-sign flow
- * arrives in Phase 4; until then a signature request is recorded to the outbox.
+ * lives on the proposal page (/p/[token]); a request through this adapter is recorded to the outbox.
  *
  * The PDF itself is NOT copied into the outbox payload (it can be megabytes of
  * base64 in a jsonb column); the payload keeps its size and SHA-256 instead.
@@ -37,7 +37,7 @@ export function createBuiltinESignProvider(ctx: IntegrationContext): ESignProvid
       });
     },
     async getStatus() {
-      return notConnected("BearSign (built-in e-signature) arrives in Phase 4.");
+      return notConnected("BearSign signs on the proposal page; no outside provider is connected.");
     },
   };
 }

@@ -143,6 +143,10 @@ export type JobPermissions = {
   override: boolean;
   delete: boolean;
   readFinancials: boolean;
+  readEstimates: boolean;
+  editEstimates: boolean;
+  sendEstimates: boolean;
+  draftChangeOrders: boolean;
   readAppointments: boolean;
   manageAppointments: boolean;
   readMessages: boolean;
@@ -160,7 +164,10 @@ export type JobDetailData = {
   pendingApproval: PendingApproval | null;
   history: HistoryItem[];
   recentActivity: ActivityItem[];
+  /** Accepted estimate + signed change orders, or the baseline when nothing is accepted. */
   contractCents: number | null;
+  contractBaselineCents: number | null;
+  contractFromEstimate: boolean;
   gate: GateContext;
   counts: { notes: number | null; openTasks: number | null; tasksDue: number | null };
   can: JobPermissions;

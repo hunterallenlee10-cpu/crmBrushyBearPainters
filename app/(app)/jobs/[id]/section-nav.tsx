@@ -36,7 +36,12 @@ export function SectionNav({
 }: {
   items: NavItem[];
   current: JobSectionId;
-  shortcuts: { resultHref: string; resultReason: string | null };
+  shortcuts: {
+    resultHref: string;
+    resultReason: string | null;
+    estimateHref: string;
+    estimateReason: string | null;
+  };
 }) {
   const router = useRouter();
   const [collapsed, setCollapsed] = React.useState(false);
@@ -83,24 +88,32 @@ export function SectionNav({
           </Link>
         </Button>
       )}
-      <ReasonButton
-        size="sm"
-        variant="outline"
-        className="justify-start"
-        disabledReason="Build Estimate arrives with estimating in Phase 4."
-      >
-        <Ruler aria-hidden />
-        Build Estimate
-      </ReasonButton>
-      <ReasonButton
-        size="sm"
-        variant="outline"
-        className="justify-start"
-        disabledReason="Send for Signature arrives with proposals in Phase 4."
-      >
-        <FileSignature aria-hidden />
-        Send for Signature
-      </ReasonButton>
+      {shortcuts.estimateReason ? (
+        <ReasonButton
+          size="sm"
+          variant="outline"
+          className="justify-start"
+          disabledReason={shortcuts.estimateReason}
+        >
+          <Ruler aria-hidden />
+          Build Estimate
+        </ReasonButton>
+      ) : (
+        <>
+          <Button size="sm" variant="outline" className="justify-start" asChild>
+            <Link href={shortcuts.estimateHref} scroll={false}>
+              <Ruler aria-hidden />
+              Build Estimate
+            </Link>
+          </Button>
+          <Button size="sm" variant="outline" className="justify-start" asChild>
+            <Link href={shortcuts.estimateHref} scroll={false}>
+              <FileSignature aria-hidden />
+              Send for Signature
+            </Link>
+          </Button>
+        </>
+      )}
       <ReasonButton
         size="sm"
         variant="outline"

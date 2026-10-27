@@ -20,7 +20,7 @@ import { getStage, isJobStageId } from "@/lib/domain/stages";
 import { formatDateTime, formatRelative } from "@/lib/format/dates";
 import { cn } from "@/lib/utils";
 import { ApprovalActions } from "./approval-actions";
-import { approvalTypeLabel, parseOverridePayload } from "./payload";
+import { approvalTypeLabel, parseDiscountPayload, parseOverridePayload } from "./payload";
 
 export const metadata: Metadata = { title: "Approvals" };
 
@@ -44,8 +44,11 @@ const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
  */
 export default async function ApprovalsPage({ searchParams }: { searchParams: SearchParams }) {
   const viewer = await requireViewer();
-  const canDecide = viewer.can("job_admin:override");
-  if (!canDecide && !viewer.can("jobs:advance_stage")) notFound();
+  const canDecideOverrides = viewer.can("job_admin:override");
+  const canDecideDiscounts = viewer.can("estimates:approve_discount");
+  const canDecide = canDecideOverrides || canDecideDiscounts;
+  if (!canDecide && !viewer.can("jobs:advance_stage") && !viewer.can("estimates:create"))
+    notFound();
 
   const sp = await searchParams;
   const view: "mine" | "all" = canDecide && one(sp.view) !== "mine" ? "all" : "mine";
@@ -74,17 +77,19 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Se
   if (status === "pending") list = list.eq("status", "pending");
   if (status === "decided") list = list.neq("status", "pending").gte("decided_at", since);
 
-  const [total, pendingCount, approved30, rejected30, overridesPending, rows] = await Promise.all([
-    count((q) => q),
-    count((q) => q.eq("status", "pending")),
-    count((q) => q.eq("status", "approved").gte("decided_at", since)),
-    count((q) => q.eq("status", "rejected").gte("decided_at", since)),
-    count((q) => q.eq("status", "pending").eq("type", "stage_override")),
-    list
-      .order("requested_at", { ascending: false })
-      .order("id")
-      .range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1),
-  ]);
+  const [total, pendingCount, approved30, rejected30, overridesPending, discountsPending, rows] =
+    await Promise.all([
+      count((q) => q),
+      count((q) => q.eq("status", "pending")),
+      count((q) => q.eq("status", "approved").gte("decided_at", since)),
+      count((q) => q.eq("status", "rejected").gte("decided_at", since)),
+      count((q) => q.eq("status", "pending").eq("type", "stage_override")),
+      count((q) => q.eq("status", "pending").eq("type", "estimate_discount")),
+      list
+        .order("requested_at", { ascending: false })
+        .order("id")
+        .range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1),
+    ]);
   if (rows.error) throw rows.error;
   const counts = parseApprovalCounts({
     total,
@@ -92,6 +97,7 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Se
     approved_30d: approved30,
     rejected_30d: rejected30,
     overrides_pending: overridesPending,
+    discounts_pending: discountsPending,
   });
   const kpi = (id: ApprovalMetricId) => APPROVAL_METRICS[id];
   const val = (id: ApprovalMetricId) => approvalMetricValue(id, counts).toLocaleString("en-US");
@@ -183,9 +189,9 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Se
           href={href({ status: "decided" })}
         />
         <KpiCard
-          label="By type"
-          value={val("approvals.overrides_pending")}
-          caption={kpi("approvals.overrides_pending").caption}
+          label={`${kpi("approvals.overrides_pending").label} / ${kpi("approvals.discounts_pending").label}`}
+          value={`${val("approvals.overrides_pending")} / ${val("approvals.discounts_pending")}`}
+          caption="Stage overrides / estimate discounts waiting"
           icon={Layers}
           tone="info"
         />
@@ -213,8 +219,8 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Se
         <EmptyState icon={ClipboardCheck} title="No approvals waiting.">
           {status === "pending"
             ? canDecide
-              ? "When someone asks you to override a stage gate, it shows up here."
-              : "Ask for an owner override from a job's Advance stage button when a gate can't pass yet."
+              ? "When someone asks you to override a stage gate or approve a discount, it shows up here."
+              : "Ask for an owner override from a job's Advance stage button, or for a discount approval from the estimate."
             : "Nothing matches this filter."}
         </EmptyState>
       ) : (
@@ -237,10 +243,13 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Se
               <ul className="divide-y">
                 {g.rows.map((r) => {
                   const p = parseOverridePayload(r.payload);
+                  const d = r.type === "estimate_discount" ? parseDiscountPayload(r.payload) : null;
                   const jobLabel = r.job ? `${r.job.job_number} · ${r.job.name}` : "A job";
-                  const moveLabel = [p.fromStage, p.toStage]
-                    .map((s) => (s ? getStage(s).label : "?"))
-                    .join(" → ");
+                  const moveLabel = d
+                    ? `${d.estimateNumber ?? "Estimate"} at ${d.discountPercent}% off`
+                    : [p.fromStage, p.toStage]
+                        .map((s) => (s ? getStage(s).label : "?"))
+                        .join(" → ");
                   return (
                     <li
                       key={r.id}
@@ -265,32 +274,44 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Se
                             {approvalTypeLabel(r.type)}
                           </span>
                         </div>
-                        <div
-                          className="flex flex-wrap items-center gap-1.5 text-sm"
-                          aria-label={`Move: ${moveLabel}`}
-                        >
-                          {p.fromStage ? (
-                            <StageBadge stage={p.fromStage} />
-                          ) : (
-                            <span className="text-xs text-muted-foreground">Current stage</span>
-                          )}
-                          <ArrowRight className="size-4 text-muted-foreground" aria-hidden />
-                          {p.toStage ? (
-                            <StageBadge stage={p.toStage} />
-                          ) : (
-                            <span className="text-xs text-danger">Stage missing</span>
-                          )}
-                          {r.status === "pending" &&
-                            r.job &&
-                            p.fromStage &&
-                            isJobStageId(r.job.stage) &&
-                            r.job.stage !== p.fromStage && (
-                              <span className="rounded-md bg-warning-bg px-2 py-0.5 text-xs font-medium text-bb-ink">
-                                Job already moved from {getStage(p.fromStage).label} (now{" "}
-                                {getStage(r.job.stage).label})
-                              </span>
+                        {d ? (
+                          <p className="text-sm">
+                            <Link
+                              href={`/jobs/${r.job_id}/estimate/${d.versionId}`}
+                              className="font-medium text-bb-forest hover:underline"
+                            >
+                              {d.estimateNumber ?? "Estimate"}
+                            </Link>{" "}
+                            goes out {d.discountPercent}% below the computed price.
+                          </p>
+                        ) : (
+                          <div
+                            className="flex flex-wrap items-center gap-1.5 text-sm"
+                            aria-label={`Move: ${moveLabel}`}
+                          >
+                            {p.fromStage ? (
+                              <StageBadge stage={p.fromStage} />
+                            ) : (
+                              <span className="text-xs text-muted-foreground">Current stage</span>
                             )}
-                        </div>
+                            <ArrowRight className="size-4 text-muted-foreground" aria-hidden />
+                            {p.toStage ? (
+                              <StageBadge stage={p.toStage} />
+                            ) : (
+                              <span className="text-xs text-danger">Stage missing</span>
+                            )}
+                            {r.status === "pending" &&
+                              r.job &&
+                              p.fromStage &&
+                              isJobStageId(r.job.stage) &&
+                              r.job.stage !== p.fromStage && (
+                                <span className="rounded-md bg-warning-bg px-2 py-0.5 text-xs font-medium text-bb-ink">
+                                  Job already moved from {getStage(p.fromStage).label} (now{" "}
+                                  {getStage(r.job.stage).label})
+                                </span>
+                              )}
+                          </div>
+                        )}
                         <p className="text-sm break-words">
                           <span className="text-muted-foreground">Reason: </span>
                           {r.reason}
@@ -339,9 +360,11 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Se
                             id={r.id}
                             jobLabel={jobLabel}
                             moveLabel={moveLabel}
-                            canDecide={canDecide}
+                            canDecide={d ? canDecideDiscounts : canDecideOverrides}
+                            kind={d ? "estimate_discount" : "stage_override"}
                             canCancel={r.requested_by === viewer.id}
                             staleReason={
+                              !d &&
                               r.job &&
                               p.fromStage &&
                               isJobStageId(r.job.stage) &&

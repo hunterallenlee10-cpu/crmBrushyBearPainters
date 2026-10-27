@@ -177,7 +177,8 @@ export function computeJobHealth(input: HealthInput, now: Date): HealthResult | 
             label: "Contract signed",
             weight: 15,
             status: "fail",
-            recommendation: "Record when the contract was signed (e-signature arrives in Phase 4).",
+            recommendation:
+              "The contract isn't signed yet. Send the estimate so the customer can accept and sign it.",
             action: "record_contract",
           },
     );

@@ -212,9 +212,8 @@ export function actionRequired(input: {
       text: f.recommendation,
       tone: "warning",
       ...(f.action === "review_tasks" ? { section: "tasks" as const } : {}),
-      ...(f.action === "record_contract" || f.action === "record_deposit"
-        ? { section: "admin" as const }
-        : {}),
+      ...(f.action === "record_contract" ? { section: "estimate" as const } : {}),
+      ...(f.action === "record_deposit" ? { section: "admin" as const } : {}),
     });
   }
   const upcoming = input.appointments.some(

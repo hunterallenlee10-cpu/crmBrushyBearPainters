@@ -84,10 +84,10 @@ export default async function JobListPage({ searchParams }: { searchParams: Sear
   if (canSeeMoney && ids.length) {
     const { data: fin, error: finError } = await supabase
       .from("job_financials")
-      .select("job_id, contract_baseline_cents")
+      .select("job_id, contract_cents")
       .in("job_id", ids);
     if (finError) logError("jobs.list.financials", finError);
-    for (const f of fin ?? []) amounts.set(f.job_id, f.contract_baseline_cents);
+    for (const f of fin ?? []) amounts.set(f.job_id, f.contract_cents);
   }
 
   // Chip counts follow the tab: closed stages only count on All; My Jobs counts my open jobs.

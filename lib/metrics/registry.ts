@@ -77,6 +77,7 @@ export type MetricSources = {
   job_status_counts: JobStatusCounts;
   attention_summary: AttentionSummary;
   approval_counts: ApprovalCounts;
+  estimate_stats: EstimateStats;
 };
 export type MetricSource = keyof MetricSources;
 
@@ -880,6 +881,7 @@ export const approvalCountsSchema = z.object({
   approved_30d: count,
   rejected_30d: count,
   overrides_pending: count,
+  discounts_pending: count,
 });
 export type ApprovalCounts = z.infer<typeof approvalCountsSchema>;
 
@@ -975,8 +977,16 @@ export const APPROVAL_METRICS = {
     id: "approvals.overrides_pending",
     label: "Pending Stage Overrides",
     description: "Pending requests to override a stage gate.",
-    caption: "Pending stage overrides · discounts and change orders join in Phase 4",
+    caption: "Pending requests to move a job past a gate",
     compute: (c) => c.overrides_pending,
+  }),
+  "approvals.discounts_pending": countMetric("approval_counts", {
+    id: "approvals.discounts_pending",
+    label: "Pending Discounts",
+    description:
+      "Estimates over the sender's discount limit, waiting for approval before they can be sent.",
+    caption: "Estimate discounts over the limit · blocks sending",
+    compute: (c) => c.discounts_pending,
   }),
 } as const satisfies Record<string, MetricDefinition<"approval_counts">>;
 
@@ -998,8 +1008,119 @@ export function approvalMetricValue(id: ApprovalMetricId, c: ApprovalCounts): nu
 // ---------------------------------------------------------------------------
 
 /** Every registered metric, by id. Later phases spread their groups in here. */
+// ===========================================================================
+// ESTIMATES (Phase 4): sent, 24h SLA, close rate, job value (SPEC §1.3, §12.1)
+// ===========================================================================
+//
+// Source: `public.estimate_stats(p_from, p_to)`
+// (supabase/migrations/20261027000100_estimating.sql), run with the viewer's
+// row security (estimates:read). Cohorts use the first time an estimate was
+// sent; an estimate's value is its accepted total once accepted, else the
+// recommended option's total when last sent.
+
+export const estimateStatsSchema = z.object({
+  sent: count,
+  sent_value_cents: count,
+  sla_hours: z.number().int().positive().catch(24),
+  sla_measured: count,
+  sla_met: count,
+  cohort_accepted: count,
+  cohort_accepted_value_cents: count,
+  accepted: count,
+  accepted_value_cents: count,
+  open: count,
+  open_value_cents: count,
+  expiring_soon: count,
+  by_status: z.record(z.string(), count).catch({}),
+});
+export type EstimateStats = z.infer<typeof estimateStatsSchema>;
+export const EMPTY_ESTIMATE_STATS: EstimateStats = estimateStatsSchema.parse({});
+
+export function parseEstimateStats(raw: unknown): EstimateStats {
+  const parsed = estimateStatsSchema.safeParse(raw ?? {});
+  return parsed.success ? parsed.data : EMPTY_ESTIMATE_STATS;
+}
+
+function estimateMetric(
+  def: Omit<MetricDefinition<"estimate_stats">, "source" | "ownerOnly"> & { ownerOnly?: boolean },
+): MetricDefinition<"estimate_stats"> {
+  return { ownerOnly: false, ...def, source: "estimate_stats" };
+}
+
+export const ESTIMATE_METRICS = {
+  "estimates.sent": estimateMetric({
+    id: "estimates.sent",
+    label: "Estimates Sent",
+    description: "Estimates sent to the customer for the first time in the period.",
+    unit: "count",
+    caption: "First sent {period}",
+    compute: (s) => s.sent,
+  }),
+  "estimates.sla_24h": estimateMetric({
+    id: "estimates.sla_24h",
+    label: "24h Estimate SLA",
+    description:
+      "Share of estimates sent within the estimate SLA (Company Settings, default 24 h) after the walkthrough was completed.",
+    unit: "percent",
+    caption: "Sent within the SLA after the walkthrough ÷ estimates with a completed walkthrough",
+    compute: (s) => ratio(s.sla_met, s.sla_measured),
+  }),
+  "estimates.close_rate": estimateMetric({
+    id: "estimates.close_rate",
+    label: "Close Rate",
+    description: "Accepted ÷ sent, same cohort (estimates first sent in the period).",
+    unit: "percent",
+    caption: "Accepted ÷ sent · estimates first sent {period}",
+    compute: (s) => ratio(s.cohort_accepted, s.sent),
+  }),
+  "estimates.close_rate_value": estimateMetric({
+    id: "estimates.close_rate_value",
+    label: "Close Rate ($)",
+    description: "Accepted value ÷ sent value, same cohort.",
+    unit: "percent",
+    caption: "Accepted $ ÷ sent $ · estimates first sent {period}",
+    compute: (s) => ratio(s.cohort_accepted_value_cents, s.sent_value_cents),
+  }),
+  "estimates.avg_job_value": estimateMetric({
+    id: "estimates.avg_job_value",
+    label: "Avg Job Value",
+    description: "Accepted value ÷ estimates accepted in the period.",
+    unit: "money",
+    caption: "Accepted value ÷ estimates accepted {period}",
+    compute: (s) => (s.accepted === 0 ? null : Math.round(s.accepted_value_cents / s.accepted)),
+  }),
+  "estimates.open_value": estimateMetric({
+    id: "estimates.open_value",
+    label: "Open Estimates",
+    description: "Value of estimates sent and waiting on the customer, right now.",
+    unit: "money",
+    caption: "Sent or viewed, not yet answered · right now",
+    compute: (s) => s.open_value_cents,
+  }),
+} as const satisfies Record<string, MetricDefinition<"estimate_stats">>;
+export type EstimateMetricId = keyof typeof ESTIMATE_METRICS;
+
+/** One estimate metric with its caption (`{period}` filled in). */
+export function estimateMetricValue(
+  id: EstimateMetricId,
+  stats: EstimateStats,
+  period = "in the period",
+): { id: EstimateMetricId; label: string; caption: string; value: number | null; display: string } {
+  const m: MetricDefinition<"estimate_stats"> = ESTIMATE_METRICS[id];
+  const raw = m.compute(stats);
+  const value = raw === null || !Number.isFinite(raw) ? null : raw;
+  return {
+    id,
+    label: m.label,
+    caption: m.caption.replaceAll("{period}", period),
+    value,
+    display: formatMetricValue(m.unit, value),
+  };
+}
+
 export const METRICS = {
   ...LEAD_METRICS,
+  ...ESTIMATE_METRICS,
   ...JOB_METRICS,
   ...JOB_COUNT_METRICS,
   ...ATTENTION_METRICS,

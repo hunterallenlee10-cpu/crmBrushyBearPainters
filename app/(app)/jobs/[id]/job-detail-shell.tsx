@@ -143,6 +143,8 @@ export function JobDetailShell({
           shortcuts={{
             resultHref: sectionHref(job.id, "overview", "result=walkthrough"),
             resultReason: resultWalkthroughReason(data),
+            estimateHref: sectionHref(job.id, "estimate"),
+            estimateReason: data.can.readEstimates ? null : "Your role doesn't include estimates.",
           }}
         />
         <section className="min-w-0 flex-1" aria-labelledby="job-section-title">

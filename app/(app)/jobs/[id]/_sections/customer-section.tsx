@@ -94,13 +94,13 @@ export async function CustomerSection({
     canSeeMoney && jobs.length
       ? supabase
           .from("job_financials")
-          .select("job_id, contract_baseline_cents")
+          .select("job_id, contract_cents")
           .in(
             "job_id",
             jobs.map((j) => j.id),
           )
       : Promise.resolve({
-          data: [] as { job_id: string; contract_baseline_cents: number | null }[],
+          data: [] as { job_id: string; contract_cents: number | null }[],
         }),
     canSeeCodes && property
       ? supabase
@@ -119,9 +119,7 @@ export async function CustomerSection({
   ]);
 
   const counts = customerJobCounts(jobs);
-  const contractByJob = new Map(
-    (financials.data ?? []).map((f) => [f.job_id, f.contract_baseline_cents]),
-  );
+  const contractByJob = new Map((financials.data ?? []).map((f) => [f.job_id, f.contract_cents]));
   const lifetime = lifetimeContractCents(
     jobs.map((j) => ({ contractCents: contractByJob.get(j.id) ?? null, status: j.status })),
   );
@@ -425,7 +423,10 @@ export async function CustomerSection({
 
         {/* Signing Order */}
         <Card title="Signing Order">
-          <p className="text-sm text-muted-foreground">Arrives with e-signature (Phase 4).</p>
+          <p className="text-sm text-muted-foreground">
+            The primary contact signs proposals and change orders on the proposal page (BearSign).
+            Co-signers arrive with signer roles in the agreement templates.
+          </p>
         </Card>
       </div>
 

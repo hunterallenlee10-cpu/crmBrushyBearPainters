@@ -7,7 +7,7 @@ import { advanceJobStage } from "@/lib/jobs/stage";
 import { getStage, isJobStageId } from "@/lib/domain/stages";
 import { cancelApprovalSchema, decideApprovalSchema } from "@/lib/validation/jobs";
 import { logError } from "@/lib/log";
-import { approvedReason, parseOverridePayload } from "./payload";
+import { approvedReason, parseDiscountPayload, parseOverridePayload } from "./payload";
 
 /**
  * Approvals (SPEC §8.5). Owners approve or reject; requesters cancel their own.
@@ -27,7 +27,8 @@ const notPending = () =>
 export const decideApproval = defineAction({
   name: "approvals.decide",
   schema: decideApprovalSchema,
-  permissions: ["job_admin:override"],
+  // Stage overrides need job_admin:override, discounts estimates:approve_discount (checked below).
+  permissions: null,
   handler: async ({ id, decision, note }, ctx) => {
     const { supabase, viewer } = ctx;
     const req = check(
@@ -39,9 +40,30 @@ export const decideApproval = defineAction({
     );
     if (!req) throw new ActionFailure(actionError("not_found", "That request isn't available."));
     if (req.status !== "pending") throw notPending();
+    const needed =
+      req.type === "estimate_discount" ? "estimates:approve_discount" : "job_admin:override";
+    if (!viewer.can(needed)) {
+      throw new ActionFailure(
+        actionError("forbidden", "Only owners can approve or reject requests."),
+      );
+    }
 
     let moved: { from: string; to: string } | null = null;
-    if (decision === "approved") {
+    if (decision === "approved" && req.type === "estimate_discount") {
+      const p = parseDiscountPayload(req.payload);
+      if (!p) {
+        throw new ActionFailure(
+          actionError("validation", "This request doesn't say which estimate it's for. Reject it."),
+        );
+      }
+      const service = await ctx.service();
+      const { error: approveError } = await service.rpc("approve_version_discount", {
+        p_version: p.versionId,
+        p_percent: p.discountPercent,
+        p_by: viewer.id,
+      });
+      if (approveError) throw new ActionFailure(mapDbError(approveError));
+    } else if (decision === "approved") {
       if (req.type !== "stage_override") {
         throw new ActionFailure(
           actionError("validation", "This kind of request can't be approved here yet."),

@@ -59,3 +59,23 @@ describe("approvalTypeLabel", () => {
     expect(approvalTypeLabel("change_order")).toBe("change order");
   });
 });
+
+describe("discount payload", () => {
+  it("reads what a discount request asks for", async () => {
+    const { parseDiscountPayload } = await import("./payload");
+    expect(
+      parseDiscountPayload({
+        version_id: "11111111-1111-1111-1111-111111111111",
+        estimate_number: "EST-2026-0001",
+        discount_percent: 12.5,
+      }),
+    ).toEqual({
+      versionId: "11111111-1111-1111-1111-111111111111",
+      estimateNumber: "EST-2026-0001",
+      discountPercent: 12.5,
+    });
+    expect(parseDiscountPayload({ version_id: "nope", discount_percent: 5 })).toBeNull();
+    expect(parseDiscountPayload({ version_id: "11111111-1111-1111-1111-111111111111" })).toBeNull();
+    expect(parseDiscountPayload(null)).toBeNull();
+  });
+});

@@ -29,6 +29,10 @@ import {
   formatMetricValue,
   formatPercent,
   getMetric,
+  ESTIMATE_METRICS,
+  EMPTY_ESTIMATE_STATS,
+  estimateMetricValue,
+  parseEstimateStats,
   leadAging,
   leadCities,
   leadFunnel,
@@ -215,7 +219,9 @@ describe("registry shape", () => {
         "job_status_counts",
         "attention_summary",
         "approval_counts",
+        "estimate_stats",
       ]).toContain(m.source);
+      if (id.startsWith("estimates.")) expect(m.source).toBe("estimate_stats");
       if (id.startsWith("attention.")) expect(m.source).toBe("attention_summary");
       if (id.startsWith("approvals.")) expect(m.source).toBe("approval_counts");
       if (id.startsWith("leads.")) expect(m.source).toBe("lead_stats");
@@ -558,5 +564,49 @@ describe("attention and approval metrics", () => {
   it("are in the global registry", () => {
     expect(getMetric("attention.now")).toBe(ATTENTION_METRICS["attention.now"]);
     expect(getMetric("approvals.total")).toBe(APPROVAL_METRICS["approvals.total"]);
+  });
+});
+
+describe("estimate metrics (Phase 4)", () => {
+  const stats = parseEstimateStats({
+    sent: 8,
+    sent_value_cents: 4_000_000,
+    sla_hours: 24,
+    sla_measured: 6,
+    sla_met: 5,
+    cohort_accepted: 3,
+    cohort_accepted_value_cents: 1_800_000,
+    accepted: 4,
+    accepted_value_cents: 2_200_000,
+    open: 2,
+    open_value_cents: 900_000,
+    expiring_soon: 1,
+    by_status: { sent: 2, accepted: 4 },
+  });
+
+  it("matches the fixture's expected values", () => {
+    expect(estimateMetricValue("estimates.sent", stats, "this month")).toMatchObject({
+      value: 8,
+      caption: "First sent this month",
+    });
+    expect(estimateMetricValue("estimates.sla_24h", stats).value).toBeCloseTo(5 / 6);
+    expect(estimateMetricValue("estimates.close_rate", stats).value).toBe(0.375);
+    expect(estimateMetricValue("estimates.close_rate_value", stats).value).toBe(0.45);
+    expect(estimateMetricValue("estimates.avg_job_value", stats).value).toBe(550_000);
+    expect(estimateMetricValue("estimates.open_value", stats).value).toBe(900_000);
+    expect(getMetric("estimates.sent")).toBe(ESTIMATE_METRICS["estimates.sent"]);
+  });
+
+  it("never shows impossible values", () => {
+    const empty = parseEstimateStats({});
+    expect(empty).toEqual(EMPTY_ESTIMATE_STATS);
+    expect(estimateMetricValue("estimates.close_rate", empty)).toMatchObject({
+      value: null,
+      display: "—",
+    });
+    expect(estimateMetricValue("estimates.avg_job_value", empty).value).toBeNull();
+    expect(estimateMetricValue("estimates.sla_24h", empty).value).toBeNull();
+    expect(parseEstimateStats("garbage")).toEqual(EMPTY_ESTIMATE_STATS);
+    expect(parseEstimateStats({ sent: -3 }).sent).toBe(0);
   });
 });
