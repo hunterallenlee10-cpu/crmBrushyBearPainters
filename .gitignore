@@ -29,3 +29,6 @@ supabase/signing_keys.json
 *.log
 .vercel
 tests/e2e/.auth/
+
+# Parallel helper worktrees (Claude Code)
+.claude/worktrees/

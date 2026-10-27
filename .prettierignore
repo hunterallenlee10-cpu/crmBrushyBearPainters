@@ -9,3 +9,4 @@ docs/screens
 supabase/.temp
 supabase/.branches
 next-env.d.ts
+.claude/worktrees
