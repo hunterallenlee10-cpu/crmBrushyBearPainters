@@ -10,7 +10,7 @@ import { signatureHash } from "@/lib/estimating/tokens";
 import { recomputeJobHealth } from "@/lib/jobs/health";
 import { logError } from "@/lib/log";
 import { advanceProduction } from "@/lib/production/automation";
-import { punchItemSchema, signoffSchema } from "@/lib/validation/production";
+import { punchItemSchema, punchUpdateSchema, signoffSchema } from "@/lib/validation/production";
 
 /**
  * Job Detail production mutations (SPEC §8.5 #3 Schedule checklists and the
@@ -76,19 +76,7 @@ export const addPunchItem = defineAction({
 
 export const updatePunchItem = defineAction({
   name: "job.punch_item.update",
-  schema: z
-    .object({
-      id,
-      status: z.enum(["open", "fixed", "customer_waived"]).optional(),
-      waivedNote: z.string().trim().max(500).optional(),
-      fixedPhotoId: id.nullable().optional(),
-      area: z.string().trim().min(1).max(120).optional(),
-      description: z.string().trim().min(3).max(1000).optional(),
-    })
-    .refine((v) => v.status !== "customer_waived" || (v.waivedNote?.length ?? 0) >= 3, {
-      message: "Say why the customer waived it.",
-      path: ["waivedNote"],
-    }),
+  schema: punchUpdateSchema,
   permissions: ["punch_list:manage"],
   handler: async (v, ctx) => {
     const item = check(

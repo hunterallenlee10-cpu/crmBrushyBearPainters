@@ -81,6 +81,20 @@ export const punchItemSchema = z.object({
   assignedTo: id.optional(),
 });
 
+export const punchUpdateSchema = z
+  .object({
+    id,
+    status: z.enum(["open", "fixed", "customer_waived"]).optional(),
+    waivedNote: z.string().trim().max(500).optional(),
+    fixedPhotoId: id.nullable().optional(),
+    area: z.string().trim().min(1).max(120).optional(),
+    description: z.string().trim().min(3).max(1000).optional(),
+  })
+  .refine((v) => v.status !== "customer_waived" || (v.waivedNote?.length ?? 0) >= 3, {
+    message: "Say why the customer waived it.",
+    path: ["waivedNote"],
+  });
+
 export const signoffSchema = z.object({
   jobId: id,
   signerName: z.string().trim().min(2, "Type the customer's name.").max(120),

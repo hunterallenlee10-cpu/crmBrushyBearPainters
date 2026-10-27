@@ -15,7 +15,7 @@ import { requireViewer } from "@/lib/auth/viewer";
 import { createSupabaseServerClient } from "@/lib/db/server";
 import { createSupabaseServiceClient } from "@/lib/db/service";
 import { ON_TIME_STATUS_LABELS } from "@/lib/domain/jobs/constants";
-import { formatDay, formatRange } from "@/lib/domain/scheduling/dates";
+import { formatDay, formatRange, isIsoDate } from "@/lib/domain/scheduling/dates";
 import { materialsStatus } from "@/lib/domain/scheduling/readiness";
 import { formatCents } from "@/lib/format/money";
 import { formatDate, formatDateTime } from "@/lib/format/dates";
@@ -168,7 +168,7 @@ export async function ScheduleSection({ data }: { data: JobDetailData }) {
                         {st.label}
                       </span>
                       <span className="ml-auto text-xs text-muted-foreground">
-                        {st.at ? formatDate(st.at) : ""}
+                        {st.at ? (isIsoDate(st.at) ? formatDay(st.at) : formatDate(st.at)) : ""}
                       </span>
                     </li>
                   );
@@ -181,7 +181,7 @@ export async function ScheduleSection({ data }: { data: JobDetailData }) {
                     ? `Planned ${formatRange(row.planned.startsOn, row.planned.endsOn)} (not published)`
                     : `About ${row.workingDays} working day${row.workingDays === 1 ? "" : "s"}; no dates yet`}
                 {job.estimatedCompletionDate
-                  ? ` · Est. completion ${formatDate(job.estimatedCompletionDate)}`
+                  ? ` · Est. completion ${formatDay(job.estimatedCompletionDate)}`
                   : ""}
               </p>
             </section>

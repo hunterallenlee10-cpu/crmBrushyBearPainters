@@ -569,7 +569,7 @@ test.describe("Job Detail on a phone", () => {
     await expect(page.locator("#job-section-title")).toHaveText("Onboarding");
     await noSideScroll(page);
     await page.getByText("Job shortcuts").click();
-    await expect(page.getByRole("button", { name: "Order Paint" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Order Paint" })).toBeVisible();
     expect(await seriousAxe(page)).toEqual([]);
     await page.context().close();
   });

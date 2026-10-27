@@ -353,7 +353,7 @@ test.describe("Lead Detail (owner)", () => {
     const dialog = page.getByRole("dialog", { name: "Book walkthrough" });
     await expect(dialog).toBeVisible();
     await expect(page).not.toHaveURL(/book=1/);
-    await expect(dialog).toContainText("arrive with scheduling (Phase 6)");
+    await expect(dialog).toContainText("Calendar sync needs the calendar integration");
     const date = formatInTimeZone(new Date(Date.now() + 14 * 86_400_000), TZ, "yyyy-MM-dd");
     await dialog.getByLabel("Date").fill(date);
     await dialog.getByLabel("Time (Pacific)").fill("09:30");

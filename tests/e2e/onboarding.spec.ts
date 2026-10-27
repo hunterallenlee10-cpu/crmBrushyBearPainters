@@ -230,7 +230,7 @@ test("the checks verify what the data shows", async ({ page }, info) => {
   await expect(item(page, "colors_selected")).toContainText("1 of 2 surfaces have a color");
   await expect(item(page, "hoa_approval").getByTestId("requirement-status")).toHaveText("Missing");
   await expect(page.getByTestId("onboarding-summary")).toContainText(
-    "3/10 cleared · 3 auto-verified · 4 need attention",
+    "3/10 cleared · 3 auto-verified · 5 need attention",
   );
   await page.screenshot({ path: `${SCREENS}/onboarding-checklist.png`, fullPage: true });
   await axe(page);

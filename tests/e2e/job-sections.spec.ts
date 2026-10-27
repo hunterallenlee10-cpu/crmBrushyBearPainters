@@ -251,9 +251,9 @@ test.describe("as the owner", () => {
     await expect(page.getByText(jobName).first()).toBeVisible();
     const overdue = page.getByRole("listitem").filter({ hasText: `Overdue follow-up ${t}` });
     await expect(overdue).toContainText("overdue");
-    await expect(
-      page.getByText(/Checklists \(exterior prep, cabinet process, lead-safe, final walkthrough\)/),
-    ).toBeVisible();
+    await expect(page.getByRole("region", { name: "Checklists", exact: true })).toContainText(
+      "No checklists on this job yet",
+    );
 
     await page.getByRole("button", { name: "Add Task" }).first().click();
     const title = `Confirm trim colors ${t}`;

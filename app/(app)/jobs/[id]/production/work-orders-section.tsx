@@ -6,6 +6,7 @@ import { WorkOrderControls } from "@/components/production/work-order-controls";
 import { requireViewer } from "@/lib/auth/viewer";
 import { createSupabaseServerClient } from "@/lib/db/server";
 import { createSupabaseServiceClient } from "@/lib/db/service";
+import { formatDay } from "@/lib/domain/scheduling/dates";
 import { materialsStatus } from "@/lib/domain/scheduling/readiness";
 import { formatCents } from "@/lib/format/money";
 import { formatDate } from "@/lib/format/dates";
@@ -201,7 +202,7 @@ export async function WorkOrdersSection({ data }: { data: JobDetailData }) {
                   <p className="text-xs text-muted-foreground">
                     {[
                       p.supplier ?? "No supplier yet",
-                      p.expectedOn ? `Expected ${formatDate(p.expectedOn)}` : null,
+                      p.expectedOn ? `Expected ${formatDay(p.expectedOn)}` : null,
                       data.can.readFinancials ? formatCents(p.totalCostCents) : null,
                     ]
                       .filter(Boolean)

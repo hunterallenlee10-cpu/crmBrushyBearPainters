@@ -85,7 +85,7 @@ test.describe("app shell (owner)", () => {
     const sheet = page.getByRole("dialog");
     await sheet.getByRole("link", { name: "Production Center" }).click();
     await expect(page).toHaveURL(/\/schedule$/);
-    await expect(page.getByRole("heading", { level: 1, name: "Production Center" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Command Center" })).toBeVisible();
     await expectNoHorizontalScroll(page);
   });
 
