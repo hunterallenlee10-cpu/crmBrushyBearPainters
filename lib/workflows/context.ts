@@ -197,7 +197,7 @@ async function loadJobPart(service: Db, jobId: string) {
   };
 }
 
-type LeadRow = Database["public"]["Tables"]["leads"]["Row"];
+export type LeadRow = Database["public"]["Tables"]["leads"]["Row"];
 
 async function loadLeadPart(service: Db, leadId: string) {
   const { data: lead } = await service.from("leads").select("*").eq("id", leadId).maybeSingle();
@@ -211,7 +211,7 @@ async function loadLeadPart(service: Db, leadId: string) {
   return { lead, contact: contact.data, people };
 }
 
-function leadRecipient(lead: LeadRow, contact: ContactRow | null): Recipient {
+export function leadRecipient(lead: LeadRow, contact: ContactRow | null): Recipient {
   return {
     kind: "lead",
     id: lead.id,
