@@ -47,7 +47,13 @@ import { useListNavigation } from "@/components/lists/use-list-navigation";
  * the controls, selection and the preview drawer. All state is in the URL.
  */
 
-export type ListRow = { id: string; label: string; cells: Record<string, React.ReactNode> };
+export type ListRow = {
+  id: string;
+  label: string;
+  cells: Record<string, React.ReactNode>;
+  /** Card shown instead of the table row when `layout` is "cards" (Jobs). */
+  card?: React.ReactNode;
+};
 export type TabWithCount = { id: string; label: string; count: number | null };
 
 export type ListShellProps = {
@@ -71,6 +77,12 @@ export type ListShellProps = {
   renderPreview?: (id: string) => React.ReactNode;
   /** Name of one record, for screen readers ("lead"). */
   noun: string;
+  /** "cards" renders each row's `card` in a grid instead of the table. Default "table". */
+  layout?: "table" | "cards";
+  /** Live count shown on each quick-filter chip, by chip id. */
+  chipCounts?: Readonly<Record<string, number>>;
+  /** Extra URL params kept on every navigation (e.g. the Jobs list/card toggle). */
+  persistParams?: Readonly<Record<string, string>>;
 };
 
 function formatCount(n: number | null): string {
@@ -79,7 +91,7 @@ function formatCount(n: number | null): string {
 
 export function ListShell(props: ListShellProps) {
   const { state, defaults, moduleId } = props;
-  const { go, goToQuery, pending } = useListNavigation(state, defaults);
+  const { go, goToQuery, pending } = useListNavigation(state, defaults, props.persistParams);
   const [query, setQuery] = React.useState(state.q);
   const [selected, setSelected] = React.useState<Set<string>>(new Set());
   const [previewId, setPreviewId] = React.useState<string | null>(null);
@@ -243,6 +255,16 @@ export function ListShell(props: ListShellProps) {
                 )}
               >
                 {chip.label}
+                {props.chipCounts?.[chip.id] !== undefined && (
+                  <span
+                    className={cn(
+                      "ml-1.5 rounded-full px-1.5 tabular-nums",
+                      on ? "bg-white/20" : "bg-muted text-foreground/80",
+                    )}
+                  >
+                    {formatCount(props.chipCounts[chip.id] ?? 0)}
+                  </span>
+                )}
               </button>
             );
           })}
@@ -278,6 +300,57 @@ export function ListShell(props: ListShellProps) {
       {/* Table */}
       {props.rows.length === 0 ? (
         props.emptyState
+      ) : props.layout === "cards" ? (
+        <ul
+          aria-label={`${props.noun}s, page ${state.page}`}
+          className={cn(
+            "grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3",
+            pending && "opacity-70",
+          )}
+        >
+          {props.rows.map((row) => (
+            <li
+              key={row.id}
+              className={cn(
+                "relative rounded-2xl",
+                selected.has(row.id) && "ring-2 ring-bb-forest/40",
+              )}
+            >
+              {row.card ?? row.label}
+              {(selectable || props.renderPreview) && (
+                <div className="absolute top-2 right-2 flex items-center gap-1">
+                  {selectable && (
+                    <label className="grid size-8 place-items-center rounded-md hover:bg-muted">
+                      <input
+                        type="checkbox"
+                        aria-label={`Select ${row.label}`}
+                        checked={selected.has(row.id)}
+                        onChange={() =>
+                          setSelected((s) => {
+                            const next = new Set(s);
+                            if (next.has(row.id)) next.delete(row.id);
+                            else next.add(row.id);
+                            return next;
+                          })
+                        }
+                      />
+                    </label>
+                  )}
+                  {props.renderPreview && (
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label={`Preview ${row.label}`}
+                      onClick={() => setPreviewId(row.id)}
+                    >
+                      <Eye aria-hidden />
+                    </Button>
+                  )}
+                </div>
+              )}
+            </li>
+          ))}
+        </ul>
       ) : (
         <div
           className={cn(

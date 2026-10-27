@@ -1,6 +1,22 @@
 import { describe, expect, it } from "vitest";
+import { JOB_STAGES } from "@/lib/domain/stages";
 import {
+  EMPTY_JOB_STATS,
+  EMPTY_JOB_STATUS_COUNTS,
   EMPTY_LEAD_STATS,
+  JOB_METRICS,
+  formatMoney,
+  jobCaption,
+  jobCountValue,
+  jobMetricValue,
+  jobPipelineHealth,
+  jobPipelineSnapshot,
+  jobSoldByDay,
+  metricDelta,
+  parseJobStats,
+  parseJobStatusCounts,
+  type JobMetricId,
+  type JobStats,
   LEAD_METRICS,
   METRICS,
   formatMetricValue,
@@ -185,8 +201,10 @@ describe("registry shape", () => {
       expect(m.id).toBe(id);
       expect(m.label).not.toBe("");
       expect(m.caption).not.toBe("");
-      expect(["count", "percent", "duration"]).toContain(m.unit);
-      expect(m.source).toBe("lead_stats");
+      expect(["count", "percent", "duration", "money"]).toContain(m.unit);
+      expect(["lead_stats", "job_stats", "job_status_counts"]).toContain(m.source);
+      if (id.startsWith("leads.")) expect(m.source).toBe("lead_stats");
+      if (id.startsWith("jobs.")) expect(m.source).toMatch(/^job_/);
     }
     expect(getMetric("leads.hot")).toBe(LEAD_METRICS["leads.hot"]);
   });
@@ -283,5 +301,215 @@ describe("breakdowns", () => {
       ["30+ days", 5],
     ]);
     expect(leadAging(EMPTY_LEAD_STATS).every((r) => r.leads === 0)).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// JOBS (Phase 3)
+// ---------------------------------------------------------------------------
+
+/** A known `public.job_stats()` payload for someone with financials:read. */
+const JOB_FIXTURE = {
+  can_see_money: true,
+  open_jobs: 10,
+  open_jobs_prev: 8,
+  pipeline_value_cents: 5_000_000,
+  in_progress: 2,
+  on_hold: 1,
+  closed_won: 3,
+  closed_won_prev: 5,
+  closed_lost: 1,
+  sold_count: 4,
+  sold_value_cents: 2_400_000,
+  sold_value_prev_cents: 1_800_000,
+  closing_this_period: 2,
+  by_stage: [
+    { stage: "sold", jobs: 4, value_cents: 2_000_000 },
+    { stage: "in_progress", jobs: 2, value_cents: null },
+    { stage: "closed_won", jobs: 6, value_cents: 3_000_000 },
+    { stage: "walkthrough_scheduled", jobs: 4, value_cents: 0 },
+  ],
+  sold_by_day: [
+    { day: "2026-10-02", jobs: 1, value_cents: 600_000 },
+    { day: "2026-10-05", jobs: 3, value_cents: 1_800_000 },
+  ],
+};
+const WORDS = { period: "this month", prior: "last month", start: "Oct 1" };
+const jobStats = parseJobStats(JOB_FIXTURE);
+const noMoney = parseJobStats({ ...JOB_FIXTURE, can_see_money: false });
+const jv = (id: JobMetricId, s: JobStats = jobStats) => jobMetricValue(id, s, WORDS);
+
+describe("parseJobStats", () => {
+  it("keeps money for financials:read and turns empty sums into 0", () => {
+    expect(jobStats.pipeline_value_cents).toBe(5_000_000);
+    expect(jobStats.by_stage.find((r) => r.stage === "in_progress")?.value_cents).toBe(0);
+    expect(parseJobStats({ can_see_money: true }).sold_value_cents).toBe(0);
+  });
+
+  it("drops every money value without financials:read, even if the payload had some", () => {
+    expect(noMoney.pipeline_value_cents).toBeNull();
+    expect(noMoney.sold_value_cents).toBeNull();
+    expect(noMoney.sold_value_prev_cents).toBeNull();
+    expect(noMoney.by_stage.every((r) => r.value_cents === null)).toBe(true);
+    expect(noMoney.sold_by_day.every((r) => r.value_cents === null)).toBe(true);
+    expect(noMoney.open_jobs).toBe(10);
+  });
+
+  it("never crashes on garbage", () => {
+    expect(parseJobStats(null)).toEqual(EMPTY_JOB_STATS);
+    expect(parseJobStats({ open_jobs: -3, by_stage: "x" }).open_jobs).toBe(0);
+    expect(EMPTY_JOB_STATS.can_see_money).toBe(false);
+    expect(parseJobStatusCounts(undefined)).toEqual(EMPTY_JOB_STATUS_COUNTS);
+    expect(
+      parseJobStatusCounts({ active: 3, mine: 1, total: 5, on_hold: 1, by_stage: { sold: 2 } }),
+    ).toEqual({ active: 3, mine: 1, total: 5, on_hold: 1, by_stage: { sold: 2 } });
+  });
+});
+
+describe("job metrics (fixture)", () => {
+  it.each<[JobMetricId, number | null, string]>([
+    ["jobs.total", 16, "16"],
+    ["jobs.pipeline_value", 5_000_000, "$50,000"],
+    ["jobs.open", 10, "10"],
+    ["jobs.in_progress", 2, "2"],
+    ["jobs.on_hold", 1, "1"],
+    ["jobs.closed_won", 3, "3"],
+    ["jobs.closed_lost", 1, "1"],
+    ["jobs.sold_value", 2_400_000, "$24,000"],
+    ["jobs.sold_count", 4, "4"],
+    ["jobs.avg_job_size", 600_000, "$6,000"],
+    ["jobs.win_rate", 0.75, "75%"],
+    ["jobs.closing_this_month", 2, "2"],
+  ])("%s = %s (%s)", (id, expected, display) => {
+    expect(jv(id).value).toBe(expected);
+    expect(jv(id).display).toBe(display);
+  });
+
+  it("explains each number in its caption", () => {
+    expect(jv("jobs.pipeline_value").caption).toBe("10 open jobs × $5,000 avg · right now");
+    expect(jv("jobs.open").caption).toBe("Not closed won or lost · vs open on Oct 1");
+    expect(jv("jobs.closed_won").caption).toBe("Closed won this month · vs last month");
+    expect(jv("jobs.sold_value").caption).toBe("4 jobs sold this month · vs last month");
+    expect(jv("jobs.win_rate").caption).toBe("3 won ÷ 4 closed this month");
+    expect(jv("jobs.avg_job_size").caption).toBe("Sold value ÷ jobs sold this month");
+  });
+
+  it("gives prior-period deltas where the source has them", () => {
+    expect(jv("jobs.open").delta).toMatchObject({ change: 2, direction: "up", display: "+2" });
+    expect(jv("jobs.closed_won").delta).toMatchObject({
+      change: -2,
+      direction: "down",
+      display: "−2",
+      previousDisplay: "5",
+    });
+    expect(jv("jobs.sold_value").delta).toMatchObject({ display: "+$6,000" });
+    expect(jv("jobs.in_progress").delta).toBeNull();
+    expect(jv("jobs.pipeline_value").delta).toBeNull();
+  });
+
+  it("hides money (value, delta) without financials:read but keeps counts", () => {
+    for (const id of ["jobs.pipeline_value", "jobs.sold_value", "jobs.avg_job_size"] as const) {
+      const v = jv(id, noMoney);
+      expect(v.hidden).toBe(true);
+      expect(v.value).toBeNull();
+      expect(v.display).toBe("—");
+      expect(v.delta).toBeNull();
+      expect(v.caption).not.toMatch(/\$/);
+    }
+    expect(jv("jobs.pipeline_value", noMoney).caption).toBe(
+      "10 open jobs · amounts hidden for your role",
+    );
+    expect(jv("jobs.open", noMoney).value).toBe(10);
+    expect(jv("jobs.win_rate", noMoney).display).toBe("75%");
+  });
+});
+
+describe("job metrics (no jobs)", () => {
+  const empty = parseJobStats({ can_see_money: true });
+  it("is zero or — and never NaN", () => {
+    expect(jv("jobs.total", empty).value).toBe(0);
+    expect(jv("jobs.avg_job_size", empty).display).toBe("—");
+    expect(jv("jobs.win_rate", empty).display).toBe("—");
+    expect(jv("jobs.pipeline_value", empty).display).toBe("$0");
+    expect(jv("jobs.pipeline_value", empty).caption).toBe("0 open jobs × — avg · right now");
+    expect(jv("jobs.open", empty).delta).toMatchObject({ direction: "flat", display: "No change" });
+  });
+});
+
+describe("job breakdowns", () => {
+  it("pipeline snapshot lists every stage in order with totals and shares", () => {
+    const s = jobPipelineSnapshot(jobStats);
+    expect(s.rows.map((r) => r.stage)).toEqual(JOB_STAGES.map((x) => x.id));
+    expect(s.totalJobs).toBe(16);
+    expect(s.totalValueCents).toBe(5_000_000);
+    expect(s.rows.find((r) => r.stage === "sold")).toMatchObject({ jobs: 4, share: 0.25 });
+    expect(s.rows.find((r) => r.stage === "onboarding")).toMatchObject({
+      jobs: 0,
+      valueCents: 0,
+      share: 0,
+    });
+    const hidden = jobPipelineSnapshot(noMoney);
+    expect(hidden.totalValueCents).toBeNull();
+    expect(hidden.rows.every((r) => r.valueCents === null)).toBe(true);
+    expect(jobPipelineSnapshot(EMPTY_JOB_STATS).rows.every((r) => r.share === null)).toBe(true);
+  });
+
+  it("pipeline health has Open, In Progress, Closed Won, Closed Lost", () => {
+    expect(jobPipelineHealth(jobStats)).toEqual([
+      { key: "open", label: "Open", jobs: 10 },
+      { key: "in_progress", label: "In Progress", jobs: 2 },
+      { key: "closed_won", label: "Closed Won", jobs: 3 },
+      { key: "closed_lost", label: "Closed Lost", jobs: 1 },
+    ]);
+  });
+
+  it("sold by day fills every day of the range with zeros", () => {
+    const days = jobSoldByDay(jobStats, "2026-10-01", "2026-10-06");
+    expect(days.map((d) => d.day)).toEqual([
+      "2026-10-01",
+      "2026-10-02",
+      "2026-10-03",
+      "2026-10-04",
+      "2026-10-05",
+      "2026-10-06",
+    ]);
+    expect(days[1]).toEqual({ day: "2026-10-02", label: "Oct 2", jobs: 1, valueCents: 600_000 });
+    expect(days[0]).toMatchObject({ jobs: 0, valueCents: 0 });
+    expect(jobSoldByDay(noMoney, "2026-10-05", "2026-10-05")[0]).toMatchObject({
+      jobs: 3,
+      valueCents: null,
+    });
+    expect(jobSoldByDay(jobStats, "2026-10-06", "2026-10-01")).toEqual([]);
+    expect(jobSoldByDay(jobStats, "nope", "2026-10-01")).toEqual([]);
+    // Crosses month and year ends correctly.
+    expect(jobSoldByDay(jobStats, "2026-12-31", "2027-01-01").map((d) => d.label)).toEqual([
+      "Dec 31",
+      "Jan 1",
+    ]);
+  });
+
+  it("fills period words into breakdown captions", () => {
+    expect(jobCaption("health", WORDS)).toBe(
+      "Open and In Progress right now · closed won and lost this month",
+    );
+  });
+});
+
+describe("job list counts and money format", () => {
+  it("reads tab counts from job_status_counts", () => {
+    const c = parseJobStatusCounts({ active: 7, mine: 2, total: 9, on_hold: 1 });
+    expect(jobCountValue("jobs.list_active", c)).toBe(7);
+    expect(jobCountValue("jobs.list_mine", c)).toBe(2);
+    expect(jobCountValue("jobs.list_total", c)).toBe(9);
+    expect(jobCountValue("jobs.list_on_hold", c)).toBe(1);
+  });
+
+  it("formats money in whole dollars and deltas per unit", () => {
+    expect(formatMoney(123_456)).toBe("$1,235");
+    expect(formatMoney(null)).toBe("—");
+    expect(formatMetricValue("money", 99)).toBe("$1");
+    expect(metricDelta("percent", 0.5, 0.25)).toMatchObject({ display: "+25 pts" });
+    expect(metricDelta("count", null, 3)).toBeNull();
+    expect(getMetric("jobs.win_rate")).toBe(JOB_METRICS["jobs.win_rate"]);
   });
 });

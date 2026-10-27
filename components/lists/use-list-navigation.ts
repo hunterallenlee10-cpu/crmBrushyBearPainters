@@ -7,8 +7,13 @@ import { listStateToQuery, type ListDefaults, type ListState } from "@/lib/lists
 /**
  * Moves a list to a new state by updating the URL (server components re-render
  * with the new rows). Any change other than paging returns to page 1.
+ * `persist` params (e.g. the Jobs `layout=cards` toggle) ride along on every move.
  */
-export function useListNavigation(state: ListState, defaults: ListDefaults) {
+export function useListNavigation(
+  state: ListState,
+  defaults: ListDefaults,
+  persist?: Readonly<Record<string, string>>,
+) {
   const router = useRouter();
   const pathname = usePathname();
   const [pending, startTransition] = React.useTransition();
@@ -18,6 +23,12 @@ export function useListNavigation(state: ListState, defaults: ListDefaults) {
   React.useEffect(() => {
     latest.current = state;
   }, [state]);
+
+  const extra = persist ? new URLSearchParams(Object.entries(persist)).toString() : "";
+  const withExtra = React.useCallback(
+    (query: string) => (extra ? (query ? `${query}&${extra}` : `?${extra}`) : query),
+    [extra],
+  );
 
   const go = React.useCallback(
     (patch: Partial<ListState>, opts: { keepView?: boolean } = {}) => {
@@ -31,17 +42,19 @@ export function useListNavigation(state: ListState, defaults: ListDefaults) {
       };
       latest.current = next;
       startTransition(() => {
-        router.push(`${pathname}${listStateToQuery(next, defaults)}`, { scroll: false });
+        router.push(`${pathname}${withExtra(listStateToQuery(next, defaults))}`, {
+          scroll: false,
+        });
       });
     },
-    [defaults, router, pathname],
+    [defaults, router, pathname, withExtra],
   );
 
   const goToQuery = React.useCallback(
     (query: string) => {
-      startTransition(() => router.push(`${pathname}${query}`, { scroll: false }));
+      startTransition(() => router.push(`${pathname}${withExtra(query)}`, { scroll: false }));
     },
-    [router, pathname],
+    [router, pathname, withExtra],
   );
 
   return { go, goToQuery, pending };
