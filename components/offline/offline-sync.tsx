@@ -174,34 +174,41 @@ export function OfflineSyncProvider({ children }: { children: React.ReactNode })
     return () => navigator.serviceWorker.removeEventListener("controllerchange", mark);
   }, []);
 
+  const enqueue = React.useCallback<Ctx["enqueue"]>(
+    async (input) => {
+      const q = queueRef.current;
+      if (!q) throw new Error("The upload queue isn't ready yet.");
+      await q.enqueue(input);
+      await refresh();
+      void flush();
+    },
+    [refresh, flush],
+  );
+  const retry = React.useCallback(
+    async (id: string) => {
+      await queueRef.current?.retry(id);
+      await refresh();
+      void flush();
+    },
+    [refresh, flush],
+  );
+  const discard = React.useCallback(
+    async (id: string) => {
+      await queueRef.current?.discard(id);
+      await refresh();
+    },
+    [refresh],
+  );
+  const onSynced = React.useCallback((listener: (jobIds: string[]) => void) => {
+    listeners.current.add(listener);
+    return () => {
+      listeners.current.delete(listener);
+    };
+  }, []);
+
   const value = React.useMemo<Ctx>(
-    () => ({
-      ...state,
-      enqueue: async (input) => {
-        const q = queueRef.current;
-        if (!q) throw new Error("The upload queue isn't ready yet.");
-        await q.enqueue(input);
-        await refresh();
-        void flush();
-      },
-      flush,
-      retry: async (id) => {
-        await queueRef.current?.retry(id);
-        await refresh();
-        void flush();
-      },
-      discard: async (id) => {
-        await queueRef.current?.discard(id);
-        await refresh();
-      },
-      onSynced: (listener) => {
-        listeners.current.add(listener);
-        return () => {
-          listeners.current.delete(listener);
-        };
-      },
-    }),
-    [state, refresh, flush],
+    () => ({ ...state, enqueue, flush, retry, discard, onSynced }),
+    [state, enqueue, flush, retry, discard, onSynced],
   );
 
   return <OfflineContext.Provider value={value}>{children}</OfflineContext.Provider>;
@@ -230,6 +237,9 @@ export function useOfflineSync(): Ctx {
 /** Queue items for one job (photos waiting or failed). */
 export function useJobQueue(jobId: string, kind = "photo") {
   const sync = useOfflineSync();
-  const items = sync.items.filter((i) => i.jobId === jobId && i.kind === kind);
-  return { ...sync, jobItems: items };
+  const jobItems = React.useMemo(
+    () => sync.items.filter((i) => i.jobId === jobId && i.kind === kind),
+    [sync.items, jobId, kind],
+  );
+  return { ...sync, jobItems };
 }

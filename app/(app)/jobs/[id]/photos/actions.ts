@@ -5,6 +5,7 @@ import { z } from "zod";
 import { defineAction } from "@/lib/actions/define-action";
 import { ActionFailure, check, mapDbError } from "@/lib/actions/errors";
 import { PHOTO_CATEGORIES } from "@/lib/domain/photos";
+import { logActivity } from "@/lib/jobs/activity";
 import { sendJobMessage } from "@/lib/jobs/send";
 import { logError } from "@/lib/log";
 
@@ -60,11 +61,12 @@ export const deletePhotos = defineAction({
   name: "photos.delete",
   permissions: ["photos:delete"],
   schema: deleteSchema,
-  handler: async (v, { supabase }) => {
+  handler: async (v, { supabase, service, viewer }) => {
     const visible = check(
       await supabase.from("job_photos").select("id").eq("job_id", v.jobId).in("id", v.photoIds),
     );
     let deleted = 0;
+    const svc = await service();
     for (const p of visible ?? []) {
       const { error } = await supabase.rpc("soft_delete_record", {
         p_table: "job_photos",
@@ -73,6 +75,16 @@ export const deletePhotos = defineAction({
       });
       if (error) throw new ActionFailure(mapDbError(error));
       deleted++;
+    }
+    if (deleted) {
+      await logActivity(svc, {
+        orgId: viewer.orgId,
+        subjectType: "job",
+        subjectId: v.jobId,
+        type: "photo_deleted",
+        summary: `Deleted ${deleted} photo${deleted === 1 ? "" : "s"}: ${v.reason}`,
+        actorId: viewer.real.id,
+      });
     }
     revalidatePath(jobPath(v.jobId));
     return { deleted };
@@ -121,7 +133,7 @@ export const sharePhotos = defineAction({
       org_id: ctx.viewer.orgId,
       subject_type: "job",
       subject_id: v.jobId,
-      type: "photos_shared",
+      type: "photo_shared",
       summary: `Shared ${ids.length} photo${ids.length === 1 ? "" : "s"} with the customer by ${v.channel === "sms" ? "text" : "email"} (simulated)`,
       payload: { photo_ids: ids, message_id: sent.messageId },
       actor_id: ctx.viewer.real.id,

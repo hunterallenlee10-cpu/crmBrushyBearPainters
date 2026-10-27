@@ -381,3 +381,13 @@ No new permissions; Phase 3 starts using the job ones seeded in Phase 1.
 - **Estimate Setup** needs `settings:manage`; **Agreement Templates** need `templates:manage` to edit and an owner (`settings:manage`) to publish.
 - **Documents** (signed proposals/contracts, change orders) need `documents:read`; **invoices** need `invoices:read`. Files are only ever streamed by the server after these checks.
 - **Customers** never sign in: the proposal link is their credential, scoped to one version or change order.
+
+## Added in Phase 5
+
+No new permissions; Phase 5 starts using the photo and document ones seeded in Phase 1.
+
+- **Onboarding items:** anyone with `jobs:update` on the job (their own jobs, team or everyone's by scope) can mark an item cleared with a note, reopen a manual clear, create a task (`tasks:manage`) and request something from the customer (`messages:send`, simulated). The checks themselves run as trusted server code. Everyone who can open the job sees its checklist.
+- **Photos:** `photos:read` at its scope (crew leads and painters: jobs they're on; office and read-only roles: everyone's). `photos:upload` adds photos to any job the person can open (crew included) and lets the uploader re-tag their own photos; people who can edit the job can re-tag any. `photos:delete` (Production — manage: Owner, Office Manager) soft-deletes. Sharing with the customer needs `photos:read` and `messages:send`.
+- **Documents:** `documents:read` sees documents on jobs/customers the person can open; money documents (proposals, contracts, change orders, invoices, receipts) also need `financials:read` or `estimates:read`, so crew see HOA, lead-safe, color-sheet and warranty paperwork only. `documents:manage` plus edit rights on the job or customer uploads, renames, moves and deletes. Signed documents can't be deleted by anyone.
+- **Onboarding Board** needs `jobs:read`; moving a card needs `jobs:advance_stage`. Money on the board needs `financials:read`.
+- **Camera** (`/field/camera`) needs `photos:upload`.

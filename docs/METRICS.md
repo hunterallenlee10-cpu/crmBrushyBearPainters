@@ -25,6 +25,36 @@ From `estimate_stats(p_from, p_to)` (one server query, row-security scoped), def
 
 Fixture tests: `lib/metrics/registry.test.ts`. The Jobs Dashboard money now reads the contract amount (accepted estimate + signed change orders, else the baseline).
 
+## Documents (Phase 5)
+
+Source: `public.document_stats(p_job)` (row security applies; `p_job` limits it to one job).
+
+| Metric             | Formula                                                                                            |
+| ------------------ | -------------------------------------------------------------------------------------------------- |
+| Total documents    | live documents you can see                                                                         |
+| Awaiting signature | documents marked "awaiting signature"                                                              |
+| Needs action       | required onboarding items still open that need paperwork: signed contract, HOA approval, lead-safe |
+| Linked to jobs     | documents on a job (the rest are on a customer only)                                               |
+| Recently added     | documents added in the last 7 days                                                                 |
+| Storage used       | sum of file sizes                                                                                  |
+
+## Onboarding Board (Phase 5)
+
+Source: the board summary built on the server from every job on the board (Sold → Paid in Full, plus jobs paid in full this month; up to 2,000), lanes from `lib/domain/onboarding/board.ts`. Filters on the page apply.
+
+| Metric                  | Formula                                                               |
+| ----------------------- | --------------------------------------------------------------------- |
+| Active jobs / pipeline  | jobs not in Paid in Full; their contract value                        |
+| Deposit Hold / held     | jobs on Deposit Hold; total of their deposit invoices                 |
+| Needs Onboarding / age  | jobs working the checklist; average days in the lane                  |
+| On Hold / Expediting    | jobs with a blocking hold (not deposit); average days since the hold  |
+| Ready to Schedule ($)   | cleared jobs waiting for dates; their contract value                  |
+| Scheduled / In Progress | scheduled, in progress or at the final walkthrough                    |
+| Invoicing / Outstanding | completed or invoiced; billed − collected (— until payments, Phase 7) |
+| Paid in Full            | paid in full this month (Pacific)                                     |
+
+Lane "overdue" uses the attention thresholds: sold with no deposit (3 days), onboarding stalled (7), ready not scheduled (5). Fixture tests: `lib/metrics/registry.test.ts`, `lib/domain/onboarding/board.test.ts`.
+
 ## Minimum set (SPEC §12.1)
 
 Leads created · leads by source · speed to lead (median, p90) · contact rate · walkthrough set rate · walkthrough show rate · estimates sent · 24h SLA % · close rate (count and $) · avg job value · sales velocity · pipeline value · backlog crew-days · projected revenue · revenue sold/completed/collected · gross margin % · labor hours estimated vs actual · daily-update compliance % · on-time start % · rain-delay days · punch items per job · days completed → paid · A/R aging · collection % · review rate · referral conversions · revenue by city/source/estimator · cost per lead & CAC.

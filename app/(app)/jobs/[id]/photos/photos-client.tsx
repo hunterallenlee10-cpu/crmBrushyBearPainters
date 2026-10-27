@@ -114,9 +114,13 @@ export function PhotosClient({
   const pendingShot = React.useRef<ChecklistShot | null>(null);
 
   // When this job's queued photos land, show them.
+  const { onSynced } = queue;
   React.useEffect(
-    () => queue.onSynced((jobs) => jobs.includes(jobId) && router.refresh()),
-    [queue, jobId, router],
+    () =>
+      onSynced((jobs) => {
+        if (jobs.includes(jobId)) router.refresh();
+      }),
+    [onSynced, jobId, router],
   );
 
   const counts = categoryCounts(photos);
@@ -560,15 +564,34 @@ function Stat({ label, value }: { label: string; value: number }) {
 /** Photos on this device waiting to upload (or refused), with retry/discard. */
 function QueueStrip({ jobId }: { jobId: string }) {
   const q = useJobQueue(jobId);
-  const [urls, setUrls] = React.useState<Record<string, string>>({});
+  // One preview URL per queued photo (kept while it waits, revoked after).
+  const urlCache = React.useRef(new Map<string, string>());
+  const ids = q.jobItems.map((i) => i.id).join(",");
   React.useEffect(() => {
-    const next: Record<string, string> = {};
-    for (const i of q.jobItems) if (i.blob) next[i.id] = URL.createObjectURL(i.blob);
-    setUrls(next);
-    return () => {
-      for (const u of Object.values(next)) URL.revokeObjectURL(u);
-    };
-  }, [q.jobItems]);
+    const live = new Set(ids ? ids.split(",") : []);
+    for (const [id, u] of urlCache.current) {
+      if (!live.has(id)) {
+        URL.revokeObjectURL(u);
+        urlCache.current.delete(id);
+      }
+    }
+  }, [ids]);
+  React.useEffect(
+    () => () => {
+      for (const u of urlCache.current.values()) URL.revokeObjectURL(u);
+      urlCache.current.clear();
+    },
+    [],
+  );
+  const urlFor = (id: string, blob: Blob | undefined) => {
+    if (!blob) return null;
+    let u = urlCache.current.get(id);
+    if (!u) {
+      u = URL.createObjectURL(blob);
+      urlCache.current.set(id, u);
+    }
+    return u;
+  };
   if (!q.jobItems.length) return null;
   return (
     <section
@@ -584,10 +607,10 @@ function QueueStrip({ jobId }: { jobId: string }) {
       <ul className="flex gap-2 overflow-x-auto pb-1">
         {q.jobItems.map((i) => (
           <li key={i.id} className="flex w-28 shrink-0 flex-col gap-1">
-            {urls[i.id] ? (
+            {i.blob ? (
               // eslint-disable-next-line @next/next/no-img-element -- local preview
               <img
-                src={urls[i.id]}
+                src={urlFor(i.id, i.blob) ?? undefined}
                 alt=""
                 className="aspect-square w-full rounded-lg object-cover"
               />

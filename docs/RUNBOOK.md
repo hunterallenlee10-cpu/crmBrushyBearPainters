@@ -98,6 +98,14 @@ The website posts quote requests to `POST /api/public/leads` (contract in `docs/
 - **Acceptance didn't finish** (signed but no PDF, or the job didn't move): the worker retries on the `estimate.accepted` event. Check `events` for a failed `estimate.accepted`; once the cause is fixed, set it back to `queued`.
 - **Changing prices:** edit the Price Book or Estimate Setup. Drafts pick up the change the next time they're opened or edited; sent versions never change.
 
+## Onboarding, documents, photos and offline _(Phase 5)_
+
+- **Onboarding checks** run in the worker every minute for jobs in Sold or Onboarding (`summary.onboarding` in the worker's JSON: jobs checked, rows changed, jobs moved to Ready to Schedule). A job that should have moved: open it → Onboarding → **Re-verify all**; the item that's still open says why. Manual clears show who cleared them and the note.
+- **Storage buckets:** `documents` (25 MB per file: PDF, photos, Word, Excel, text, CSV) and `photos` (display copies and thumbnails, `<org>/jobs/<job>/<uuid>.jpg` and `-thumb.jpg`). Both are private; never make them public. Back them up with the database (Storage isn't in the database dump). Deleting a row soft-deletes it; files stay until a purge job (Phase 10) removes files of rows deleted long ago.
+- **Uploads that fail on Vercel:** documents upload straight to Supabase Storage (no Vercel size limit); photos go through `/api/jobs/<id>/photos` after the browser shrinks them (8 MB max per photo).
+- **Offline queue:** photos taken without signal live in the browser's IndexedDB on that phone (`brushybear-offline` → `uploads`) until they upload. Clearing site data on the phone deletes photos that haven't uploaded yet. Uploads are idempotent (client id), so retries never duplicate.
+- **Service worker** (`public/sw.js`): caches only hashed static files and `/offline`. After changing what it caches, bump `VERSION` in the file so phones drop the old cache. To turn it off in an emergency, deploy a `sw.js` that calls `self.registration.unregister()`.
+
 ## Month close _(Phase 7)_
 
 ## Purge demo data _(Phase 10)_

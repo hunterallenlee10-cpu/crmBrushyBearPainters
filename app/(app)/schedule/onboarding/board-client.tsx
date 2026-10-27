@@ -146,17 +146,19 @@ export function BoardClient({
                     />
                   ))}
                   {laneCards.length > LANE_CAP && (
-                    <Link
-                      href="/jobs/list"
-                      className="text-xs font-semibold text-bb-forest underline"
-                    >
-                      {laneCards.length - LANE_CAP} more in the Job List
-                    </Link>
+                    <li>
+                      <Link
+                        href="/jobs/list"
+                        className="text-xs font-semibold text-bb-forest underline"
+                      >
+                        {laneCards.length - LANE_CAP} more in the Job List
+                      </Link>
+                    </li>
                   )}
                   {laneCards.length === 0 && (
-                    <p className="rounded-xl border border-dashed p-3 text-center text-xs text-muted-foreground">
+                    <li className="rounded-xl border border-dashed p-3 text-center text-xs text-muted-foreground">
                       No jobs
-                    </p>
+                    </li>
                   )}
                 </Lane>
               );

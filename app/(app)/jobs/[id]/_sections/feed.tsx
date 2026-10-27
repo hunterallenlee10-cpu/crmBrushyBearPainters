@@ -847,7 +847,7 @@ export function JobFeed(props: FeedProps) {
                 ? "No notes yet. Jot down what you learn about the home and the customer so the whole team sees it."
                 : "No activity yet. Notes, messages and changes on this job show up here."
               : filter === "documents" || filter === "photos"
-                ? "Documents and photos arrive in Phase 5."
+                ? "No document or photo activity on this job yet."
                 : "Nothing matches that filter or search."}
           </EmptyState>
         ) : (

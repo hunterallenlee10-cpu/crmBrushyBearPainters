@@ -240,7 +240,7 @@ test.describe("Job Detail (owner)", () => {
     await nav.getByRole("link", { name: "Photos" }).click();
     await expect(page).toHaveURL(/section=photos/);
     await expect(page.locator("#job-section-title")).toHaveText("Photos");
-    await expect(page.getByText("Arrives in Phase 5")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "No photos yet" })).toBeVisible();
     await nav.getByRole("link", { name: "Notes" }).click();
     await expect(page).toHaveURL(/section=notes/);
     await expect(page.locator("#job-section-title")).toHaveText("Notes");

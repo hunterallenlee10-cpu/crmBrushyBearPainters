@@ -9,17 +9,6 @@ import { CameraClient } from "./camera-client";
 
 export const metadata: Metadata = { title: "Camera" };
 
-/** Stages where crews take photos (sold through the final walkthrough). */
-const PHOTO_STAGES = [
-  "sold",
-  "onboarding",
-  "ready_to_schedule",
-  "scheduled",
-  "in_progress",
-  "final_walkthrough",
-  "completed",
-];
-
 /**
  * Camera (SPEC §16 mobile tab bar, §8.5 #6): pick one of your jobs and take
  * photos. Works without signal: photos wait on the phone and upload later.
@@ -35,7 +24,8 @@ export default async function CameraPage({
   const { data: jobs } = await supabase
     .from("jobs")
     .select("id, job_number, name, stage, property:properties(city)")
-    .in("stage", PHOTO_STAGES)
+    // Every open job: walkthrough photos count too (SPEC §15.1 Walkthrough checklist).
+    .not("stage", "in", "(closed_won,closed_lost)")
     .order("updated_at", { ascending: false })
     .limit(50);
   const options = (jobs ?? []).map((j) => ({
@@ -49,7 +39,7 @@ export default async function CameraPage({
       <PageHeader title="Camera" description={<SyncIndicator />} />
       {options.length === 0 ? (
         <EmptyState icon={Camera} title="No jobs to photograph">
-          <p>Jobs show up here once they&apos;re sold and you&apos;re on the team.</p>
+          <p>Open jobs you&apos;re on show up here.</p>
         </EmptyState>
       ) : (
         <CameraClient

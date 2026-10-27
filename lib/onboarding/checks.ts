@@ -285,7 +285,7 @@ export async function reverifyJob(
 }
 
 /** Worker sweep: every job in Sold or Onboarding (oldest check first). */
-export async function sweepOnboarding(service: Db, limit = 200) {
+export async function sweepOnboarding(service: Db, limit = 500) {
   const { data: jobs, error } = await service
     .from("jobs")
     .select("id")

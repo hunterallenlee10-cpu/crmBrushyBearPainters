@@ -14,6 +14,7 @@ import {
 import { DOCUMENTS_BUCKET } from "@/lib/estimating/documents";
 import { logError } from "@/lib/log";
 import { reverifyJob } from "@/lib/onboarding/checks";
+import { logActivity } from "@/lib/jobs/activity";
 
 /**
  * Document mutations (SPEC §8.5 #7, §8.13). Uploads go straight from the
@@ -164,6 +165,15 @@ export const finishDocumentUpload = defineAction({
       await bucket.remove([v.path]);
       throw new ActionFailure(mapDbError(error));
     }
+    await logActivity(service, {
+      orgId: t.orgId,
+      subjectType: t.jobId ? "job" : "account",
+      subjectId: t.jobId ?? t.accountId,
+      type: "document_uploaded",
+      summary: `Document uploaded: ${v.title}`,
+      actorId: ctx.viewer.real.id,
+      payload: { document_id: row.id, category: v.category },
+    });
     if (t.jobId && ONBOARDING_CATEGORIES.has(v.category)) {
       await reverifyJob(service, t.jobId).catch((e: unknown) => logError("documents.reverify", e));
     }
@@ -238,11 +248,11 @@ export const deleteDocument = defineAction({
   name: "documents.delete",
   permissions: ["documents:manage"],
   schema: deleteSchema,
-  handler: async (v, { supabase, service }) => {
+  handler: async (v, { supabase, service, viewer }) => {
     const doc = check(
       await supabase
         .from("documents")
-        .select("id, job_id, account_id")
+        .select("id, org_id, job_id, account_id, title")
         .eq("id", v.id)
         .maybeSingle(),
     );
@@ -253,10 +263,20 @@ export const deleteDocument = defineAction({
       p_reason: v.reason,
     });
     if (error) throw new ActionFailure(mapDbError(error));
+    const svc = await service();
+    const subjectId = doc.job_id ?? doc.account_id;
+    if (subjectId) {
+      await logActivity(svc, {
+        orgId: doc.org_id,
+        subjectType: doc.job_id ? "job" : "account",
+        subjectId,
+        type: "document_deleted",
+        summary: `Document deleted: ${doc.title} (${v.reason})`,
+        actorId: viewer.real.id,
+      });
+    }
     if (doc.job_id) {
-      await reverifyJob(await service(), doc.job_id).catch((e: unknown) =>
-        logError("documents.reverify", e),
-      );
+      await reverifyJob(svc, doc.job_id).catch((e: unknown) => logError("documents.reverify", e));
     }
     paths(doc.job_id, doc.account_id);
     return { ok: true };

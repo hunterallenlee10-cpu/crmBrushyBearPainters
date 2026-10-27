@@ -491,7 +491,7 @@ test.describe("as the owner", () => {
       feed.getByRole("listitem").filter({ hasText: "Simulated – not sent" }),
     ).toHaveCount(1);
     await chips.getByRole("button", { name: /^Photos/ }).click();
-    await expect(page.getByText("Documents and photos arrive in Phase 5.")).toBeVisible();
+    await expect(page.getByText("No document or photo activity on this job yet.")).toBeVisible();
   });
 
   test("customer: account numbers, gate code reveal, contacts and jobs", async () => {

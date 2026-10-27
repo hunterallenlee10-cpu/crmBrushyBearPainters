@@ -2,6 +2,32 @@
 
 All notable changes, by build phase. See `docs/PLAN.md` for what each phase covers.
 
+## Phase 5 — Onboarding, documents & photos
+
+### Added
+
+- **Onboarding checks:** every requirement on the checklist now checks itself against the job: signed contract stored, change orders signed, deposit invoice paid (pending until payments arrive in Phase 7), contact has mobile and email, access/pets/parking/occupancy filled in, colors chosen for every surface, color consult completed, HOA approval uploaded, lead-safe acknowledgment uploaded (certified renovator in Phase 6), repair allowance accepted or change order signed, paint order placed, prep instructions sent, promised start inside the exterior season. Results run after every change, on "Re-verify all" and every minute in the worker.
+- **Ready to Schedule is a real gate** (in TypeScript and in the database): every required item cleared and no hold that blocks scheduling. When it passes, the job moves to Ready to Schedule on its own. Clearing the deposit item releases the Deposit Hold.
+- **Job → Onboarding:** tiles (progress %, auto-verified, needs attention, open cases, tasks due, active holds), sub-tabs Checklist · Cases · Tasks · Holds, grouped checklist with what each check found, its owner, and Request from customer (simulated text or email with draft wording), Upload (straight into Documents), Create task, Mark cleared with a note, Reopen; job summary card and the "Ready to Schedule = …" footnote.
+- **Onboarding Board** (`/schedule/onboarding`): lanes Deposit Hold → Needs Onboarding → On Hold / Expediting → Ready to Schedule → Scheduled / In Progress → Invoicing / Collections → Paid in Full with totals, average days and overdue counts; KPI strip from the metrics registry; filters (work type, holds, city, sold dates); cards with customer, work types, holds, days in lane, value, onboarding progress and HOA/lead-safe/weather icons; drag (mouse, touch, keyboard) or a button moves a cleared job to Ready to Schedule, and every other drop explains why not. Tabs Expedite, Data Audit, Reporting and Call Log.
+- **Documents:** Job → Documents with KPI tiles (total, awaiting signature, needs action, recently added, storage used), category tabs, list or grid, upload (PDF, photos, Word, Excel, text, CSV up to 25 MB, straight to private storage), preview (PDF and photos in a dialog), download, rename, recategorize, mark awaiting signature, move to another job of the same customer, delete (soft, restorable). Global **Documents** page (`/documents`) with KPIs, category tabs, type filter, title search, linked job or customer, paging. Documents on the customer page.
+- **Photos:** Job → Photos with Camera (phone camera) and Upload, category and area tags, filter chips with counts, area filter, required-shot checklist per work type (areas from the accepted estimate), before/after compare slider, select → share with the customer (simulated) or download a zip, edit and delete, and a summary panel (total, today, this week, waiting to upload, shared). Photos are shrunk in the browser and re-encoded on the server with a thumbnail; GPS and every other EXIF field are removed and originals aren't kept.
+- **Works offline:** photos taken without signal wait on the device (IndexedDB) and upload when the connection is back, without duplicates. "Offline ready · Last synced …" on the job header. Installable app (manifest, service worker, offline page). **Camera** page (`/field/camera`) for crews: pick a job, photo type and area, shoot.
+- **Attention and health:** "Onboarding stalled" names the open items and holds (and stays quiet once everything is cleared); job health's onboarding and photo checks are real.
+- Timeline entries for document uploads/deletes and photos added, deleted or shared. Deleted Records lists jobs, documents and photos.
+
+### Changed
+
+- The onboarding gate no longer needs an owner override when the checklist is cleared.
+- Job messages remember the template they came from (`messages.template_key`).
+- Document previews may be framed by the app's own pages; everything else still can't be framed.
+
+### Tests
+
+- SQL/RLS: 508 assertions across 12 files (Phase 5 adds 56: manual clears and their guard, check results never overwriting a manual clear, Deposit Hold release, the gate with and without holds, document uploads, links, signed-document protection, soft delete and restore, photo upload/visibility per role, idempotent client ids, file-path checks, cross-company isolation).
+- Unit: 932 tests (Phase 5 adds 66: onboarding rules and checklist, board lanes/moves/filters, photos and documents helpers, offline queue, EXIF stripping, zip writer, registry metrics, gates, health, attention).
+- E2E + axe on a production build (desktop and mobile): onboarding checks → board refusal → clearing items → Ready to Schedule; documents section and page; photos upload, checklist, compare, share, zip; **offline capture syncs after reconnect** (`context.setOffline`) on desktop and phone; Camera page. Screenshots in `docs/screens/phase-5/`.
+
 ## Phase 4 — Estimating
 
 ### Added

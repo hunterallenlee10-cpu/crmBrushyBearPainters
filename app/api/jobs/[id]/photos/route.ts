@@ -4,8 +4,14 @@ import { z } from "zod";
 import { getViewerState } from "@/lib/auth/viewer";
 import { createSupabaseServerClient } from "@/lib/db/server";
 import { createSupabaseServiceClient } from "@/lib/db/service";
-import { PHOTO_CATEGORIES, PHOTO_UPLOAD_LIMIT, PHOTO_UPLOAD_TYPES } from "@/lib/domain/photos";
+import {
+  PHOTO_CATEGORIES,
+  PHOTO_CATEGORY_LABELS,
+  PHOTO_UPLOAD_LIMIT,
+  PHOTO_UPLOAD_TYPES,
+} from "@/lib/domain/photos";
 import { logError } from "@/lib/log";
+import { logActivity } from "@/lib/jobs/activity";
 import { processPhoto, UnreadablePhotoError } from "@/lib/photos/process";
 import { PHOTOS_BUCKET, photoPaths } from "@/lib/photos/storage";
 
@@ -159,5 +165,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     logError("photos.insert", error);
     return json(500, { error: "We couldn't save that photo. Try again." });
   }
+  await logActivity(service, {
+    orgId: job.org_id,
+    subjectType: "job",
+    subjectId: jobId,
+    type: "photo_added",
+    summary: `${PHOTO_CATEGORY_LABELS[v.category]} photo added${v.area ? ` · ${v.area}` : ""}${v.source === "offline" ? " (taken offline)" : ""}`,
+    actorId: viewer.real.id,
+    payload: { photo_id: row.id, category: v.category },
+  });
   return json(201, { ok: true, id: row.id });
 }

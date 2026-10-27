@@ -46,3 +46,16 @@ These already fire (from database triggers and the send/accept functions) and th
 | row events on estimates, lines, invoices, onboarding, paint and work orders | Every change                             | audit + events only                                                             |
 
 Expired links: the worker run calls `expire_proposals()` each minute, which marks unanswered versions past their date as Expired.
+
+## Onboarding (Phase 5)
+
+| Trigger                                                                                                                                                               | What happens                                                                                                                                             |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Estimate accepted (`completeAcceptance`), change order signed, any onboarding action, document change, "Re-verify all", worker every minute (jobs in Sold/Onboarding) | The onboarding checks run (`lib/onboarding/checks.ts`); changed results are written; a manual clear is never overwritten.                                |
+| The deposit item is cleared                                                                                                                                           | The Deposit Hold is released (database trigger), with the note.                                                                                          |
+| Every required item cleared and no blocking hold                                                                                                                      | The job moves Onboarding → Ready to Schedule through the normal gate (workflow #7; the scheduler notification itself arrives with workflows in Phase 8). |
+| "Request from customer" / "Prep instructions"                                                                                                                         | A simulated text or email with draft wording (template key `onboarding_*` / `prep_instructions`); the Prep item clears once one is logged.               |
+| Job in Onboarding past the threshold (7 days) with items open or a hold                                                                                               | Attention "Onboarding stalled" lists what's open and the holds; it closes once the job moves on.                                                         |
+| Photos shared with the customer                                                                                                                                       | One simulated message (`photo_share`); the photos are marked shared.                                                                                     |
+
+Events: row events for `job_photo.*`, `document.*` and `onboarding_requirement.*` (audit + outbox; workflows in Phase 8).

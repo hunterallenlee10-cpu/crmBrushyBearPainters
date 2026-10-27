@@ -491,6 +491,81 @@ Every non-obvious decision, newest at the bottom. Format: date · decision · re
 - **Decision:** `jobs.accepted_estimate_id` adds a second relationship between jobs and estimates, so PostgREST embeds between them name the foreign key (`jobs!estimates_job_id_fkey`, `estimates!estimate_versions_estimate_id_fkey`).
 - **Reason:** Without the hint the query fails at run time (PGRST201); the generated types don't catch it.
 
+## Phase 5 — Onboarding, documents & photos
+
+### 2026-10-27 · Onboarding checks run in TypeScript; the gate reads stored results
+
+- **Decision:** Each requirement's auto-verify rule is a pure function in `lib/domain/onboarding/rules.ts` over a job snapshot (signed document, change orders, deposit invoice and applied payments, contact, property access fields, color schedule, color consult, HOA and lead-safe documents, paint orders, prep-instructions message, promised start vs season). `lib/onboarding/checks.ts` loads the snapshot with the service client and writes the results through `apply_onboarding_checks()` (service role only), which touches only rows whose result changed and never overwrites a manual clear (a verified row with `verified_auto = false`). The Onboarding → Ready to Schedule gate (TS `exitGate` and SQL `app.job_gate_passes('onboarding')`) is "the checklist exists, every required row is verified, and no hold blocks scheduling". `advanceJobStage()` re-runs the checks before it reads that gate.
+- **When the checks run:** right after acceptance, after a change order is signed, after every onboarding action and document change, on "Re-verify all", and in the worker every minute for jobs in Sold or Onboarding (up to 500 per run; far above this business's volume).
+- **Reason:** SPEC §6.4 / CLAUDE.md rule 7 (business logic as pure, tested functions). One SQL function for the gate keeps `advanceJobStage()` and the database in agreement; checks stay cheap because unchanged rows aren't written.
+
+### 2026-10-27 · Jobs move to Ready to Schedule on their own
+
+- **Decision:** When a check run finds the gate passes and the job is in Onboarding, it calls `advanceIfGatePasses(onboarding → ready_to_schedule)` (never an override). So clearing the last item, uploading the HOA approval or the worker's sweep moves the job; stage history records it as a normal, non-override move.
+- **Reason:** SPEC §11.2 #7 "Onboarding cleared → Ready to Schedule". The notification to the scheduler waits for workflows (Phase 8); the job team already hears about stage changes.
+
+### 2026-10-27 · People clear items with a note; everything else is the checks' job
+
+- **Decision:** The database guard lets a person (with `jobs:update` on the job) only mark an item cleared with a note of at least 3 characters, reopen an item they (or anyone) cleared by hand, record that it was requested from the customer, or link a task. Statuses missing / needs review / not required, labels, "required" and the check results are written only by trusted code. A manual clear is stamped with who and when, shows on the timeline, and stands until someone reopens it.
+- **Reason:** SPEC §6.4 actions (Request from customer, Upload, Create task, Mark cleared with note). Phase 5 has no payments, crews or paint-ordering screens, so those items need an honest, audited manual path that the checks can't silently undo.
+
+### 2026-10-27 · Deposit check is designed against the ledger; pending until Phase 7
+
+- **Decision:** `depositRule()` takes the live deposit invoice and the cents applied to it. Until payments exist (Phase 7) the loader passes `appliedCents: null`, so the item stays Pending with "Recording payments arrives in Phase 7. Until then, mark this cleared with a note." Clearing the deposit item (by hand now, by the check in Phase 7) releases the job's Deposit Hold in the same transaction (`onboarding_requirements_after` trigger). Job health counts the deposit as paid when `deposit_paid_at` is set or the deposit item is cleared.
+- **Reason:** SPEC §6.4, §11.2 #6. Phase 7 only has to pass the applied amount; nothing else changes.
+
+### 2026-10-27 · Rules whose data comes later
+
+- **Decision:** Crew assigned (skills) and the certified-renovator part of the lead-safe item report Pending "arrives in Phase 6"; Paint ordered is real (paint order status ≥ ordered) but the paint order queue to change that status arrives in Phase 6. "Repair scope approved" passes when the accepted estimate includes a repair allowance the customer accepted (option line or chosen add-on) or a change order is signed. "Required" is fixed at acceptance except the HOA item (follows exterior work + the property's HOA flag) and change orders (required once one is sent).
+- **Reason:** No fake verification; the manual clear covers the gap.
+
+### 2026-10-27 · Prep instructions and requests are template-keyed messages
+
+- **Decision:** `messages.template_key` (new column) tags messages sent from onboarding: `prep_instructions` clears the Prep item when a message with that key was sent or simulated; other requests use `onboarding_contact|access|colors|hoa|lead_safe`, and photo shares use `photo_share`. Message drafts live in `lib/onboarding/messages.ts` (plain, short, signed by the sender) and are marked "Draft wording – owner to approve"; Phase 8 templates replace them. Everything goes through the outbox as simulated.
+- **Reason:** SPEC §6.4 "template message logged (sent or simulated)", §2.1.
+
+### 2026-10-27 · Cases wait for Phase 8
+
+- **Decision:** The Onboarding "Cases" tab and "Open cases" tile say Cases arrive in Phase 8 (with warranty cases). The Onboarding Board's Service/Warranty tab and Open Warranty/Service KPI do the same.
+- **Reason:** PLAN puts cases (customer issues and warranty requests) in Phase 8; building a throwaway case table now would need a migration rewrite later.
+
+### 2026-10-27 · Onboarding Board lives under Schedule
+
+- **Decision:** `/schedule/onboarding` (Schedule ▾ → Onboarding Board), as the nav already listed. Lanes come from the job's stage and active holds (`lib/domain/onboarding/board.ts`): Sold/Onboarding with a Deposit Hold → Deposit Hold; with another blocking hold → On Hold / Expediting; otherwise Needs Onboarding; Ready to Schedule (any hold → On Hold); Scheduled, In Progress, Final Walkthrough → Scheduled / In Progress; Completed, Invoiced → Invoicing / Collections; Paid in Full plus jobs closed won after being paid this month (Pacific) → Paid in Full. Time in a lane starts when the hold that put the job there was placed. Cards count as overdue past the attention-rule thresholds (sold with no deposit, onboarding stalled, ready not scheduled).
+- **Moves:** only Needs Onboarding → Ready to Schedule changes anything, through `advanceJobStage()` (which re-runs the checks). Every other drop says what to do instead (release the hold, Master Schedule in Phase 6, payments in Phase 7, override for moving back). Each ready card also has a button, so the move works without dragging. The whole board set (up to 2,000 jobs) is loaded on the server so lane totals and KPIs count every job; lanes show 60 cards each.
+- **Tabs:** Board, Expedite (held or overdue, longest wait first), Data Audit (missing contact info, property, point of contact, sold date, checklist, promised start), Reporting (lane totals), Call Log (calls logged on board jobs); Service/Warranty waits for Phase 8. "% collected" and Outstanding show "—" until Phase 7; the "Under 30% collected" filter is left out until then.
+- **Reason:** SPEC §8.7; the nav in Phase 0 already put it under Schedule.
+
+### 2026-10-27 · Photo privacy: re-encoded on upload, originals not kept
+
+- **Decision:** The browser shrinks each photo to 2,560 px and re-encodes it as JPEG (smaller uploads on weak signal; that drops EXIF). The server re-encodes again with sharp (`.rotate()` from EXIF orientation, resize, JPEG without metadata) and writes a 480 px thumbnail; the original file is never stored, so GPS location, camera details and timestamps never reach storage or a customer. `job_photos.exif_stripped` is always true (checked). Server-side thumbnails are done (no gap). `sharp` became a direct dependency (it already shipped with Next).
+- **Reason:** SPEC §13.1 "EXIF location stripped from customer-facing copies". Stripping on upload is simpler and safer than keeping two copies and remembering to share the right one. Owners lose the GPS proof-of-location on photos; if they want it later, it can be kept as a separate, staff-only field.
+
+### 2026-10-27 · Files: photos by signed links, documents through the app
+
+- **Decision:** Photos live in a new private `photos` bucket; the gallery gets 10-minute signed links made on the server after the person's row-security read (one batch call per page). Documents stay in the private `documents` bucket and stream through `/api/files/documents/[id]` after the same check (inline for PDFs and photos, download otherwise). That route may be framed by our own pages only (`X-Frame-Options: SAMEORIGIN`, `frame-ancestors 'self'`) so PDFs preview in a dialog; everything else stays `DENY`. Uploads of documents go straight from the browser to storage through a one-time signed upload URL, then the server checks the stored object (size, type) and inserts the row with the person's own client. Allowed document types: PDF, JPEG/PNG/WebP/HEIC, Word, Excel, text, CSV, up to 25 MB.
+- **Reason:** SPEC §13.1 (private buckets, short-lived signed URLs). A gallery of thumbnails through the app server would be slow; documents keep Phase 4's streaming so crew permission checks happen on every download. Vercel's 4.5 MB request limit rules out uploading documents through a route.
+
+### 2026-10-27 · Offline queue: IndexedDB, idempotent uploads, minimal service worker
+
+- **Decision:** `lib/offline/queue-core.ts` (pure, tested) queues uploads with a client id; `idb-store.ts` keeps them in IndexedDB (memory if unavailable); `OfflineSyncProvider` (in the signed-in layout) uploads when the browser goes online, every 30 s while anything waits, and right after each capture, with back-off (5 s doubling to 5 min) for network/5xx/429 and "failed, retry or discard" for refusals. The photo route treats the client id as an idempotency key (`unique (job_id, client_id)`), so a retry after a lost response never duplicates. Phase 6 adds a `daily_log` uploader to the same queue. The service worker (`public/sw.js`, production only) caches hashed static files and an `/offline` page and never caches signed-in pages or API responses. The job header and Camera page show "Offline ready · Last synced 4:51 PM", or what's waiting.
+- **Reason:** SPEC §2 PWA, PLAN Phase 5 "offline photo capture syncs after reconnect". Caching job pages offline would put customer data on shared phones; "Download job" for offline reading is left for later (gap).
+
+### 2026-10-27 · Documents can move between a customer's jobs
+
+- **Decision:** Uploaded documents can be renamed, recategorized, marked "awaiting signature", moved to another job of the same customer or kept on the customer only (account documents show on the customer page and in the job's Documents under "On the customer"). Generated documents stay on their job; signed documents can't be deleted. Deletes are soft (`soft_delete_record`, `documents:manage` plus edit rights) and restorable in Deleted Records, which now also lists jobs (they were missing from the screen since Phase 3), documents and photos.
+- **Reason:** SPEC §8.5 #7, §8.13 "link to job/account"; signed paperwork is a legal record.
+
+### 2026-10-27 · Required shots come from the accepted scope
+
+- **Decision:** The Photos checklist lists, per work type, Before and After once per area of the accepted option (rooms, elevations, cabinet runs) and Prep / Progress / Cleanup once per job (`lib/domain/photos.ts`). A photo counts for a shot when it was taken from that checklist item or has the same category and area tag. Job health's photo check is real: before (and progress while in progress) photos from In Progress on, after photos from the Final Walkthrough on.
+- **Reason:** SPEC §8.5 #6 "required shots per work type: before each elevation/room, prep, progress, after, cleanup".
+
+### 2026-10-27 · Activity for files
+
+- **Decision:** Uploading or deleting a document, adding or deleting photos, and sharing photos write timeline entries (`document_*`, `photo_*`), so the Activity feed's Documents and Photos chips have content. Sharing photos sends one simulated message and marks the photos customer-visible.
+- **Reason:** SPEC §8.5 #14–15 feed filters.
+
 ## Hosting
 
 ### 2026-10-27 · Separate hosting; worker every minute from the database
