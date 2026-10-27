@@ -409,10 +409,9 @@ export const deleteNote = defineAction({
     );
     if (!note) throw new ActionFailure({ code: "not_found", message: "That note is gone." });
     if (note.created_by !== viewer.real.id) throw notYours("notes");
-    // Soft delete. No RETURNING: the row leaves the SELECT policy once deleted_at is set.
-    check(
-      await supabase.from("notes").update({ deleted_at: new Date().toISOString() }).eq("id", id),
-    );
+    // A plain update can't pass row security (the deleted row leaves the SELECT
+    // policy); soft_delete_post() checks author, permission and View as itself.
+    check(await supabase.rpc("soft_delete_post", { p_table: "notes", p_id: id }));
     revalidatePath(leadPath(lead_id));
     return { id };
   },

@@ -286,6 +286,29 @@ select tests.assert_raises(
   'you can only write notes on jobs you can see', '42501');
 select tests.logout();
 
+-- Deleting your own note; mentions on a job link to it ------------------------------------
+select tests.login((select id from u where k = 'est'));
+with n as (
+  insert into public.notes (org_id, subject_type, subject_id, body) values ((select a from o), 'job', (select id from r where k = 'job'), 'Delete me')
+  returning id
+) insert into r select 'note', id from n;
+select tests.logout();
+select tests.login((select id from u where k = 'owner'));
+select tests.assert_raises(
+  format($q$select public.soft_delete_post('notes', %L)$q$, (select id from r where k = 'note')),
+  'you can only delete your own notes', 'P0002');
+insert into public.comments (org_id, subject_type, subject_id, body, mentions)
+values ((select a from o), 'job', (select id from r where k = 'job'), 'Can you check the HOA letter?', array[(select id from u where k = 'est')]);
+select tests.logout();
+select tests.assert_eq((select link from public.notifications where user_id = (select id from u where k = 'est') and type = 'mention'),
+  '/jobs/' || (select id from r where k = 'job') || '?section=notes', 'job mentions link to the job''s notes');
+select tests.login((select id from u where k = 'est'));
+select public.soft_delete_post('notes', (select id from r where k = 'note'));
+select tests.assert_raises($$select public.soft_delete_post('leads', gen_random_uuid())$$, 'only notes and comments', '22023');
+select tests.logout();
+select tests.assert((select deleted_at is not null from public.notes where id = (select id from r where k = 'note')),
+  'the author can delete their own note');
+
 -- Attention items ---------------------------------------------------------------------------
 select tests.login((select id from u where k = 'est'));
 select tests.assert_raises(

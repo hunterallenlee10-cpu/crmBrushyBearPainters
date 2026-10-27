@@ -280,20 +280,9 @@ async function softDeleteOwn(
   );
   if (!row) throw new ActionFailure({ code: "not_found", message: `That ${what} is gone.` });
   if (row.created_by !== ctx.viewer.real.id) throw notYours(`${what}s`);
-  // Row security can't express this update: Postgres also checks the new row
-  // against the SELECT policy (deleted_at is null), so a user-client update is
-  // always refused. The checks above prove the person can see the post and
-  // wrote it (and defineAction refused View as user); the service client
-  // records them as the actor for the audit log.
-  const svc = await ctx.service();
-  check(
-    await svc
-      .from(table)
-      .update({ deleted_at: new Date().toISOString() })
-      .eq("id", id)
-      .eq("created_by", ctx.viewer.real.id)
-      .is("deleted_at", null),
-  );
+  // A plain update can't pass row security (the deleted row leaves the SELECT
+  // policy); soft_delete_post() checks author, permission and View as itself.
+  check(await ctx.supabase.rpc("soft_delete_post", { p_table: table, p_id: id }));
 }
 
 export const deleteJobNote = defineAction({

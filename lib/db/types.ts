@@ -3228,6 +3228,7 @@ export type Database = {
           title: string;
         }[];
       };
+      soft_delete_post: { Args: { p_id: string; p_table: string }; Returns: undefined };
       soft_delete_record: {
         Args: { p_id: string; p_reason: string; p_table: string };
         Returns: undefined;
