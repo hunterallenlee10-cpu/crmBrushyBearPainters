@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { expect, test, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
+import { deleteAccounts, deleteLeadsAndJobs } from "./support/cleanup";
 import { adminClient, loginAs, TEST_USERS } from "./support/users";
 
 /**
@@ -117,30 +118,10 @@ async function lead(id: string) {
 
 test.afterAll(async () => {
   if (!seeded.length) return;
-  const db = adminClient();
-  const { data: msgs } = await db
-    .from("messages")
-    .select("outbox_id")
-    .eq("subject_type", "lead")
-    .in("subject_id", seeded);
-  const outboxIds = (msgs ?? []).map((m) => m.outbox_id).filter(Boolean);
-  // Messages are append-only for people; the service role may delete them
-  // (migration 20261026000900), then the outbox rows they referenced.
-  await db.from("messages").delete().eq("subject_type", "lead").in("subject_id", seeded);
-  if (outboxIds.length) await db.from("integration_outbox").delete().in("id", outboxIds);
-  await db.from("integration_outbox").delete().eq("related_type", "lead").in("related_id", seeded);
-  for (const table of ["notes", "comments", "tasks"]) {
-    await db.from(table).delete().eq("subject_type", "lead").in("subject_id", seeded);
-  }
-  await db
-    .from("notifications")
-    .delete()
-    .in(
-      "link",
-      seeded.map((id) => `/leads/${id}`),
-    );
-  await db.from("activity").delete().eq("subject_type", "lead").in("subject_id", seeded);
-  await db.from("leads").delete().in("id", seeded);
+  // Booking a walkthrough converts the lead (Company Settings default), so jobs,
+  // and the account/contact/property made for them, are cleaned up too.
+  const { accountIds } = await deleteLeadsAndJobs(seeded);
+  await deleteAccounts(accountIds);
 });
 
 test.describe("Lead Detail (owner)", () => {
@@ -361,7 +342,13 @@ test.describe("Lead Detail (owner)", () => {
   });
 
   test("?book=1 opens Book Walkthrough and stores the right UTC instant", async () => {
-    await open(page, `/leads/${id}?book=1`);
+    // Its own lead: booking converts it to a job, after which the lead is read-only.
+    const bookId = await seedLead({
+      last_name: `Book${t}`,
+      mobile: null,
+      email: `book-${t}@example.com`,
+    });
+    await open(page, `/leads/${bookId}?book=1`);
     const dialog = page.getByRole("dialog", { name: "Book walkthrough" });
     await expect(dialog).toBeVisible();
     await expect(page).not.toHaveURL(/book=1/);
@@ -372,21 +359,28 @@ test.describe("Lead Detail (owner)", () => {
     await dialog.getByLabel("Notes for the walkthrough").fill(`Side gate is locked ${t}`);
     await page.screenshot({ path: `${SCREENS}/lead-detail-book-walkthrough.png` });
     await dialog.getByRole("button", { name: "Book walkthrough" }).click();
-    await afterSave(page, "Walkthrough booked.", `/leads/${id}`);
+    await afterSave(page, "Walkthrough booked.", `/leads/${bookId}`);
     await expect(dialog).toBeHidden();
-    await expect(page.getByRole("heading", { level: 1 }).locator("..")).toContainText(
-      "Walkthrough Scheduled",
-    );
-    const row = await lead(id);
-    expect(row.status).toBe("walkthrough_scheduled");
+    // Booking converts the lead to a job (Company Settings: auto-convert, default on).
+    const row = await lead(bookId);
+    expect(row.status).toBe("converted");
+    expect(row.converted_job_id).toBeTruthy();
     expect(row.disposition).toBe("walkthrough_scheduled");
     expect(new Date(row.walkthrough_at as string).toISOString()).toBe(
       fromZonedTime(`${date}T09:30:00`, TZ).toISOString(),
     );
+    const { data: appts } = await adminClient()
+      .from("appointments")
+      .select("starts_at, job_id")
+      .eq("lead_id", bookId);
+    expect(appts).toHaveLength(1);
+    expect(appts?.[0]?.job_id).toBe(row.converted_job_id);
+    // The walkthrough notes moved to the job with the rest of the lead's notes.
     const { data: notes } = await adminClient()
       .from("notes")
       .select("body")
-      .eq("subject_id", id)
+      .eq("subject_type", "job")
+      .eq("subject_id", row.converted_job_id as string)
       .ilike("body", "%Side gate%");
     expect(notes).toHaveLength(1);
   });

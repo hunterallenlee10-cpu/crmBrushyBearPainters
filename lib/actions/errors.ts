@@ -52,6 +52,7 @@ export function mapDbError(error: DbError | null | undefined): ActionError {
     case "42501":
       return { code: "forbidden", message: friendly(error?.message) ?? GENERIC.forbidden };
     case "23505":
+    case "40001":
       return { code: "conflict", message: friendly(error?.message) ?? GENERIC.conflict };
     case "23503":
       return {

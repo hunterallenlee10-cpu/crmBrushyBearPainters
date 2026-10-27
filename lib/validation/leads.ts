@@ -211,6 +211,17 @@ export const bookWalkthroughSchema = z.object({
 });
 export type BookWalkthroughInput = z.input<typeof bookWalkthroughSchema>;
 
+/** Convert to Job (SPEC §6.1). Work types default to the lead's services. */
+export const convertLeadSchema = z.object({
+  id: z.uuid(),
+  work_types: z
+    .array(z.string().regex(/^[a-z_]{1,40}$/))
+    .max(6)
+    .optional()
+    .nullable(),
+});
+export type ConvertLeadInput = z.input<typeof convertLeadSchema>;
+
 /** Live duplicate check in the wizard (SPEC §8.4: by phone, email or address). */
 export const duplicateCheckSchema = z.object({
   mobile: z.string().max(40).optional().nullable(),

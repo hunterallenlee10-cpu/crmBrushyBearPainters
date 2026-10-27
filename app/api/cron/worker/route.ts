@@ -1,0 +1,101 @@
+import { timingSafeEqual } from "node:crypto";
+import { NextResponse, type NextRequest } from "next/server";
+import { runAttentionSweep } from "@/lib/attention/engine";
+import { createSupabaseServiceClient } from "@/lib/db/service";
+import { serverEnv } from "@/lib/env";
+import { recomputeJobHealth } from "@/lib/jobs/health";
+import { advanceIfGatePasses } from "@/lib/jobs/stage";
+import { logError } from "@/lib/log";
+import { processEvents } from "@/lib/worker/events";
+
+/**
+ * Background worker (SPEC §2, §9, §11). Vercel Cron calls it every minute with
+ * `Authorization: Bearer $CRON_SECRET`. Each run: process queued events,
+ * auto-close jobs 3 days after Paid in Full, refresh job health, and run the
+ * attention rules (open new items, auto-resolve cleared ones).
+ */
+
+export const dynamic = "force-dynamic";
+export const maxDuration = 60;
+
+const AUTO_CLOSE_DAYS = 3;
+
+function authorized(request: NextRequest, secret: string): boolean {
+  const header = request.headers.get("authorization") ?? "";
+  const expected = `Bearer ${secret}`;
+  const a = Buffer.from(header);
+  const b = Buffer.from(expected);
+  return a.length === b.length && timingSafeEqual(a, b);
+}
+
+async function run(request: NextRequest) {
+  const secret = serverEnv().CRON_SECRET;
+  if (!secret) {
+    return NextResponse.json(
+      { ok: false, error: "The worker isn't configured (CRON_SECRET)." },
+      { status: 503 },
+    );
+  }
+  if (!authorized(request, secret)) {
+    return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+  }
+
+  const started = Date.now();
+  const now = new Date();
+  const service = await createSupabaseServiceClient();
+  const summary: Record<string, unknown> = {};
+
+  try {
+    summary.events = await processEvents(service);
+  } catch (e) {
+    logError("worker.events", e);
+    summary.events = { error: true };
+  }
+
+  try {
+    const cutoff = new Date(now.getTime() - AUTO_CLOSE_DAYS * 24 * 3_600_000).toISOString();
+    const { data: paid } = await service
+      .from("jobs")
+      .select("id")
+      .eq("stage", "paid_in_full")
+      .is("deleted_at", null)
+      .lt("stage_entered_at", cutoff)
+      .limit(100);
+    let closed = 0;
+    for (const j of paid ?? []) {
+      if (await advanceIfGatePasses(service, j.id, "paid_in_full", "closed_won")) closed++;
+    }
+    summary.autoClosed = closed;
+  } catch (e) {
+    logError("worker.auto_close", e);
+  }
+
+  try {
+    const { data: open } = await service
+      .from("jobs")
+      .select("id")
+      .is("deleted_at", null)
+      .not("stage", "in", "(closed_won,closed_lost)")
+      .order("health_checked_at", { ascending: true, nullsFirst: true })
+      .limit(500);
+    summary.health = await recomputeJobHealth(
+      service,
+      (open ?? []).map((j) => j.id),
+      now,
+    );
+  } catch (e) {
+    logError("worker.health", e);
+  }
+
+  try {
+    summary.attention = await runAttentionSweep(service, now);
+  } catch (e) {
+    logError("worker.attention", e);
+    summary.attention = { error: true };
+  }
+
+  return NextResponse.json({ ok: true, ms: Date.now() - started, ...summary });
+}
+
+export const GET = run;
+export const POST = run;

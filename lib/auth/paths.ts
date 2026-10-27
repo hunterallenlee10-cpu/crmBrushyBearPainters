@@ -4,6 +4,8 @@ const PUBLIC_PREFIXES = [
   "/auth/",
   "/api/health",
   "/api/public/",
+  // The worker checks its own CRON_SECRET (Vercel Cron can't sign in).
+  "/api/cron/",
   "/p/",
   "/dev/ui",
   "/setup-required",

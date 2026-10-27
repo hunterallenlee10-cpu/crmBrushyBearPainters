@@ -14,7 +14,8 @@ describe("isPublicPath", () => {
     ["/leads", false],
     ["/admin/users", false],
     ["/loginx", false],
-    ["/api/cron/worker", false],
+    ["/api/cron/worker", true],
+    ["/api/cronx", false],
   ])("%s → %s", (path, expected) => {
     expect(isPublicPath(path)).toBe(expected);
   });

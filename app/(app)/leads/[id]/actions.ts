@@ -11,7 +11,14 @@ import { createSupabaseOutboxSink } from "@/lib/integrations/outbox-sink";
 import { getSmsProvider } from "@/lib/integrations/sms_voice";
 import { loadLeadOptions, rescoreLead, recordHumanContact } from "@/lib/leads/service";
 import { logLeadCall, sendLeadEmail, sendLeadSms, type MessagingLead } from "@/lib/leads/messaging";
-import { bookWalkthroughSchema, leadStatusSchema, leadUpdateSchema } from "@/lib/validation/leads";
+import {
+  bookWalkthroughSchema,
+  convertLeadSchema,
+  leadStatusSchema,
+  leadUpdateSchema,
+} from "@/lib/validation/leads";
+import { convertLeadToJob } from "@/lib/jobs/convert";
+import { logError } from "@/lib/log";
 import {
   commentSchema,
   commentUpdateSchema,
@@ -33,6 +40,9 @@ import { pacificToUtcIso } from "./utils";
  * through the user's own Supabase client so RLS decides, and is audit-logged
  * and turned into a domain event by database triggers.
  */
+
+/** Default walkthrough length (SPEC §15.1 work types: Walkthrough/Estimate 60 min). */
+const WALKTHROUGH_MINUTES = 60;
 
 const NOT_FOUND = new ActionFailure({ code: "not_found", message: "That lead isn't available." });
 
@@ -161,9 +171,10 @@ export const changeLeadStatus = defineAction({
 
 export const bookWalkthrough = defineAction({
   name: "leads.book_walkthrough",
-  permissions: ["leads:update"],
+  permissions: ["leads:update", "appointments:manage"],
   schema: bookWalkthroughSchema,
-  handler: async ({ id, date, time, owner_id, notes }, { supabase, viewer }) => {
+  handler: async ({ id, date, time, owner_id, notes }, ctx) => {
+    const { supabase, viewer } = ctx;
     const walkthroughAt = pacificToUtcIso(date, time);
     if (new Date(walkthroughAt).getTime() < Date.now() - 60_000) {
       throw new ActionFailure({
@@ -173,26 +184,41 @@ export const bookWalkthrough = defineAction({
       });
     }
     const current = check(
-      await supabase.from("leads").select("status, org_id").eq("id", id).maybeSingle(),
+      await supabase.from("leads").select("status, org_id, owner_id").eq("id", id).maybeSingle(),
     );
     if (!current) throw NOT_FOUND;
     if (current.status === "converted") {
       throw new ActionFailure({ code: "validation", message: "This lead is already a job." });
     }
+    const newOwner = viewer.can("leads:assign") && owner_id ? owner_id : null;
     const rows = check(
       await supabase
         .from("leads")
         .update({
           status: "walkthrough_scheduled",
           disposition: "walkthrough_scheduled",
-          walkthrough_at: walkthroughAt,
           // Only people who can assign leads may change the owner (DB guard agrees).
-          ...(viewer.can("leads:assign") && owner_id ? { owner_id } : {}),
+          ...(newOwner ? { owner_id: newOwner } : {}),
         })
         .eq("id", id)
         .select("id"),
     );
     if (!rows?.length) throw NOT_FOUND;
+    // The appointment is the record; a trigger keeps the lead's walkthrough date in sync.
+    const assignee = newOwner ?? current.owner_id ?? viewer.id;
+    check(
+      await supabase.from("appointments").insert({
+        org_id: current.org_id,
+        lead_id: id,
+        type: "walkthrough",
+        starts_at: walkthroughAt,
+        ends_at: new Date(
+          new Date(walkthroughAt).getTime() + WALKTHROUGH_MINUTES * 60_000,
+        ).toISOString(),
+        assigned_user_ids: [assignee],
+        notes: notes ?? null,
+      }),
+    );
     if (notes && viewer.can("notes:write")) {
       check(
         await supabase.from("notes").insert({
@@ -205,8 +231,47 @@ export const bookWalkthrough = defineAction({
     }
     await recordHumanContact(supabase, id);
     await rescoreLead(supabase, id);
+
+    // SPEC §6.1: convert when the walkthrough is booked (Company Settings, default on).
+    let jobId: string | null = null;
+    let conversionError: string | null = null;
+    if (viewer.can("jobs:create")) {
+      const service = await ctx.service();
+      const { data: settings } = await service
+        .from("company_settings")
+        .select("auto_convert_on_walkthrough")
+        .eq("org_id", current.org_id)
+        .maybeSingle();
+      if (settings?.auto_convert_on_walkthrough ?? true) {
+        // The booking stands even if converting fails; the screen shows why.
+        try {
+          jobId = (await convertLeadToJob(id, ctx)).jobId;
+          revalidatePath("/jobs");
+          revalidatePath(`/jobs/${jobId}`);
+        } catch (e) {
+          logError("leads.book_walkthrough.convert", e);
+          conversionError =
+            e instanceof ActionFailure
+              ? e.error.message
+              : "The lead couldn't be converted to a job.";
+        }
+      }
+    }
     revalidatePath(leadPath(id));
-    return { id, walkthroughAt };
+    return { id, walkthroughAt, jobId, conversionError };
+  },
+});
+
+export const convertLead = defineAction({
+  name: "leads.convert",
+  permissions: ["leads:update", "jobs:create"],
+  schema: convertLeadSchema,
+  handler: async ({ id, work_types }, ctx) => {
+    const { jobId } = await convertLeadToJob(id, ctx, { workTypes: work_types ?? null });
+    revalidatePath(leadPath(id));
+    revalidatePath("/jobs");
+    revalidatePath("/leads/list");
+    return { jobId };
   },
 });
 

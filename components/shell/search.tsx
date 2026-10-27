@@ -3,7 +3,16 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { Command as CommandPrimitive } from "cmdk";
-import { Contact, FileText, History, Home, Loader2, SearchIcon, UserRound } from "lucide-react";
+import {
+  Briefcase,
+  Contact,
+  FileText,
+  History,
+  Home,
+  Loader2,
+  SearchIcon,
+  UserRound,
+} from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Command, CommandGroup, CommandItem, CommandList } from "@/components/ui/command";
 import { Button } from "@/components/ui/button";
@@ -75,18 +84,18 @@ export function SearchTrigger({ compact = false }: { compact?: boolean }) {
   );
 }
 
-const KIND_ICON = { lead: UserRound, account: Home, contact: Contact } as const;
-const KIND_LABEL = { lead: "Lead", account: "Account", contact: "Contact" } as const;
+const KIND_ICON = { lead: UserRound, job: Briefcase, account: Home, contact: Contact } as const;
+const KIND_LABEL = { lead: "Lead", job: "Job", account: "Account", contact: "Contact" } as const;
 
 /** Scopes with records today; the rest say which phase brings them. */
-const SCOPE_TO_RPC: Partial<Record<Scope, "all" | "leads" | "accounts" | "contacts">> = {
+const SCOPE_TO_RPC: Partial<Record<Scope, "all" | "leads" | "jobs" | "accounts" | "contacts">> = {
   All: "all",
   Accounts: "accounts",
   Contacts: "contacts",
   Leads: "leads",
+  Jobs: "jobs",
 };
 const SCOPE_PHASE: Partial<Record<Scope, string>> = {
-  Jobs: "Job search arrives with Jobs (Phase 3).",
   Invoices: "Invoice search arrives with invoicing (Phase 7).",
   Mentions: "Mention search arrives with messaging (Phase 8).",
 };

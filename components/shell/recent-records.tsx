@@ -9,7 +9,7 @@ import * as React from "react";
  */
 
 export type RecentRecord = {
-  kind: "lead" | "account" | "contact";
+  kind: "lead" | "job" | "account" | "contact";
   id: string;
   title: string;
   href: string;
@@ -27,7 +27,7 @@ export function readRecentRecords(): RecentRecord[] {
       (r): r is RecentRecord =>
         typeof r === "object" &&
         r !== null &&
-        ["lead", "account", "contact"].includes((r as RecentRecord).kind) &&
+        ["lead", "job", "account", "contact"].includes((r as RecentRecord).kind) &&
         typeof (r as RecentRecord).href === "string" &&
         (r as RecentRecord).href.startsWith("/") &&
         typeof (r as RecentRecord).title === "string",

@@ -3161,6 +3161,33 @@ export type Database = {
         Returns: string;
       };
       attention_summary: { Args: Record<PropertyKey, never>; Returns: Json };
+      claim_events: {
+        Args: { p_limit?: number; p_lock_seconds?: number };
+        Returns: {
+          actor_id: string | null;
+          aggregate_id: string | null;
+          aggregate_type: string;
+          attempts: number;
+          available_at: string;
+          created_at: string;
+          id: number;
+          idempotency_key: string | null;
+          impersonated_by: string | null;
+          last_error: string | null;
+          locked_at: string | null;
+          org_id: string | null;
+          payload: NonNullable<Json>;
+          processed_at: string | null;
+          status: string;
+          type: string;
+        }[];
+        SetofOptions: {
+          from: "*";
+          to: "events";
+          isOneToOne: false;
+          isSetofReturn: true;
+        };
+      };
       consume_rate_limit: {
         Args: { p_bucket: string; p_limit: number; p_window_seconds: number };
         Returns: boolean;

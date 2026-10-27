@@ -10,7 +10,7 @@ import { createSupabaseServerClient } from "@/lib/db/server";
 /** Top-bar actions: universal search and notifications (SPEC §8.1). */
 
 export type SearchHit = {
-  kind: "lead" | "account" | "contact";
+  kind: "lead" | "job" | "account" | "contact";
   id: string;
   title: string;
   subtitle: string;
@@ -19,7 +19,7 @@ export type SearchHit = {
 
 const searchSchema = z.object({
   query: z.string().trim().max(120),
-  scope: z.enum(["all", "leads", "accounts", "contacts"]).default("all"),
+  scope: z.enum(["all", "leads", "jobs", "accounts", "contacts"]).default("all"),
 });
 
 /**
@@ -42,7 +42,10 @@ export async function searchRecords(input: z.input<typeof searchSchema>): Promis
   const seen = new Set<string>();
   return (data ?? []).flatMap((r) => {
     const key = `${r.kind}:${r.id}`;
-    if (seen.has(key) || (r.kind !== "lead" && r.kind !== "account" && r.kind !== "contact"))
+    if (
+      seen.has(key) ||
+      (r.kind !== "lead" && r.kind !== "job" && r.kind !== "account" && r.kind !== "contact")
+    )
       return [];
     seen.add(key);
     // Stored phones are E.164; show "(425) 555-0100".

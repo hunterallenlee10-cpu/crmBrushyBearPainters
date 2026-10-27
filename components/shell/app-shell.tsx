@@ -23,32 +23,46 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
   const supabase = await createSupabaseServerClient();
   const groups = visibleNav((p) => viewer.can(p));
   const canViewAs = viewer.isOwner && !viewer.impersonating;
-  const attentionCount = 0; // Attention engine arrives in Phase 3.
 
-  const [summary, people, notifications, unreadRes, recentLeads] = await Promise.all([
-    viewer.can("integrations:read") ? supabase.rpc("integration_summary") : Promise.resolve(null),
-    canViewAs
-      ? supabase
-          .from("profiles")
-          .select("id, full_name, role_templates(name)")
-          .eq("is_active", true)
-          .neq("id", viewer.real.id)
-          .order("full_name")
-      : Promise.resolve(null),
-    supabase
-      .from("notifications")
-      .select("id, title, body, link, created_at, read_at")
-      .order("created_at", { ascending: false })
-      .limit(10),
-    supabase.from("notifications").select("id", { count: "exact", head: true }).is("read_at", null),
-    viewer.can("leads:read")
-      ? supabase
-          .from("leads")
-          .select("id, first_name, last_name, city")
-          .order("created_at", { ascending: false })
-          .limit(8)
-      : Promise.resolve(null),
-  ]);
+  const [summary, people, notifications, unreadRes, recentLeads, recentJobs, attention] =
+    await Promise.all([
+      viewer.can("integrations:read") ? supabase.rpc("integration_summary") : Promise.resolve(null),
+      canViewAs
+        ? supabase
+            .from("profiles")
+            .select("id, full_name, role_templates(name)")
+            .eq("is_active", true)
+            .neq("id", viewer.real.id)
+            .order("full_name")
+        : Promise.resolve(null),
+      supabase
+        .from("notifications")
+        .select("id, title, body, link, created_at, read_at")
+        .order("created_at", { ascending: false })
+        .limit(10),
+      supabase
+        .from("notifications")
+        .select("id", { count: "exact", head: true })
+        .is("read_at", null),
+      viewer.can("leads:read")
+        ? supabase
+            .from("leads")
+            .select("id, first_name, last_name, city")
+            .order("created_at", { ascending: false })
+            .limit(8)
+        : Promise.resolve(null),
+      viewer.can("jobs:read")
+        ? supabase
+            .from("jobs")
+            .select("id, name, job_number")
+            .order("updated_at", { ascending: false })
+            .limit(10)
+        : Promise.resolve(null),
+      viewer.can("attention:read") ? supabase.rpc("attention_summary") : Promise.resolve(null),
+    ]);
+  // Badge: open items that need someone now (critical/high, not snoozed).
+  const attentionCounts = (attention?.data ?? null) as { now?: number } | null;
+  const attentionCount = attentionCounts?.now ?? 0;
   const notificationItems: NotificationItem[] = (notifications.data ?? []).map((n) => ({
     id: n.id,
     title: n.title,
@@ -62,6 +76,11 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
       href: `/leads/${l.id}`,
       label: [l.first_name, l.last_name].filter(Boolean).join(" "),
       sub: l.city,
+    })),
+    jobs: (recentJobs?.data ?? []).map((j) => ({
+      href: `/jobs/${j.id}`,
+      label: j.name,
+      sub: j.job_number,
     })),
   };
 
