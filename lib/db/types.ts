@@ -7660,7 +7660,7 @@ export type Database = {
         ComputedFields: never;
         Insert: {
           account_id?: string | null;
-          code: string;
+          code?: string;
           contact_id: string;
           created_at?: string;
           created_by?: string | null;
@@ -10354,6 +10354,13 @@ export type Database = {
           p_reason?: string;
         };
         Returns: undefined;
+      };
+      users_with_permission: {
+        Args: { p_org: string; p_permission: string };
+        Returns: {
+          full_name: string;
+          id: string;
+        }[];
       };
       void_invoice: {
         Args: { p_invoice: string; p_override_reason?: string; p_reason: string };

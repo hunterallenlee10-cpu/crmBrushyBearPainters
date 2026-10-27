@@ -18,6 +18,7 @@ import { isJobStageId } from "@/lib/domain/stages";
 import { checklistSummary, shortLabel } from "@/lib/domain/onboarding/checklist";
 import { logError } from "@/lib/log";
 import { loadWeather } from "@/lib/production/weather";
+import { loadCommunicationSnapshot } from "./communication";
 import { loadMoneySnapshot } from "./money";
 import { loadProductionSnapshot } from "./production";
 
@@ -143,6 +144,8 @@ async function sweepOrg(service: Db, orgId: string, now: Date) {
             "id, dedupe_key, status, priority, title, detail, due_at, owner_id, snoozed_until, resolution, condition_cleared_at",
           )
           .eq("org_id", orgId)
+          // Items a workflow opened (rule "workflow") stay until a person resolves them.
+          .neq("rule_key", "workflow")
           .or("status.neq.resolved,and(resolution.eq.manual,condition_cleared_at.is.null)")
           .order("id")
           .range(from, to),
@@ -190,6 +193,7 @@ async function sweepOrg(service: Db, orgId: string, now: Date) {
 
   const production = await loadProductionSnapshot(service, orgId, jobs, now);
   const money = await loadMoneySnapshot(service, orgId, jobs);
+  const communication = await loadCommunicationSnapshot(service, orgId);
 
   // Jobs in Onboarding: what's still open on the checklist and what holds block them.
   const onboardingIds = jobs.filter((j) => j.stage === "onboarding").map((j) => j.id);
@@ -337,6 +341,8 @@ async function sweepOrg(service: Db, orgId: string, now: Date) {
       ),
       subcontractors: production.subcontractors,
       invoices: money.invoices,
+      threads: communication.threads,
+      cases: communication.cases,
       approvals: (approvals.data ?? []).map((a) => ({
         id: a.id,
         type: a.type,
@@ -413,7 +419,9 @@ async function sweepOrg(service: Db, orgId: string, now: Date) {
               ? `/jobs/${d.subjectId}`
               : d.subjectType === "subcontractor"
                 ? `/admin/subcontractors?id=${d.subjectId}`
-                : `/leads/${d.subjectId}`,
+                : d.subjectType === "case"
+                  ? `/cases/${d.subjectId}`
+                  : `/leads/${d.subjectId}`,
         })),
       );
       if (nError) logError("attention.notify", nError);

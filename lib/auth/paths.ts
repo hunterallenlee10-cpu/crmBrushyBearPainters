@@ -7,6 +7,9 @@ const PUBLIC_PREFIXES = [
   // The worker checks its own CRON_SECRET (Vercel Cron can't sign in).
   "/api/cron/",
   "/p/",
+  // Unsubscribe and tracked review links in customer messages (signed / hashed tokens).
+  "/u/",
+  "/r/",
   "/dev/ui",
   "/setup-required",
   // PWA: the service worker, manifest and offline page load without a session.

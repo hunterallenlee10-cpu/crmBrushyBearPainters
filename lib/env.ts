@@ -37,6 +37,10 @@ export const serverEnvSchema = z.object({
       message: "Must be 32 bytes, base64-encoded.",
     })
     .optional(),
+  /** Signs public messaging links (unsubscribe). Optional: derived from the service role key when unset. */
+  MESSAGING_LINK_SECRET: z.string().min(32).optional(),
+  /** Shared secret for the inbound SMS/email stub route (a future provider signs with it). */
+  INBOUND_MESSAGES_SECRET: z.string().min(32).optional(),
   SEED_OWNER_EMAILS: z.string().optional(),
   DEMO_DATA: boolString,
 

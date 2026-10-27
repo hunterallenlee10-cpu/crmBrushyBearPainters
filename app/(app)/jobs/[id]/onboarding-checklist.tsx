@@ -2,7 +2,12 @@ import { createSupabaseServerClient } from "@/lib/db/server";
 import { ONBOARDING_REQUIREMENTS, type OnboardingKey } from "@/lib/estimating/engine";
 import { checklistSummary } from "@/lib/domain/onboarding/checklist";
 import { isOnboardingKey } from "@/lib/domain/onboarding/rules";
-import { requestDraft, type RequestDraft } from "@/lib/onboarding/messages";
+import {
+  requestDraftFromTemplates,
+  type RequestDraft,
+  type TemplatePair,
+} from "@/lib/onboarding/messages";
+import { renderTemplate, type MergeContext } from "@/lib/domain/templates/merge";
 import type { Option } from "@/lib/leads/service";
 import { getStage } from "@/lib/domain/stages";
 import { formatDate } from "@/lib/format/dates";
@@ -26,7 +31,7 @@ type Props = Omit<
  */
 export async function OnboardingWithChecklist({ data, users, ...props }: Props) {
   const supabase = await createSupabaseServerClient();
-  const [{ data: rows }, settings, me, deposit] = await Promise.all([
+  const [{ data: rows }, settings, me, deposit, templates] = await Promise.all([
     supabase
       .from("onboarding_requirements")
       .select(
@@ -34,7 +39,7 @@ export async function OnboardingWithChecklist({ data, users, ...props }: Props) 
       )
       .eq("job_id", props.jobId)
       .order("sort_order"),
-    supabase.from("company_settings").select("company_name").maybeSingle(),
+    supabase.from("company_settings").select("company_name, phone").maybeSingle(),
     supabase.from("profiles").select("full_name").eq("id", data.viewerId).maybeSingle(),
     data.can.readInvoices
       ? supabase
@@ -45,8 +50,30 @@ export async function OnboardingWithChecklist({ data, users, ...props }: Props) 
           .neq("status", "void")
           .maybeSingle()
       : Promise.resolve({ data: null }),
+    supabase
+      .from("message_templates")
+      .select("key, channel, subject, body, active")
+      .in("key", [
+        "prep_instructions",
+        "onboarding_contact",
+        "onboarding_access",
+        "onboarding_colors",
+        "onboarding_hoa",
+        "onboarding_lead_safe",
+      ]),
   ]);
   const list = rows ?? [];
+  const templateFor = (key: string): TemplatePair => {
+    const rowsFor = (templates.data ?? []).filter((t) => t.key === key);
+    const sms = rowsFor.find((t) => t.channel === "sms");
+    const email = rowsFor.find((t) => t.channel === "email");
+    return {
+      sms: sms ? { body: sms.body, active: sms.active } : null,
+      email: email ? { subject: email.subject, body: email.body, active: email.active } : null,
+    };
+  };
+  const render = (text: string, ctx: Record<string, unknown>) =>
+    renderTemplate(text, ctx as MergeContext).text;
 
   const verifierIds = [...new Set(list.map((r) => r.verified_by).filter((u): u is string => !!u))];
   const names = new Map<string, string>();
@@ -64,6 +91,7 @@ export async function OnboardingWithChecklist({ data, users, ...props }: Props) 
     customerFirstName: contactFirst,
     senderName: me.data?.full_name ?? "The Brushy Bear team",
     companyName: settings.data?.company_name ?? "Brushy Bear Painters",
+    companyPhone: settings.data?.phone ?? "[PHONE]",
     workTypes: data.job.workTypes,
   };
 
@@ -84,7 +112,12 @@ export async function OnboardingWithChecklist({ data, users, ...props }: Props) 
     hasTask: Boolean(r.task_id),
     when: when.get(r.key) ?? null,
     draft: isOnboardingKey(r.key)
-      ? (requestDraft(r.key as OnboardingKey, draftCtx) satisfies RequestDraft | null)
+      ? (requestDraftFromTemplates(
+          r.key as OnboardingKey,
+          draftCtx,
+          templateFor,
+          render,
+        ) satisfies RequestDraft | null)
       : null,
   }));
   const summary = list.length

@@ -147,3 +147,43 @@ export function requestDraft(key: OnboardingKey, c: RequestContext): RequestDraf
       return null;
   }
 }
+
+// --- Phase 8: the wording comes from Admin → Messaging & Templates ------------------------
+
+export type TemplatePair = {
+  sms: { body: string; active: boolean } | null;
+  email: { subject: string | null; body: string; active: boolean } | null;
+};
+
+/**
+ * The request draft from the company's templates (same keys as above), with
+ * the sender as the signature. Falls back to the built-in draft when a
+ * template is missing or turned off.
+ */
+export function requestDraftFromTemplates(
+  key: OnboardingKey,
+  c: RequestContext & { companyPhone: string },
+  templates: (templateKey: string) => TemplatePair,
+  render: (text: string, ctx: Record<string, unknown>) => string,
+): RequestDraft | null {
+  const fallback = requestDraft(key, c);
+  if (!fallback) return null;
+  const t = templates(fallback.templateKey);
+  const ctx = {
+    contact: { first_name: c.customerFirstName },
+    poc: { first_name: first(c.senderName), full_name: c.senderName },
+    company: { name: c.companyName, phone: c.companyPhone },
+    job: {
+      prep_list: prepLines(c.workTypes)
+        .map((l) => `- ${l}`)
+        .join("\n"),
+    },
+  };
+  return {
+    templateKey: fallback.templateKey,
+    sms: t.sms?.active ? render(t.sms.body, ctx) : fallback.sms,
+    emailSubject:
+      t.email?.active && t.email.subject ? render(t.email.subject, ctx) : fallback.emailSubject,
+    emailBody: t.email?.active ? render(t.email.body, ctx) : fallback.emailBody,
+  };
+}

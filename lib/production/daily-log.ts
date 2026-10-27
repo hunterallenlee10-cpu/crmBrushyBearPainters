@@ -1,12 +1,11 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database, Json } from "@/lib/db/types";
-import { dailyUpdateText, DAILY_UPDATE_TEMPLATE_KEY } from "@/lib/domain/scheduling/messages";
+import type { Database } from "@/lib/db/types";
 import type { DailyLogInput } from "@/lib/validation/production";
 import { recomputeJobHealth } from "@/lib/jobs/health";
 import { logError } from "@/lib/log";
 import { startJob, type StartResult } from "./automation";
-import { sendCustomerNotice, signerName } from "./notify";
+import { dispatchNow, findEvent, noticeOutcome } from "@/lib/workflows/engine";
 
 type Db = SupabaseClient<Database>;
 
@@ -148,16 +147,22 @@ export async function createDailyLog(
   };
 }
 
-/** Records the customer update for a log (idempotent: only logs still in draft). */
+/**
+ * The customer update for a log is the "daily_log_update" workflow (SPEC §11.2
+ * #11): run it now for the log's event (one run per event, so the worker never
+ * sends it again). The workflow records the result on the log.
+ */
 export async function sendDailyUpdate(
   service: Db,
   jobId: string,
   logId: string,
   actorId: string | null,
 ): Promise<{ status: "simulated" } | { status: "skipped"; reason: string }> {
+  void jobId;
+  void actorId;
   const { data: log } = await service
     .from("daily_logs")
-    .select("id, org_id, finished_today, next_up, customer_update_status")
+    .select("id, customer_update_status")
     .eq("id", logId)
     .maybeSingle();
   if (!log) return { status: "skipped", reason: "The daily log isn't available." };
@@ -166,56 +171,26 @@ export async function sendDailyUpdate(
       ? { status: "simulated" }
       : { status: "skipped", reason: "Already handled." };
   }
-  const [{ count }, company, contact] = await Promise.all([
-    service
-      .from("job_photos")
-      .select("id", { count: "exact", head: true })
-      .eq("daily_log_id", logId),
-    service.from("company_settings").select("company_name").eq("org_id", log.org_id).maybeSingle(),
-    service
-      .from("jobs")
-      .select("contact:contacts!jobs_primary_contact_id_fkey(first_name)")
-      .eq("id", jobId)
-      .maybeSingle(),
-  ]);
-  const companyName = company.data?.company_name ?? "Brushy Bear Painters";
-  const text = dailyUpdateText(
-    { finishedToday: log.finished_today, nextUp: log.next_up, photoCount: count ?? 0 },
-    {
-      customerFirstName: contact.data?.contact?.first_name ?? null,
-      signerName: await signerName(service, jobId, companyName),
-      companyName,
-    },
-  );
-  const r = await sendCustomerNotice(service, jobId, {
-    ...text,
-    templateKey: DAILY_UPDATE_TEMPLATE_KEY,
-    actorId,
-  });
-  const patch =
-    r.status === "simulated"
-      ? {
-          customer_update_status: "simulated",
-          customer_message_id: r.messageId,
-          sent_at: new Date().toISOString(),
-          customer_update_note: null,
-        }
-      : { customer_update_status: "skipped", customer_update_note: r.reason.slice(0, 500) };
-  const { error } = await service.from("daily_logs").update(patch).eq("id", logId);
-  if (error) throw error;
-  await service.rpc("emit_production_event", {
-    p_type: "daily_log.customer_update",
-    p_aggregate_type: "daily_log",
-    p_aggregate_id: logId,
-    p_payload: {
-      org_id: log.org_id,
-      job_id: jobId,
-      status: patch.customer_update_status,
-    } as unknown as Json,
-  });
-  return r.status === "simulated"
-    ? { status: "simulated" }
-    : { status: "skipped", reason: r.reason };
+  const event = await findEvent(service, "daily_log.submitted", logId);
+  const run = (await dispatchNow(service, event)).find((r) => r.workflowKey === "daily_log_update");
+  const n = noticeOutcome(run);
+  if (run?.status === "skipped") {
+    await service
+      .from("daily_logs")
+      .update({ customer_update_status: "skipped", customer_update_note: n.note })
+      .eq("id", logId)
+      .eq("customer_update_status", "draft");
+  }
+  const { data: after } = await service
+    .from("daily_logs")
+    .select("customer_update_status, customer_update_note")
+    .eq("id", logId)
+    .maybeSingle();
+  if (after?.customer_update_status === "simulated") return { status: "simulated" };
+  return {
+    status: "skipped",
+    reason: n.note ?? after?.customer_update_note ?? "The customer update wasn't sent.",
+  };
 }
 
 /** Worker: logs whose customer update is still a draft after 2 minutes. */
@@ -229,8 +204,21 @@ export async function sweepDailyUpdates(service: Db, limit = 100) {
     .lt("created_at", cutoff)
     .limit(limit);
   if (error) throw error;
+  // Logs whose workflow already ran (or is waiting for quiet hours to end) are the workflow's.
+  const { data: runs } = data?.length
+    ? await service
+        .from("workflow_runs")
+        .select("subject_id")
+        .eq("workflow_key", "daily_log_update")
+        .in(
+          "subject_id",
+          data.map((l) => l.id),
+        )
+    : { data: [] as { subject_id: string | null }[] };
+  const handled = new Set((runs ?? []).map((r) => r.subject_id));
   let sent = 0;
   for (const l of data ?? []) {
+    if (handled.has(l.id)) continue;
     const r = await sendDailyUpdate(service, l.job_id, l.id, null).catch((e: unknown) => {
       logError("worker.daily_update", e);
       return null;

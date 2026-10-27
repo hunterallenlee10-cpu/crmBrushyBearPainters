@@ -52,6 +52,18 @@ export const PERMISSIONS = [
     scoped: false,
   },
   { key: "attention:read", label: "View Attention items", category: "core_records", scoped: true },
+  {
+    key: "cases:read",
+    label: "View warranty and service cases",
+    category: "core_records",
+    scoped: true,
+  },
+  {
+    key: "cases:manage",
+    label: "Open and work warranty and service cases",
+    category: "core_records",
+    scoped: false,
+  },
   { key: "jobs:read", label: "View jobs", category: "sales", scoped: true },
   { key: "jobs:create", label: "Create jobs", category: "sales", scoped: false },
   { key: "jobs:update", label: "Edit jobs", category: "sales", scoped: true },

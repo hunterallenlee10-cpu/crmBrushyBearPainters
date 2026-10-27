@@ -68,6 +68,14 @@ export const NAV: readonly NavGroup[] = [
         phase: 2,
         requiresAny: ["leads:create"],
       },
+      {
+        label: "Follow-up Lists",
+        href: "/follow-ups",
+        description:
+          "Call lists with a power dialer: hot leads, walkthroughs to confirm, estimates awaiting reply.",
+        phase: 8,
+        requiresAny: ["leads:read", "jobs:read"],
+      },
     ],
     recent: { kind: "leads", limit: 8, label: "Recent leads", empty: "No recent leads yet." },
   },
@@ -186,6 +194,20 @@ export const NAV: readonly NavGroup[] = [
         requiresAny: ["invoices:read"],
       },
       {
+        label: "Messages",
+        href: "/messages",
+        description: "Customer texts and emails in one inbox, unread first.",
+        phase: 8,
+        requiresAny: ["messages:read"],
+      },
+      {
+        label: "Warranty & Service",
+        href: "/cases",
+        description: "Warranty and service cases with their SLA.",
+        phase: 8,
+        requiresAny: ["cases:read"],
+      },
+      {
         label: "Campaigns",
         href: "/campaigns",
         description: "Email and SMS campaigns and drips.",
@@ -285,7 +307,7 @@ export const NAV: readonly NavGroup[] = [
       {
         label: "Templates",
         href: "/admin/templates",
-        description: "SMS and email templates.",
+        description: "SMS and email templates, quiet hours and messaging settings.",
         phase: 8,
         requiresAny: ["templates:manage"],
       },

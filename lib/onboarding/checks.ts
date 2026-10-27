@@ -124,7 +124,8 @@ export async function loadOnboardingSnapshot(
       .select("created_at")
       .eq("subject_type", "job")
       .eq("subject_id", jobId)
-      .eq("template_key", PREP_TEMPLATE_KEY)
+      // The prep list goes out on its own or inside the welcome email (workflow 5).
+      .or(`template_key.eq.${PREP_TEMPLATE_KEY},and(template_key.eq.welcome,channel.eq.email)`)
       .eq("direction", "outbound")
       .in("status", SENT_MESSAGE)
       .order("created_at", { ascending: false })

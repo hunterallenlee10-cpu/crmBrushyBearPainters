@@ -4,7 +4,7 @@ import type { Database, Json } from "@/lib/db/types";
 import { getStage, isJobStageId } from "@/lib/domain/stages";
 import { completeAcceptance, completeChangeOrder } from "@/lib/estimating/proposal";
 import { logError } from "@/lib/log";
-import { sendOverdueReminder } from "@/lib/money/reminders";
+import { runWorkflowsForEvent } from "@/lib/workflows/engine";
 
 type Db = SupabaseClient<Database>;
 type EventRow = Database["public"]["Tables"]["events"]["Row"];
@@ -12,8 +12,9 @@ type EventRow = Database["public"]["Tables"]["events"]["Row"];
 /**
  * Domain event handlers (SPEC §11.1). Idempotent: an event may be retried
  * after a crash, so handlers only add notifications keyed to the event.
- * Workflows (texts, emails, tasks) arrive in Phase 8; until then most events
- * are marked "skipped". Overdue-invoice reminders (Phase 7) are handled here.
+ * Every event then goes to the workflow engine (Phase 8), which runs each
+ * matching workflow once per event (customer messages, staff notices, tasks,
+ * drips). Events nothing listens to are marked "skipped".
  */
 
 const MAX_ATTEMPTS = 5;
@@ -125,12 +126,7 @@ const handlers: Record<string, Handler> = {
       null,
     ),
 
-  // Overdue invoices (7 and 30 days): a simulated reminder to the customer and a note in the app.
-  "invoice.overdue": async (service, e) => {
-    if (!e.aggregate_id) return "skipped";
-    const days = payloadOf(e).days;
-    return sendOverdueReminder(service, e.aggregate_id, typeof days === "number" ? days : 7);
-  },
+  // Overdue invoices (7 and 30 days): workflow "invoice_overdue" sends the reminder and the notes.
   // A bounced payment puts money back on the balance: the job's people hear about it.
   "payment.bounced": async (service, e) => {
     if (!e.org_id) return "skipped";
@@ -266,7 +262,10 @@ export async function processEvents(service: Db, limit = 200): Promise<EventRunR
   for (const e of events ?? []) {
     const handler = handlers[e.type];
     try {
-      const outcome = handler ? await handler(service, e) : "skipped";
+      let outcome = handler ? await handler(service, e) : "skipped";
+      // Workflows (idempotent per workflow and event; failures are logged on the run).
+      const runs = await runWorkflowsForEvent(service, e);
+      if (runs.some((r) => r.status !== "not_matched")) outcome = "processed";
       await service
         .from("events")
         .update({

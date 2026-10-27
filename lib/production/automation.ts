@@ -190,34 +190,10 @@ export async function evaluateJobOnTime(service: Db, jobId: string, now = new Da
       actual_start_date: job.actual_start_date,
       reason: result.draftCredit.reason,
     });
+    // The owners hear about it from the "start_missed" workflow (SPEC §11.2 #10).
     if (error && error.code !== "23505") throw error;
-    if (!error) await notifyOwnersOfCredit(service, job.org_id, jobId, result.draftCredit.reason);
   }
   return result;
-}
-
-async function notifyOwnersOfCredit(service: Db, orgId: string, jobId: string, reason: string) {
-  const [{ data: owners }, { data: job }] = await Promise.all([
-    service
-      .from("profiles")
-      .select("id, role_templates!inner(grants_all)")
-      .eq("org_id", orgId)
-      .eq("is_active", true)
-      .eq("role_templates.grants_all", true),
-    service.from("jobs").select("name").eq("id", jobId).maybeSingle(),
-  ]);
-  if (!owners?.length) return;
-  const { error } = await service.from("notifications").insert(
-    owners.map((o) => ({
-      org_id: orgId,
-      user_id: o.id,
-      type: "approval",
-      title: `On-time credit to approve: ${job?.name ?? "a job"}`.slice(0, 200),
-      body: reason.slice(0, 1000),
-      link: `/jobs/${jobId}?section=schedule`,
-    })),
-  );
-  if (error) logError("production.credit.notify", error);
 }
 
 /**

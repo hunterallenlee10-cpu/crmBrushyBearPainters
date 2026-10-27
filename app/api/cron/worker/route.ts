@@ -13,6 +13,14 @@ import { sweepProduction } from "@/lib/production/automation";
 import { sweepDailyUpdates } from "@/lib/production/daily-log";
 import { generateRecommendations } from "@/lib/production/recommendations";
 import { refreshSubcontractorStatus } from "@/lib/production/subcontractors";
+import { sweepCampaigns } from "@/lib/campaigns/worker";
+import { sweepDrips } from "@/lib/drips/worker";
+import { resumeDueRuns } from "@/lib/workflows/engine";
+import {
+  sweepReferrals,
+  sweepStaleLeads,
+  sweepSubcontractorCompliance,
+} from "@/lib/workflows/sweeps";
 
 /**
  * Background worker (SPEC §2, §9, §11). Vercel Cron calls it every minute with
@@ -20,8 +28,10 @@ import { refreshSubcontractorStatus } from "@/lib/production/subcontractors";
  * auto-close jobs 3 days after Paid in Full, re-run onboarding checks, run the
  * production sweep (on-time guarantee, stage moves, daily updates,
  * subcontractor paperwork, recommendations), the money sweep (overdue
- * invoices and reminders, final invoices, money gates), refresh job health,
- * and run the attention rules (open new items, auto-resolve cleared ones).
+ * invoices and reminders, final invoices, money gates), the communication
+ * sweeps (workflow runs whose wait is over, drips, stale leads, subcontractor
+ * paperwork events, payable referral rewards), refresh job health, and run
+ * the attention rules (open new items, auto-resolve cleared ones).
  */
 
 export const dynamic = "force-dynamic";
@@ -136,6 +146,42 @@ async function run(request: NextRequest) {
   } catch (e) {
     logError("worker.money", e);
     summary.money = { error: true };
+  }
+
+  // Communication & growth (SPEC §11): time-based events first, so the
+  // workflows they start can run in the next minute's event pass.
+  try {
+    summary.staleLeads = await sweepStaleLeads(service, now);
+  } catch (e) {
+    logError("worker.stale_leads", e);
+  }
+  try {
+    summary.subCompliance = await sweepSubcontractorCompliance(service, now);
+  } catch (e) {
+    logError("worker.sub_compliance", e);
+  }
+  try {
+    summary.workflowRuns = await resumeDueRuns(service, now);
+  } catch (e) {
+    logError("worker.workflow_runs", e);
+    summary.workflowRuns = { error: true };
+  }
+  try {
+    summary.drips = await sweepDrips(service, now);
+  } catch (e) {
+    logError("worker.drips", e);
+    summary.drips = { error: true };
+  }
+  try {
+    summary.campaigns = await sweepCampaigns(service, now);
+  } catch (e) {
+    logError("worker.campaigns", e);
+    summary.campaigns = { error: true };
+  }
+  try {
+    summary.referrals = await sweepReferrals(service, now);
+  } catch (e) {
+    logError("worker.referrals", e);
   }
 
   try {

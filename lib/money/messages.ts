@@ -5,12 +5,12 @@ import { INVOICE_TYPE_LABELS, type InvoiceType } from "@/lib/domain/ledger/types
 /**
  * Default customer wording for invoices and reminders (SPEC §11.3 voice:
  * plain, friendly, specific, short sentences, signed by a person). Draft
- * wording – owner to approve; Phase 8 templates replace it. How to pay is a
+ * wording – owner to approve. Overdue reminders are the Phase 8 workflow template
+ * `invoice_reminder` (Admin → Messaging & Templates). How to pay is a
  * business fact the owners haven't given yet, so it stays a placeholder.
  */
 
 export const INVOICE_TEMPLATE_KEY = "invoice";
-export const REMINDER_TEMPLATE_KEY = "invoice_reminder";
 export const PAYMENT_INSTRUCTIONS_PLACEHOLDER = "[HOW_TO_PAY — owner to provide]";
 
 export type InvoiceMessageContext = {
@@ -54,34 +54,6 @@ export function defaultInvoiceMessages(c: InvoiceMessageContext): {
       PAYMENT_INSTRUCTIONS_PLACEHOLDER,
       "",
       "Questions about it? Just reply here.",
-      "",
-      c.senderName,
-      c.companyName,
-    ].join("\n"),
-  };
-}
-
-export function reminderMessage(c: {
-  customerFirstName: string | null;
-  senderName: string;
-  companyName: string;
-  invoiceNumber: string;
-  balanceCents: number;
-  daysPastDue: number;
-}): { sms: string; emailSubject: string; emailBody: string } {
-  const hi = c.customerFirstName ? `Hi ${c.customerFirstName}` : "Hi";
-  const amount = formatCents(c.balanceCents);
-  return {
-    sms: `${hi}, a friendly note from ${c.companyName}: invoice ${c.invoiceNumber} has ${amount} still open. ${PAYMENT_INSTRUCTIONS_PLACEHOLDER} Already paid? Thank you, and ignore this.`,
-    emailSubject: `Reminder: invoice ${c.invoiceNumber}`,
-    emailBody: [
-      `${hi},`,
-      "",
-      `A friendly reminder that invoice ${c.invoiceNumber} has ${amount} still open (${c.daysPastDue} days past due).`,
-      "",
-      PAYMENT_INSTRUCTIONS_PLACEHOLDER,
-      "",
-      "If you've already paid, thank you, and please ignore this. If something's not right with the invoice, reply and we'll sort it out.",
       "",
       c.senderName,
       c.companyName,

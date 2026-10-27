@@ -17,7 +17,8 @@ describe("navigation (SPEC §3.1)", () => {
 
   it("dropdowns list the spec's pages in order", () => {
     const labels = (id: string) => NAV.find((g) => g.id === id)?.items?.map((i) => i.label);
-    expect(labels("leads")).toEqual(["Lead Dashboard", "Lead List", "New Lead"]);
+    // Phase 8 adds Follow-up Lists, Messages and Warranty & Service (DECISIONS 2026-10-27).
+    expect(labels("leads")).toEqual(["Lead Dashboard", "Lead List", "New Lead", "Follow-up Lists"]);
     expect(labels("jobs")).toEqual(["Jobs Dashboard", "Job List", "Approvals", "New Job"]);
     expect(labels("schedule")).toEqual([
       "Production Center",
@@ -30,6 +31,8 @@ describe("navigation (SPEC §3.1)", () => {
       "Contacts",
       "Estimates",
       "Invoices",
+      "Messages",
+      "Warranty & Service",
       "Campaigns",
       "Documents",
       "Price Book",

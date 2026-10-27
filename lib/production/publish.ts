@@ -9,12 +9,6 @@ import {
   type Conflict,
 } from "@/lib/domain/scheduling/conflicts";
 import { planPublish, type JobPublishPlan } from "@/lib/domain/scheduling/publish";
-import {
-  arrivalWindowLabel,
-  crewNotice,
-  scheduleNotice,
-  SCHEDULE_TEMPLATE_KEY,
-} from "@/lib/domain/scheduling/messages";
 import { logError } from "@/lib/log";
 import { recomputeJobHealth } from "@/lib/jobs/health";
 import {
@@ -27,7 +21,7 @@ import {
   type EntryRow,
 } from "./context";
 import { advanceProduction, evaluateJobOnTime } from "./automation";
-import { sendCrewNotice, sendCustomerNotice, signerName } from "./notify";
+import { dispatchNow, noticeOutcome } from "@/lib/workflows/engine";
 
 type Db = SupabaseClient<Database>;
 
@@ -36,9 +30,9 @@ type Db = SupabaseClient<Database>;
  * pending change is checked against the work rules first; if any is blocked
  * nothing is published and the reasons come back. Otherwise drafts become the
  * published schedule, each job gets its promised start date and on-time
- * guarantee date, customers whose dates changed and the crews whose days
- * changed get simulated notices through the outbox, and Ready to Schedule jobs
- * move to Scheduled through the stage engine.
+ * guarantee date, Ready to Schedule jobs move to Scheduled through the stage
+ * engine, and each job's "schedule_published" workflow tells the customer
+ * whose dates changed and the crew (simulated, through the outbox).
  */
 
 export type BlockedEntry = { entryId: string; jobId: string; jobLabel: string; reasons: string[] };
@@ -138,7 +132,6 @@ export async function publishSchedule(
   const jobIds = [...new Set(pending.map((e) => e.job_id))];
   const live = await loadEntries(service, { jobIds, orgId: input.orgId });
   const facts = await loadJobFacts(service, jobIds);
-  const config = await loadSchedulingConfig(service, input.orgId, now);
   const plan = planPublish(
     live.map(toEntryState),
     new Map(
@@ -193,84 +186,6 @@ export async function publishSchedule(
     if (error) throw error;
   }
 
-  // 3. Notices (simulated, through the outbox).
-  let customerNotices = 0;
-  let crewNotices = 0;
-  const skippedNotices: string[] = [];
-  const arrival = arrivalWindowLabel(
-    config.settings.dayStart,
-    config.settings.arrivalWindowMinutes,
-  );
-  for (const p of plan.jobs) {
-    if (!p.notifyCustomer || p.customerChange === "unchanged") continue;
-    const job = facts.get(p.jobId);
-    if (!job) continue;
-    const leadCrew = plan.changes.find((c) => c.jobId === p.jobId && c.after)?.after?.crewId;
-    const contact = await firstName(service, job.primaryContactId);
-    const notice = scheduleNotice(
-      p.customerChange,
-      { startsOn: p.firstStartAfter, endsOn: p.lastEndAfter },
-      {
-        customerFirstName: contact,
-        signerName: await signerName(service, p.jobId, config.companyName),
-        companyName: config.companyName,
-        crewLeadName: leadCrew ? (crews.get(leadCrew)?.leadName ?? null) : null,
-        arrivalWindow: arrival,
-      },
-    );
-    try {
-      const r = await sendCustomerNotice(service, p.jobId, {
-        ...notice,
-        templateKey: SCHEDULE_TEMPLATE_KEY,
-        actorId: input.actorId,
-      });
-      if (r.status === "simulated") customerNotices++;
-      else skippedNotices.push(`${job.label}: ${r.reason}`);
-    } catch (e) {
-      logError("production.publish.customer_notice", e);
-      skippedNotices.push(`${job.label}: the customer notice couldn't be recorded.`);
-    }
-  }
-  const byCrew = new Map<
-    string,
-    { jobLabel: string; city: string | null; before: string | null; after: string | null }[]
-  >();
-  for (const c of plan.changes) {
-    const job = facts.get(c.jobId);
-    const label = (s: { startsOn: IsoDate; endsOn: IsoDate } | null) =>
-      s ? formatRange(s.startsOn, s.endsOn) : null;
-    const crewsHit = new Set([c.before?.crewId, c.after?.crewId].filter((x): x is string => !!x));
-    for (const crewId of crewsHit) {
-      const rows = byCrew.get(crewId) ?? [];
-      rows.push({
-        jobLabel: job?.label ?? "A job",
-        city: job?.city ?? null,
-        before: c.before?.crewId === crewId ? label(c.before) : null,
-        after: c.after?.crewId === crewId ? label(c.after) : null,
-      });
-      byCrew.set(crewId, rows);
-    }
-  }
-  for (const [crewId, rows] of byCrew) {
-    const changed = rows.filter((r) => r.before !== r.after);
-    if (!changed.length) continue;
-    const n = crewNotice(crews.get(crewId)?.name ?? "your crew", changed);
-    try {
-      const r = await sendCrewNotice(service, {
-        orgId: input.orgId,
-        crewId,
-        subject: n.subject,
-        body: n.body,
-        link: "/schedule/my-projects",
-        related: { type: "crew", id: crewId },
-        actorId: input.actorId,
-      });
-      if (r.outboxId || r.notified) crewNotices++;
-    } catch (e) {
-      logError("production.publish.crew_notice", e);
-    }
-  }
-
   // 4. Timeline, event, stage moves, on-time and health.
   let movedToScheduled = 0;
   for (const p of plan.jobs) {
@@ -295,6 +210,80 @@ export async function publishSchedule(
       logError("production.publish.on_time", e),
     );
   }
+  // 5. Notices: one "job.schedule_published" event per job; the "schedule_published"
+  // workflow (SPEC §11.2 #8) sends the customer and crew notices and the
+  // day-before reminder. Run now for each job (one run per event, so the
+  // worker never repeats it); quiet hours and consent apply.
+  let customerNotices = 0;
+  let crewNotices = 0;
+  const skippedNotices: string[] = [];
+  const label = (x: { startsOn: IsoDate; endsOn: IsoDate } | null) =>
+    x ? formatRange(x.startsOn, x.endsOn) : null;
+  for (const p of plan.jobs) {
+    const job = facts.get(p.jobId);
+    if (!job) continue;
+    const changes = plan.changes.filter((c) => c.jobId === p.jobId);
+    const crewId =
+      changes.find((c) => c.after)?.after?.crewId ??
+      changes.find((c) => c.before)?.before?.crewId ??
+      null;
+    const lines = changes
+      .filter((c) => label(c.before) !== label(c.after) || c.before?.crewId !== c.after?.crewId)
+      .map((c) => {
+        const where = `${job.label}${job.city ? ` (${job.city})` : ""}`;
+        const before = label(c.before);
+        const after = label(c.after);
+        return after
+          ? `- ${where}: ${before && before !== after ? `moved from ${before} to ${after}` : after}`
+          : `- ${where}: taken off your schedule${before ? ` (was ${before})` : ""}`;
+      });
+    if (!p.notifyCustomer && !lines.length) continue;
+    try {
+      const { data: eventId } = await service.rpc("emit_production_event", {
+        p_type: "job.schedule_published",
+        p_aggregate_type: "job",
+        p_aggregate_id: p.jobId,
+        p_payload: {
+          org_id: input.orgId,
+          change: p.customerChange,
+          notify_customer: p.notifyCustomer && p.customerChange !== "unchanged",
+          starts_on: p.firstStartAfter,
+          ends_on: p.lastEndAfter,
+          crew_id: crewId,
+          crew_lead_name: crewId ? (crews.get(crewId)?.leadName ?? null) : null,
+          crew_changes: lines.length ? lines.join("\n") : null,
+          entries: changes.map((c) => c.entryId),
+          reason: p.reason,
+        } as unknown as Json,
+      });
+      const { data: event } = eventId
+        ? await service.from("events").select("*").eq("id", eventId).maybeSingle()
+        : { data: null };
+      const run = (await dispatchNow(service, event, now)).find(
+        (r) => r.workflowKey === "schedule_published",
+      );
+      const steps = run?.runId
+        ? ((await service.from("workflow_runs").select("steps").eq("id", run.runId).maybeSingle())
+            .data?.steps ?? [])
+        : [];
+      const done = (id: string) =>
+        Array.isArray(steps) &&
+        steps.some((x) => {
+          const st = x as { id?: string; outcome?: string };
+          return st.id === id && st.outcome === "done";
+        });
+      if (["scheduled", "moved", "unscheduled", "crew_changed"].some(done)) customerNotices++;
+      else if (p.notifyCustomer && p.customerChange !== "unchanged") {
+        const n = noticeOutcome(run);
+        skippedNotices.push(`${job.label}: ${n.note ?? "the customer notice wasn't sent."}`);
+      }
+      if (done("crew_notice") || done("crew_app")) crewNotices++;
+    } catch (e) {
+      logError("production.publish.notices", e);
+      skippedNotices.push(`${job.label}: the notices couldn't be recorded.`);
+    }
+  }
+
   await service.rpc("emit_production_event", {
     p_type: "schedule.published",
     p_aggregate_type: "schedule",
@@ -336,14 +325,4 @@ function publishSummary(p: JobPublishPlan): string {
     default:
       return "Schedule published (no date change)";
   }
-}
-
-async function firstName(service: Db, contactId: string | null): Promise<string | null> {
-  if (!contactId) return null;
-  const { data } = await service
-    .from("contacts")
-    .select("first_name")
-    .eq("id", contactId)
-    .maybeSingle();
-  return data?.first_name ?? null;
 }

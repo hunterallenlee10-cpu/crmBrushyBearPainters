@@ -13,7 +13,7 @@ import {
 
 export type ThresholdSpec = {
   label: string;
-  unit: "days" | "hours" | "hour" | "percent";
+  unit: "days" | "hours" | "hour" | "percent" | "minutes";
   min: number;
   max: number;
   help?: string;
@@ -87,6 +87,15 @@ export const THRESHOLD_SPECS: Partial<Record<AttentionRuleKey, Record<string, Th
     medium_days: { ...DAYS, label: "Medium after (days past due)" },
     high_days: { ...DAYS, label: "High after (days past due)" },
   },
+  unread_message: {
+    minutes: {
+      label: "Unread for (business minutes)",
+      unit: "minutes",
+      min: 5,
+      max: 1440,
+      help: "Counts business hours from Company Settings only.",
+    },
+  },
   weather_risk: {
     rain_percent: {
       label: "Rain chance at or above (%)",
@@ -104,6 +113,8 @@ export const RULE_SOURCES: Partial<Record<AttentionRuleKey, string>> = {
   estimate_sla: "Uses the estimate SLA warning and breach hours in Company Settings",
   start_date_missed:
     "No threshold: it counts as soon as a promised start date passes with no actual start (rain delays don't count).",
+  warranty_request:
+    "Every open warranty or service case. The SLA (2 business days by default) is set when the case is opened, from Messaging settings.",
 };
 
 export function thresholdSpec(rule: AttentionRuleKey, key: string): ThresholdSpec {

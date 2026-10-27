@@ -15,6 +15,7 @@ drop trigger if exists leads_referral on public.leads;
 
 drop function if exists public.communication_stats(timestamptz, timestamptz);
 drop function if exists public.workflow_stats();
+drop function if exists public.users_with_permission(uuid, text);
 drop function if exists public.claim_workflow_runs(integer);
 drop function if exists public.claim_drip_enrollments(integer);
 drop function if exists public.emit_domain_event(uuid, text, text, text, jsonb, text);

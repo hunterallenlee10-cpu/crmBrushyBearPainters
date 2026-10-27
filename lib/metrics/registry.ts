@@ -85,6 +85,7 @@ export type MetricSources = {
   production_stats: ProductionStats;
   schedule_board: ScheduleBoardStats;
   finance_stats: FinanceStats;
+  communication_stats: CommunicationStats;
 };
 export type MetricSource = keyof MetricSources;
 
@@ -1966,7 +1967,337 @@ export function agingCount(stats: FinanceStats, id: (typeof AGING_METRIC_IDS)[nu
   return stats.aging_counts[key[id]];
 }
 
+// ===========================================================================
+// COMMUNICATION & GROWTH (Phase 8): SPEC §8.11, §8.16, §11, §12.1
+// ===========================================================================
+//
+// Source: `public.communication_stats(p_from, p_to)` (supabase/migrations/
+// 20261029000100_communication.sql), run with the viewer's row security.
+// Period figures default to the last 90 days; queues and open counts are
+// "right now". Everything is simulated while providers are disconnected, so
+// "sent" means recorded in the outbox and delivery is assumed for every send
+// that didn't fail.
+
+export const communicationStatsSchema = z.object({
+  threads_unread: count,
+  threads_total: count,
+  cases_open: count,
+  cases_overdue: count,
+  cases_warranty_open: count,
+  cases_resolved_period: count,
+  cases_resolved_on_time_period: count,
+  campaigns_total: count,
+  campaigns_active: count,
+  campaign_sends: count,
+  campaign_failed: count,
+  campaign_replies: count,
+  campaign_conversions: count,
+  campaign_queue: count,
+  unsubscribes: count,
+  sms_opt_outs: count,
+  drip_active: count,
+  reviews_requested: count,
+  reviews_clicked: count,
+  reviews_left: count,
+  reviews_rating_sum: count,
+  reviews_rated: count,
+  champions_active: count,
+  referrals_total: count,
+  referrals_all: count,
+  referrals_sold: count,
+  referrals_payable_cents: z.number().int().nonnegative().catch(0),
+  referrals_paid_cents: z.number().int().nonnegative().catch(0),
+  workflow_runs_period: count,
+  workflow_failed_period: count,
+  workflow_waiting: count,
+});
+export type CommunicationStats = z.infer<typeof communicationStatsSchema>;
+export const EMPTY_COMMUNICATION_STATS: CommunicationStats = communicationStatsSchema.parse({});
+
+export function parseCommunicationStats(raw: unknown): CommunicationStats {
+  const parsed = communicationStatsSchema.safeParse(raw ?? {});
+  return parsed.success ? parsed.data : EMPTY_COMMUNICATION_STATS;
+}
+
+function communicationMetric(
+  def: Omit<MetricDefinition<"communication_stats">, "source" | "ownerOnly">,
+): MetricDefinition<"communication_stats"> {
+  return { ownerOnly: false, ...def, source: "communication_stats" };
+}
+
+export const COMMUNICATION_METRICS = {
+  "messages.unread": communicationMetric({
+    id: "messages.unread",
+    label: "Unread conversations",
+    description: "Customer conversations with a text or email nobody has read yet.",
+    unit: "count",
+    caption: "Inbound after the last read · right now",
+    compute: (s) => s.threads_unread,
+  }),
+  "messages.threads": communicationMetric({
+    id: "messages.threads",
+    label: "Conversations",
+    description: "Lead and job conversations you can see.",
+    unit: "count",
+    caption: "All conversations · right now",
+    compute: (s) => s.threads_total,
+  }),
+  "cases.open": communicationMetric({
+    id: "cases.open",
+    label: "Open cases",
+    description: "Warranty and service cases not resolved or closed.",
+    unit: "count",
+    caption: "Not resolved · right now",
+    compute: (s) => s.cases_open,
+  }),
+  "cases.overdue": communicationMetric({
+    id: "cases.overdue",
+    label: "Past SLA",
+    description: "Open cases past their SLA due time (2 business days by default).",
+    unit: "count",
+    caption: "Open and past SLA · right now",
+    compute: (s) => s.cases_overdue,
+  }),
+  "cases.warranty_open": communicationMetric({
+    id: "cases.warranty_open",
+    label: "Open Warranty/Service",
+    description: "Open warranty cases.",
+    unit: "count",
+    caption: "Warranty cases not resolved · right now",
+    compute: (s) => s.cases_warranty_open,
+  }),
+  "cases.on_time_rate": communicationMetric({
+    id: "cases.on_time_rate",
+    label: "Resolved within SLA",
+    description: "Of the cases resolved in the period, the share resolved by their SLA due time.",
+    unit: "percent",
+    caption: "Resolved by SLA ÷ resolved · in the period",
+    compute: (s) => ratio(s.cases_resolved_on_time_period, s.cases_resolved_period),
+  }),
+  "campaigns.total": communicationMetric({
+    id: "campaigns.total",
+    label: "Campaigns",
+    description: "Campaigns that aren't canceled.",
+    unit: "count",
+    caption: "All campaigns · right now",
+    compute: (s) => s.campaigns_total,
+  }),
+  "campaigns.active": communicationMetric({
+    id: "campaigns.active",
+    label: "Active",
+    description: "Scheduled, sending or paused campaigns.",
+    unit: "count",
+    caption: "Scheduled + sending + paused · right now",
+    compute: (s) => s.campaigns_active,
+  }),
+  "campaigns.sends": communicationMetric({
+    id: "campaigns.sends",
+    label: "Sends (90d)",
+    description: "Campaign messages recorded (simulated) in the period.",
+    unit: "count",
+    caption: "Recipients sent · last 90 days",
+    compute: (s) => s.campaign_sends,
+  }),
+  "campaigns.delivery_rate": communicationMetric({
+    id: "campaigns.delivery_rate",
+    label: "Delivery rate",
+    description:
+      "Sends that didn't fail, of all attempts. Simulated until a provider reports delivery.",
+    unit: "percent",
+    caption: "Sent ÷ (sent + failed) · last 90 days",
+    compute: (s) => ratio(s.campaign_sends, s.campaign_sends + s.campaign_failed),
+  }),
+  "campaigns.bounce_rate": communicationMetric({
+    id: "campaigns.bounce_rate",
+    label: "Bounce rate",
+    description: "Failed sends, of all attempts.",
+    unit: "percent",
+    caption: "Failed ÷ (sent + failed) · last 90 days",
+    compute: (s) => ratio(s.campaign_failed, s.campaign_sends + s.campaign_failed),
+  }),
+  "campaigns.replies": communicationMetric({
+    id: "campaigns.replies",
+    label: "Replies (90d)",
+    description: "Recipients who replied within 14 days of a campaign.",
+    unit: "count",
+    caption: "Replied after a send · last 90 days",
+    compute: (s) => s.campaign_replies,
+  }),
+  "campaigns.conversions": communicationMetric({
+    id: "campaigns.conversions",
+    label: "Conversions",
+    description: "Recipients who booked or became a job after a campaign.",
+    unit: "count",
+    caption: "Converted after a send · last 90 days",
+    compute: (s) => s.campaign_conversions,
+  }),
+  "campaigns.queue": communicationMetric({
+    id: "campaigns.queue",
+    label: "Queue",
+    description: "Recipients waiting to be sent (scheduled or held for quiet hours).",
+    unit: "count",
+    caption: "Pending + held · right now",
+    compute: (s) => s.campaign_queue,
+  }),
+  "messages.unsubscribes": communicationMetric({
+    id: "messages.unsubscribes",
+    label: "Unsubscribes",
+    description: "Contacts and leads who unsubscribed from marketing email in the period.",
+    unit: "count",
+    caption: "Email unsubscribes · last 90 days",
+    compute: (s) => s.unsubscribes,
+  }),
+  "messages.sms_opt_outs": communicationMetric({
+    id: "messages.sms_opt_outs",
+    label: "SMS opt-outs",
+    description: "Contacts and leads who replied STOP in the period.",
+    unit: "count",
+    caption: "STOP replies · last 90 days",
+    compute: (s) => s.sms_opt_outs,
+  }),
+  "drips.active": communicationMetric({
+    id: "drips.active",
+    label: "In a drip",
+    description: "Active drip enrollments.",
+    unit: "count",
+    caption: "Active enrollments · right now",
+    compute: (s) => s.drip_active,
+  }),
+  "reviews.requested": communicationMetric({
+    id: "reviews.requested",
+    label: "Review requests",
+    description: "Review requests sent in the period.",
+    unit: "count",
+    caption: "Requests sent · in the period",
+    compute: (s) => s.reviews_requested,
+  }),
+  "reviews.click_rate": communicationMetric({
+    id: "reviews.click_rate",
+    label: "Click-through",
+    description: "Requests whose review link was opened.",
+    unit: "percent",
+    caption: "Clicked ÷ requested · in the period",
+    compute: (s) => ratio(s.reviews_clicked, s.reviews_requested),
+  }),
+  "reviews.review_rate": communicationMetric({
+    id: "reviews.review_rate",
+    label: "Review rate",
+    description: "Requests that led to a review (marked by the office).",
+    unit: "percent",
+    caption: "Reviews left ÷ requested · in the period",
+    compute: (s) => ratio(s.reviews_left, s.reviews_requested),
+  }),
+  "reviews.left": communicationMetric({
+    id: "reviews.left",
+    label: "Reviews left",
+    description: "Reviews customers left for requests sent in the period.",
+    unit: "count",
+    caption: "Marked review left · in the period",
+    compute: (s) => s.reviews_left,
+  }),
+  "reviews.avg_rating": communicationMetric({
+    id: "reviews.avg_rating",
+    label: "Average rating",
+    description: "Average star rating where the office recorded one.",
+    unit: "number",
+    caption: "Σ stars ÷ rated reviews · in the period",
+    compute: (s) =>
+      s.reviews_rated ? Math.round((s.reviews_rating_sum / s.reviews_rated) * 10) / 10 : null,
+  }),
+  "referrals.champions": communicationMetric({
+    id: "referrals.champions",
+    label: "Champions",
+    description: "Active Bear Champions.",
+    unit: "count",
+    caption: "Active champions · right now",
+    compute: (s) => s.champions_active,
+  }),
+  "referrals.referrals": communicationMetric({
+    id: "referrals.referrals",
+    label: "Referrals",
+    description: "Referrals that came in during the period.",
+    unit: "count",
+    caption: "New referrals · in the period",
+    compute: (s) => s.referrals_total,
+  }),
+  "referrals.closed": communicationMetric({
+    id: "referrals.closed",
+    label: "Closed deals",
+    description: "Eligible referrals whose job was sold (all time).",
+    unit: "count",
+    caption: "Referred jobs sold · all time",
+    compute: (s) => s.referrals_sold,
+  }),
+  "referrals.conversion": communicationMetric({
+    id: "referrals.conversion",
+    label: "Referral conversion",
+    description: "Referred jobs sold, of all referrals (all time).",
+    unit: "percent",
+    caption: "Sold ÷ referrals · all time",
+    compute: (s) => ratio(s.referrals_sold, s.referrals_all),
+  }),
+  "referrals.paid_out": communicationMetric({
+    id: "referrals.paid_out",
+    label: "Paid out",
+    description: "Referral rewards paid to champions (all time).",
+    unit: "money",
+    caption: "Σ rewards paid · all time",
+    compute: (s) => s.referrals_paid_cents,
+  }),
+  "referrals.payable": communicationMetric({
+    id: "referrals.payable",
+    label: "Ready to pay",
+    description: "Rewards whose referred job met the program rule and aren't paid yet.",
+    unit: "money",
+    caption: "Σ payable rewards · right now",
+    compute: (s) => s.referrals_payable_cents,
+  }),
+  "workflows.runs": communicationMetric({
+    id: "workflows.runs",
+    label: "Workflow runs",
+    description: "Workflow runs started in the period (dry runs excluded).",
+    unit: "count",
+    caption: "Runs · in the period",
+    compute: (s) => s.workflow_runs_period,
+  }),
+  "workflows.failed": communicationMetric({
+    id: "workflows.failed",
+    label: "Failed runs",
+    description: "Runs that stopped on an error in the period.",
+    unit: "count",
+    caption: "Failed · in the period",
+    compute: (s) => s.workflow_failed_period,
+  }),
+  "workflows.waiting": communicationMetric({
+    id: "workflows.waiting",
+    label: "Waiting",
+    description: "Runs waiting for a delay, a reminder time or the end of quiet hours.",
+    unit: "count",
+    caption: "Waiting runs · right now",
+    compute: (s) => s.workflow_waiting,
+  }),
+} as const satisfies Record<string, MetricDefinition<"communication_stats">>;
+export type CommunicationMetricId = keyof typeof COMMUNICATION_METRICS;
+
+export function communicationMetricValue(
+  id: CommunicationMetricId,
+  stats: CommunicationStats,
+): MetricValue {
+  const m: MetricDefinition<"communication_stats"> = COMMUNICATION_METRICS[id];
+  const raw = m.compute(stats);
+  const value = raw === null || !Number.isFinite(raw) ? null : raw;
+  return {
+    id,
+    label: m.label,
+    caption: m.caption,
+    unit: m.unit,
+    value,
+    display: formatMetricValue(m.unit, value),
+  };
+}
+
 export const METRICS = {
+  ...COMMUNICATION_METRICS,
   ...FINANCE_METRICS,
   ...PRODUCTION_METRICS,
   ...SCHEDULE_BOARD_METRICS,

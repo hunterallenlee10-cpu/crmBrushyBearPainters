@@ -163,7 +163,7 @@ export const ADMIN_SECTIONS: readonly AdminSection[] = [
     group: "Sales & messaging",
     phase: 8,
     requiresAny: ["templates:manage"],
-    description: "SMS and email templates and messaging settings.",
+    description: "SMS and email templates, merge fields, quiet hours and footers.",
   },
   {
     label: "Workflows",
@@ -244,4 +244,4 @@ export function visibleAdminSections(can: (p: Permission) => boolean): AdminSect
 }
 
 /** The phase being built; sections and nav pages from later phases are shown as upcoming. */
-export const CURRENT_PHASE = 7;
+export const CURRENT_PHASE = 8;

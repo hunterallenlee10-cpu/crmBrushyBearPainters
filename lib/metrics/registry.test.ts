@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { JOB_STAGES } from "@/lib/domain/stages";
 import {
+  COMMUNICATION_METRICS,
+  communicationMetricValue,
+  parseCommunicationStats,
+  type CommunicationMetricId,
   APPROVAL_METRICS,
   ATTENTION_METRICS,
   EMPTY_PRODUCTION_STATS,
@@ -249,6 +253,7 @@ describe("registry shape", () => {
         "production_stats",
         "schedule_board",
         "finance_stats",
+        "communication_stats",
       ]).toContain(m.source);
       if (id.startsWith("finance.")) expect(m.source).toBe("finance_stats");
       if (id.startsWith("production.")) expect(m.source).toBe("production_stats");
@@ -761,5 +766,71 @@ describe("production metrics (Phase 6)", () => {
     ).toBe("3");
     expect(getMetric("production.ready")).toBe(PRODUCTION_METRICS["production.ready"]);
     expect(getMetric("schedule.tray")).toBe(SCHEDULE_BOARD_METRICS["schedule.tray"]);
+  });
+});
+
+describe("communication & growth metrics (Phase 8)", () => {
+  // Fixture: what communication_stats returns for a known set of rows.
+  const stats = parseCommunicationStats({
+    threads_unread: 3,
+    threads_total: 12,
+    cases_open: 4,
+    cases_overdue: 1,
+    cases_warranty_open: 2,
+    cases_resolved_period: 5,
+    cases_resolved_on_time_period: 4,
+    campaigns_total: 3,
+    campaigns_active: 1,
+    campaign_sends: 95,
+    campaign_failed: 5,
+    campaign_replies: 7,
+    campaign_conversions: 2,
+    campaign_queue: 40,
+    unsubscribes: 2,
+    sms_opt_outs: 1,
+    drip_active: 9,
+    reviews_requested: 10,
+    reviews_clicked: 6,
+    reviews_left: 4,
+    reviews_rating_sum: 19,
+    reviews_rated: 4,
+    champions_active: 5,
+    referrals_total: 3,
+    referrals_all: 8,
+    referrals_sold: 2,
+    referrals_payable_cents: 10000,
+    referrals_paid_cents: 20000,
+    workflow_runs_period: 120,
+    workflow_failed_period: 1,
+    workflow_waiting: 14,
+  });
+  const v = (id: CommunicationMetricId) => communicationMetricValue(id, stats);
+
+  it("computes each KPI from the fixture", () => {
+    expect(v("messages.unread").display).toBe("3");
+    expect(v("cases.open").value).toBe(4);
+    expect(v("cases.on_time_rate").value).toBeCloseTo(0.8);
+    expect(v("campaigns.delivery_rate").value).toBeCloseTo(0.95);
+    expect(v("campaigns.bounce_rate").value).toBeCloseTo(0.05);
+    expect(v("reviews.click_rate").value).toBeCloseTo(0.6);
+    expect(v("reviews.review_rate").value).toBeCloseTo(0.4);
+    expect(v("reviews.avg_rating").value).toBe(4.8);
+    expect(v("referrals.conversion").value).toBeCloseTo(0.25);
+    expect(v("referrals.paid_out").display).toBe("$200");
+    expect(v("workflows.waiting").value).toBe(14);
+  });
+
+  it("shows — when there is nothing to divide by, and survives a malformed payload", () => {
+    const empty = parseCommunicationStats({ reviews_requested: "x" });
+    expect(communicationMetricValue("reviews.click_rate", empty).display).toBe("—");
+    expect(communicationMetricValue("reviews.avg_rating", empty).value).toBeNull();
+    expect(communicationMetricValue("campaigns.sends", empty).value).toBe(0);
+  });
+
+  it("every metric has a caption and is registered", () => {
+    for (const [id, m] of Object.entries(COMMUNICATION_METRICS)) {
+      expect(m.caption, id).toBeTruthy();
+      expect(METRICS[id as CommunicationMetricId]).toBe(m);
+    }
   });
 });

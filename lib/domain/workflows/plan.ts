@@ -1,5 +1,6 @@
 import { fromZonedTime, toZonedTime } from "date-fns-tz";
 import { renderTemplate, lookup, type MergeContext } from "@/lib/domain/templates/merge";
+import { asciiPunctuation } from "@/lib/domain/templates/words";
 import { allHold, anyHolds, describeCondition, firstFailing } from "./conditions";
 import {
   PACIFIC,
@@ -230,7 +231,9 @@ export function renderSend(
   const t = plan.template as TemplateRecord;
   const body = renderTemplate(t.body, merge, opts);
   const subject = t.subject ? renderTemplate(t.subject, merge, opts) : null;
-  let text = body.text;
+  // Texts stay in the plain GSM alphabet (dashes and curly quotes → ASCII), so
+  // one segment holds 160 characters instead of 70.
+  let text = plan.channel === "sms" ? asciiPunctuation(body.text) : body.text;
   if (plan.messageType === "marketing") {
     if (plan.channel === "sms") text = withSmsOptOut(text, footer.smsOptOutText);
     else {
