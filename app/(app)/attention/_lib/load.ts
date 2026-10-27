@@ -30,6 +30,13 @@ type Db = SupabaseClient<Database>;
  * on the server. Resolved items: most recently resolved first.
  */
 
+const SUBJECT_LABEL = {
+  job: "Job",
+  lead: "Lead",
+  subcontractor: "Subcontractor",
+  case: "Case",
+} as const;
+
 const COLUMNS =
   "id, rule_key, category, priority, title, detail, subject_type, subject_id, owner_id, due_at, status, snoozed_until, resolution, resolution_note, resolved_at, resolved_by, opened_at";
 
@@ -189,7 +196,8 @@ export async function loadAttentionPage(
   const leadIds = rows.filter((r) => r.subject_type === "lead").map((r) => r.subject_id);
   const jobIds = rows.filter((r) => r.subject_type === "job").map((r) => r.subject_id);
   const subIds = rows.filter((r) => r.subject_type === "subcontractor").map((r) => r.subject_id);
-  const [leadsRes, jobsRes, subsRes] = await Promise.all([
+  const caseIds = rows.filter((r) => r.subject_type === "case").map((r) => r.subject_id);
+  const [leadsRes, jobsRes, subsRes, casesRes] = await Promise.all([
     leadIds.length
       ? db.from("leads").select("id, first_name, last_name").in("id", leadIds)
       : Promise.resolve(null),
@@ -199,7 +207,13 @@ export async function loadAttentionPage(
     subIds.length
       ? db.from("subcontractors").select("id, company_name").in("id", subIds)
       : Promise.resolve(null),
+    caseIds.length
+      ? db.from("cases").select("id, case_number, title").in("id", caseIds)
+      : Promise.resolve(null),
   ]);
+  const caseNames = new Map(
+    (casesRes?.data ?? []).map((c) => [c.id, `${c.title} (${c.case_number})`]),
+  );
   const subNames = new Map((subsRes?.data ?? []).map((x) => [x.id, x.company_name]));
   const leadNames = new Map(
     (leadsRes?.data ?? []).map((l) => [l.id, personName(l.first_name, l.last_name)]),
@@ -213,7 +227,9 @@ export async function loadAttentionPage(
         ? "job"
         : r.subject_type === "subcontractor"
           ? "subcontractor"
-          : "lead";
+          : r.subject_type === "case"
+            ? "case"
+            : "lead";
     const status =
       r.status === "in_progress" || r.status === "snoozed" || r.status === "resolved"
         ? r.status
@@ -223,7 +239,9 @@ export async function loadAttentionPage(
         ? jobNames.get(r.subject_id)
         : type === "subcontractor"
           ? subNames.get(r.subject_id)
-          : leadNames.get(r.subject_id);
+          : type === "case"
+            ? caseNames.get(r.subject_id)
+            : leadNames.get(r.subject_id);
     const due = dueCountdown(r.due_at, now);
     const ownerName = r.owner_id ? nameById.get(r.owner_id) : undefined;
     return [
@@ -243,8 +261,10 @@ export async function loadAttentionPage(
               ? `/jobs/${r.subject_id}`
               : type === "subcontractor"
                 ? `/admin/subcontractors?id=${r.subject_id}`
-                : `/leads/${r.subject_id}`,
-          label: `${type === "job" ? "Job" : type === "subcontractor" ? "Subcontractor" : "Lead"}: ${subjectName ?? "open record"}`,
+                : type === "case"
+                  ? `/cases/${r.subject_id}`
+                  : `/leads/${r.subject_id}`,
+          label: `${SUBJECT_LABEL[type]}: ${subjectName ?? "open record"}`,
         },
         owner:
           r.owner_id && ownerName

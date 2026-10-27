@@ -13,12 +13,16 @@ import { getStage } from "@/lib/domain/stages";
 import { formatDate } from "@/lib/format/dates";
 import { formatMoney } from "@/lib/metrics/registry";
 import { OnboardingSection } from "./onboarding-section";
+import { JobCasesPanel } from "./onboarding/cases-panel";
+import { requireViewer } from "@/lib/auth/viewer";
+import { isOpenCase } from "@/lib/domain/cases";
+import { loadCases } from "@/lib/cases/load";
 import { ChecklistClient, type ChecklistItem } from "./onboarding/checklist-client";
 import type { JobDetailData } from "./types";
 
 type Props = Omit<
   React.ComponentProps<typeof OnboardingSection>,
-  "checklist" | "summary" | "jobSummary"
+  "checklist" | "summary" | "jobSummary" | "cases" | "openCases"
 > & {
   data: JobDetailData;
   users: Option[];
@@ -180,7 +184,28 @@ export async function OnboardingWithChecklist({ data, users, ...props }: Props) 
     />
   ) : null;
 
+  const viewer = await requireViewer();
+  const now = new Date();
+  const caseList = viewer.can("cases:read")
+    ? (await loadCases(supabase, { filter: "all", page: 1, jobId: props.jobId, now })).items
+    : null;
+  const cases = (
+    <JobCasesPanel
+      jobId={props.jobId}
+      cases={caseList}
+      canManage={viewer.can("cases:manage") && !viewer.impersonating}
+      now={now}
+    />
+  );
+
   return (
-    <OnboardingSection {...props} checklist={checklist} summary={summary} jobSummary={jobSummary} />
+    <OnboardingSection
+      {...props}
+      checklist={checklist}
+      summary={summary}
+      jobSummary={jobSummary}
+      cases={cases}
+      openCases={caseList ? caseList.filter((c) => isOpenCase(c.status)).length : null}
+    />
   );
 }

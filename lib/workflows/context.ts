@@ -112,9 +112,9 @@ function staffRecipient(
   };
 }
 
-type ContactRow = Database["public"]["Tables"]["contacts"]["Row"];
+export type ContactRow = Database["public"]["Tables"]["contacts"]["Row"];
 
-function contactRecipient(c: ContactRow, leadDnc: boolean): Recipient {
+export function contactRecipient(c: ContactRow, leadDnc: boolean): Recipient {
   return {
     kind: "contact",
     id: c.id,

@@ -32,11 +32,20 @@ import { formatDateTime } from "@/lib/format/dates";
 import { loadJobOptions } from "@/lib/jobs/options";
 import {
   boardMetricValue,
+  communicationMetricValue,
   formatMoney,
   parseBoardStats,
   type BoardMetricId,
 } from "@/lib/metrics/registry";
 import { loadBoard } from "@/lib/onboarding/board";
+import { loadCases, type CaseListItem } from "@/lib/cases/load";
+import { loadCommunicationStats } from "@/lib/messaging/stats";
+import {
+  CASE_STATUS_LABELS,
+  CASE_TYPE_LABELS,
+  type CaseStatus,
+  type CaseType,
+} from "@/lib/domain/cases";
 import { cn } from "@/lib/utils";
 import { BoardClient } from "./board-client";
 
@@ -92,10 +101,18 @@ export default async function OnboardingBoardPage({
   };
   const supabase = await createSupabaseServerClient();
   const now = new Date();
-  const [board, options] = await Promise.all([
+  const canCases = viewer.can("cases:read");
+  const [board, options, commStats] = await Promise.all([
     loadBoard(supabase, viewer, now),
     loadJobOptions(supabase),
+    canCases ? loadCommunicationStats(supabase, { days: 90 }) : Promise.resolve(null),
   ]);
+  const openCases = commStats ? communicationMetricValue("cases.open", commStats) : null;
+  const overdueCases = commStats ? communicationMetricValue("cases.overdue", commStats) : null;
+  let serviceCases: CaseListItem[] = [];
+  if (canCases && tab === "service") {
+    serviceCases = (await loadCases(supabase, { filter: "open", page: 1, now })).items;
+  }
   const cities = [...new Set(board.jobs.map((j) => j.city).filter((c): c is string => !!c))].sort();
   const filtered = filterCards(board.jobs, filters);
   const placed = placeCards(filtered, now, board.thresholds);
@@ -184,8 +201,10 @@ export default async function OnboardingBoardPage({
     },
     {
       label: "Open Warranty/Service",
-      value: "—",
-      caption: "Warranty cases arrive in Phase 8",
+      value: openCases?.display ?? "—",
+      caption: overdueCases
+        ? `${overdueCases.display} past SLA · ${openCases?.caption ?? ""}`
+        : "Not available to you",
       icon: LifeBuoy,
     },
   ];
@@ -407,12 +426,29 @@ export default async function OnboardingBoardPage({
         />
       )}
 
-      {tab === "service" && (
-        <p className="rounded-2xl border bg-card p-5 text-sm text-muted-foreground">
-          Warranty and service cases arrive with Communication &amp; growth (Phase 8). Until then,
-          log customer issues as a task or note on the job.
-        </p>
-      )}
+      {tab === "service" &&
+        (canCases ? (
+          <JobTable
+            caption="Open warranty and service cases, soonest SLA first. Open one to book a visit or resolve it."
+            rows={serviceCases.map((c) => ({
+              id: c.id,
+              href: `/cases/${c.id}`,
+              cells: [
+                `${c.number} · ${c.title}`,
+                c.job ? `${c.job.number} · ${c.job.name}` : (c.account?.name ?? "—"),
+                CASE_TYPE_LABELS[c.type as CaseType] ?? c.type,
+                CASE_STATUS_LABELS[c.status as CaseStatus] ?? c.status,
+                `${formatDateTime(c.slaDueAt)}${c.overdue ? " (past SLA)" : ""}`,
+              ],
+            }))}
+            headers={["Case", "Job", "Type", "Status", "SLA due"]}
+            empty="No open warranty or service cases."
+          />
+        ) : (
+          <p className="rounded-2xl border bg-card p-5 text-sm text-muted-foreground">
+            Your role doesn&apos;t include cases.
+          </p>
+        ))}
 
       {tab === "calls" &&
         (viewer.can("messages:read") ? (

@@ -37,6 +37,8 @@ export function OnboardingSection({
   summary,
   jobSummary,
   tasks,
+  cases,
+  openCases = null,
 }: {
   jobId: string;
   holds: HoldItem[];
@@ -52,6 +54,10 @@ export function OnboardingSection({
   jobSummary?: { label: string; value: string }[];
   /** The job's tasks (rendered on the server). */
   tasks?: React.ReactNode;
+  /** The job's warranty and service cases (rendered on the server). */
+  cases?: React.ReactNode;
+  /** Open cases on the job; null when hidden for the role. */
+  openCases?: number | null;
 }) {
   const [tab, setTab] = React.useState<Tab>(
     (TABS as readonly string[]).includes(initialTab ?? "")
@@ -98,7 +104,13 @@ export function OnboardingSection({
           icon={CircleAlert}
           tone={summary?.needAttention ? "warning" : undefined}
         />
-        <Tile label="Open cases" value="—" caption="Cases arrive in Phase 8" icon={FolderOpen} />
+        <Tile
+          label="Open cases"
+          value={openCases === null ? "—" : String(openCases)}
+          caption={openCases === null ? "Not available to you" : "Warranty and service"}
+          icon={FolderOpen}
+          tone={openCases ? "warning" : undefined}
+        />
         <Tile
           label="Tasks due"
           value={tasksDue === null ? "—" : String(tasksDue)}
@@ -128,7 +140,14 @@ export function OnboardingSection({
                   </span>
                 )}
               </TabsTrigger>
-              <TabsTrigger value="cases">Cases</TabsTrigger>
+              <TabsTrigger value="cases">
+                Cases
+                {openCases ? (
+                  <span className="ml-1 rounded-full bg-muted-foreground/15 px-1.5 text-xs tabular-nums">
+                    {openCases}
+                  </span>
+                ) : null}
+              </TabsTrigger>
               <TabsTrigger value="tasks">Tasks</TabsTrigger>
               <TabsTrigger value="holds">
                 Holds
@@ -152,12 +171,11 @@ export function OnboardingSection({
             )}
           </TabsContent>
           <TabsContent value="cases">
-            <EmptySection icon={FolderOpen} title="Cases" phase={8}>
-              <p>
-                Customer issues and warranty requests get their own cases with Communication &amp;
-                growth. For now, add a task or a note so nothing is missed.
-              </p>
-            </EmptySection>
+            {cases ?? (
+              <EmptySection icon={FolderOpen} title="Cases">
+                <p>Cases are hidden for your role.</p>
+              </EmptySection>
+            )}
           </TabsContent>
           <TabsContent value="tasks">{tasks}</TabsContent>
           <TabsContent value="holds">

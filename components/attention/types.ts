@@ -14,7 +14,12 @@ export type AttentionItemView = {
   priority: AttentionPriority;
   ruleLabel: string;
   status: "pending" | "in_progress" | "snoozed" | "resolved";
-  subject: { type: "lead" | "job" | "subcontractor"; id: string; href: string; label: string };
+  subject: {
+    type: "lead" | "job" | "subcontractor" | "case";
+    id: string;
+    href: string;
+    label: string;
+  };
   owner: { id: string; name: string; initials: string } | null;
   /** "opened 3 h ago" + full Pacific date for the tooltip. */
   opened: { label: string; title: string };
