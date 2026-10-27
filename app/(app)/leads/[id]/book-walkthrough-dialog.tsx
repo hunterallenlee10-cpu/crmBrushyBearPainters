@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { z } from "zod";
@@ -22,6 +23,7 @@ import { pacificIsoDate } from "@/lib/format/dates";
 import { bookWalkthroughSchema, type BookWalkthroughInput } from "@/lib/validation/leads";
 import { selectClass } from "./labels";
 import { bookWalkthrough } from "./actions";
+import { jobNumberFor } from "./convert-dialog";
 import type { LeadDetailData } from "./types";
 import { utcToPacificParts } from "./utils";
 
@@ -37,9 +39,11 @@ function defaultsFor(data: LeadDetailData): BookWalkthroughInput {
 }
 
 /**
- * Book Walkthrough (SPEC §8.4). Phase 2 stores the tentative date/time and the
- * owner on the lead; real appointments, suggested slots and calendar sync arrive
- * with scheduling (Phase 6), and Convert to Job with Phase 3.
+ * Book Walkthrough (SPEC §8.4, §6.1). Saves the walkthrough appointment and the
+ * owner on the lead. When Company Settings → auto-convert is on (default) and
+ * the person can create jobs, the lead becomes a job and we open it; a failed
+ * conversion keeps the booking and stays on the lead with a warning. Suggested
+ * slots and calendar sync arrive with scheduling (Phase 6).
  */
 export function BookWalkthroughDialog({
   open,
@@ -50,6 +54,7 @@ export function BookWalkthroughDialog({
   onOpenChange: (open: boolean) => void;
   data: LeadDetailData;
 }) {
+  const router = useRouter();
   const form = useForm<BookWalkthroughInput, unknown, z.output<typeof bookWalkthroughSchema>>({
     resolver: zodResolver(bookWalkthroughSchema),
     defaultValues: defaultsFor(data),
@@ -75,8 +80,25 @@ export function BookWalkthroughDialog({
       owner_id: data.can.assign ? values.owner_id : null,
     });
     if (result.ok) {
-      toast.success("Walkthrough booked.");
+      const { jobId, conversionError } = result.data;
+      if (jobId) {
+        const number = await jobNumberFor(jobId);
+        toast.success(
+          number
+            ? `Walkthrough booked. Job ${number} created.`
+            : "Walkthrough booked. Job created.",
+        );
+        onOpenChange(false);
+        router.push(`/jobs/${jobId}`);
+        return;
+      }
+      if (conversionError) {
+        toast.warning(`Walkthrough booked, but the job wasn't created: ${conversionError}`);
+      } else {
+        toast.success("Walkthrough booked.");
+      }
       onOpenChange(false);
+      router.refresh();
       return;
     }
     for (const [key, messages] of Object.entries(result.error.fieldErrors ?? {})) {
@@ -158,8 +180,8 @@ export function BookWalkthroughDialog({
             />
           </Field>
           <p className="rounded-lg bg-muted px-3 py-2 text-xs text-muted-foreground">
-            Calendar appointments, suggested time slots and calendar sync arrive with scheduling
-            (Phase 6). The lead becomes a job with Convert to Job in Phase 3.
+            When auto-convert is on in Company Settings, booking also turns the lead into a job and
+            opens it. Suggested time slots and calendar sync arrive with scheduling (Phase 6).
           </p>
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>

@@ -161,7 +161,8 @@ test.describe("Lead Detail (owner)", () => {
     await expect(header.getByLabel("Grade B, score 72 out of 100")).toBeVisible();
     await expect(header.getByText("72/100 · Warm Lead")).toBeVisible();
     await expect(header.getByText("New", { exact: true })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Convert to Job" })).toHaveAttribute(
+    // The owner can convert (Phase 3); see lead-convert.spec.ts for the flow.
+    await expect(page.getByRole("button", { name: "Convert to Job" })).not.toHaveAttribute(
       "aria-disabled",
       "true",
     );
@@ -359,7 +360,14 @@ test.describe("Lead Detail (owner)", () => {
     await dialog.getByLabel("Notes for the walkthrough").fill(`Side gate is locked ${t}`);
     await page.screenshot({ path: `${SCREENS}/lead-detail-book-walkthrough.png` });
     await dialog.getByRole("button", { name: "Book walkthrough" }).click();
-    await afterSave(page, "Walkthrough booked.", `/leads/${bookId}`);
+    // Auto-convert opens the new job (Phase 3).
+    await expect(
+      page.getByText(/Walkthrough booked\. Job BB-\d{4}-\d+ created\./).first(),
+    ).toBeVisible({
+      timeout: 45_000,
+    });
+    await page.waitForURL(/\/jobs\/[0-9a-f-]{36}$/, { timeout: 60_000 });
+    await open(page, `/leads/${bookId}`);
     await expect(dialog).toBeHidden();
     // Booking converts the lead to a job (Company Settings: auto-convert, default on).
     const row = await lead(bookId);

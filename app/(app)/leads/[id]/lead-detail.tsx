@@ -43,8 +43,10 @@ import { EditLeadDialog } from "./edit-lead-dialog";
 import { StatusDialog } from "./status-dialog";
 import { BookWalkthroughDialog } from "./book-walkthrough-dialog";
 import { DeleteLeadDialog } from "./delete-lead-dialog";
+import { ConvertDialog, useConversionInfo } from "./convert-dialog";
+import { ConvertedBanner, jobNumberFromThread } from "./converted-banner";
 
-type DialogName = "edit" | "status" | "book" | "delete" | null;
+type DialogName = "edit" | "status" | "book" | "delete" | "convert" | null;
 
 /** Lead Detail (SPEC §8.4): sticky header with actions, then tabs. */
 export function LeadDetail({ data }: { data: LeadDetailData }) {
@@ -57,6 +59,24 @@ export function LeadDetail({ data }: { data: LeadDetailData }) {
     nonce: 0,
   });
   const converted = lead.status === "converted";
+  const conversion = useConversionInfo(lead.id, converted);
+  const jobNumber = conversion.job?.number ?? jobNumberFromThread(data.thread);
+  const convertedReason = `This lead is now job ${jobNumber ?? "(see the job)"}. Make changes on the job.`;
+
+  // Convert to Job needs edit rights on the lead and permission to create jobs.
+  const convertReason: string | null = data.readOnly
+    ? "You're viewing as another user. Exit View as user to convert."
+    : !can.update
+      ? "You can only convert leads you can edit."
+      : conversion.loading
+        ? "Checking your permissions…"
+        : !conversion.canCreateJobs
+          ? "You don't have permission to create jobs."
+          : lead.status === "lost" || lead.status === "unqualified"
+            ? "Reopen the lead (change its status) before converting it."
+            : conversion.workTypes.length === 0
+              ? "No work types are set up. Add them in Admin → Field Picklists."
+              : null;
 
   // Tabs are linkable (?tab=…) without a server round trip.
   const selectTab = React.useCallback((next: string) => {
@@ -174,14 +194,33 @@ export function LeadDetail({ data }: { data: LeadDetailData }) {
               <Mail aria-hidden />
               Email
             </ReasonButton>
-            <ReasonButton
-              size="sm"
-              variant="cta"
-              disabledReason="Convert to Job arrives in Phase 3"
-            >
-              <Briefcase aria-hidden />
-              Convert to Job
-            </ReasonButton>
+            {!converted && (
+              <ReasonButton
+                size="sm"
+                variant="cta"
+                disabledReason={convertReason}
+                onClick={() => setDialog("convert")}
+              >
+                <Briefcase aria-hidden />
+                Convert to Job
+              </ReasonButton>
+            )}
+            {can.update && converted && (
+              <>
+                <ReasonButton size="sm" variant="outline" disabledReason={convertedReason}>
+                  <CalendarPlus aria-hidden />
+                  Book walkthrough
+                </ReasonButton>
+                <ReasonButton size="sm" variant="outline" disabledReason={convertedReason}>
+                  <Repeat2 aria-hidden />
+                  Change status
+                </ReasonButton>
+                <ReasonButton size="sm" variant="outline" disabledReason={convertedReason}>
+                  <Pencil aria-hidden />
+                  Edit lead
+                </ReasonButton>
+              </>
+            )}
             {can.update && !converted && (
               <>
                 <Button size="sm" variant="outline" onClick={() => setDialog("book")}>
@@ -223,6 +262,14 @@ export function LeadDetail({ data }: { data: LeadDetailData }) {
           </div>
         </div>
       </header>
+
+      {converted && (
+        <ConvertedBanner
+          jobId={conversion.job?.id ?? null}
+          jobNumber={jobNumber}
+          loading={conversion.loading}
+        />
+      )}
 
       <Tabs value={tab} onValueChange={selectTab} className="gap-4">
         <div className="-mx-1 overflow-x-auto px-1 print:hidden">
@@ -269,8 +316,14 @@ export function LeadDetail({ data }: { data: LeadDetailData }) {
         )}
       </Tabs>
 
-      {can.update && (
+      {can.update && !converted && (
         <>
+          <ConvertDialog
+            open={dialog === "convert"}
+            onOpenChange={(o) => setDialog(o ? "convert" : null)}
+            data={data}
+            workTypes={conversion.workTypes}
+          />
           <EditLeadDialog
             open={dialog === "edit"}
             onOpenChange={(o) => setDialog(o ? "edit" : null)}
